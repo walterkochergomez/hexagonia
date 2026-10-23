@@ -110,6 +110,17 @@ try {
   await guest.page.locator('.overlay .modal-head .icon-btn').click();
   log('registro igual en ambos:', hostRoll);
 
+  // chat: el anfitrión escribe en la columna; el invitado en el celular ve el aviso y abre directo en el chat
+  await host.page.locator('.rail').getByRole('radio', { name: 'Chat' }).click();
+  await host.page.locator('.rail .chat-form input').fill('hola Beto');
+  await host.page.locator('.rail .chat-form input').press('Enter');
+  await guest.page.locator('.strip-log.unread').waitFor({ timeout: 10000 });
+  await guest.page.locator('.strip-log').click();
+  await guest.page.locator('.overlay .log-line.chat', { hasText: 'hola Beto' }).waitFor({ timeout: 5000 });
+  await guest.page.locator('.overlay .modal-head .icon-btn').click();
+  assert.equal(await guest.page.locator('.strip-log.unread').count(), 0);
+  log('aviso de chat nuevo en el celular');
+
   // el invitado cierra y vuelve a entrar: recupera su asiento
   const guestUrl = guest.page.url();
   await guest.page.close();

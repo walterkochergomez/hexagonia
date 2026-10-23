@@ -77,16 +77,25 @@ input, select {
 
 /* ---------- barra superior ---------- */
 .topbar {
-  display: flex; align-items: center; gap: var(--s2); min-height: var(--header);
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); min-height: var(--header);
   padding: 6px max(12px, env(safe-area-inset-right)) 6px max(12px, env(safe-area-inset-left));
   background: var(--surface); border-bottom: 1px solid var(--border);
 }
+.topbar > * { flex-shrink: 0; }
 .brand { display: inline-flex; align-items: center; gap: 8px; border: 0; background: none; cursor: pointer; font-family: var(--font-display); font-weight: 800; font-size: 19px; color: var(--accent); padding: 4px 6px; }
 .brand-hex { fill: var(--accent); }
+.code-wrap { position: relative; display: inline-flex; }
 .room-code { font-family: var(--font-display); font-weight: 750; letter-spacing: .08em; padding: 4px 10px; border-radius: var(--r-md); border: 1px dashed var(--border-input); background: var(--surface-2); cursor: pointer; }
+.copied-tip {
+  position: absolute; left: 0; top: calc(100% + 6px); z-index: 40; white-space: nowrap; pointer-events: none;
+  padding: 4px 10px; border-radius: var(--r-pill); background: var(--ink); color: #fff; font-size: 13px; font-weight: 650;
+  box-shadow: var(--shadow-pop); opacity: 0; transition: opacity var(--m-fast) var(--m-ease);
+}
+.copied-tip.on { opacity: 1; }
+.copied-tip:empty { padding: 0; }
 .net-state { font-size: 13px; padding: 2px 10px; border-radius: var(--r-pill); background: #f3e5c3; color: #5c4510; }
 .net-state.error { background: #f6dcd6; color: var(--danger); }
-.spacer { flex: 1; }
+.spacer { flex: 1 1 0; min-width: 0; }
 .lang select { min-height: 36px; padding: 2px 8px; border-radius: var(--r-pill); }
 .icon-btn.on { color: var(--accent); }
 
@@ -148,10 +157,13 @@ input, select {
 .pass-screen { text-align: center; padding-top: 18vh; }
 
 /* ---------- partida ---------- */
-.game { height: 100dvh; display: grid; grid-template-rows: auto 1fr auto; overflow: hidden; }
-.game-main { display: grid; grid-template-columns: 1fr var(--rail); min-height: 0; }
-.board-area { position: relative; display: flex; flex-direction: column; min-height: 0; background: var(--sea-deep); }
-.rail { display: flex; flex-direction: column; min-height: 0; border-left: 1px solid var(--border); background: var(--surface); }
+/* minmax(0, …): ningún contenido puede ensanchar la partida más allá de la pantalla */
+.game { height: 100dvh; display: grid; grid-template-rows: auto 1fr auto; grid-template-columns: minmax(0, 1fr); overflow: hidden; }
+.game-main { display: grid; grid-template-columns: minmax(0, 1fr) var(--rail); min-height: 0; }
+.board-area { position: relative; display: flex; flex-direction: column; min-height: 0; min-width: 0; background: var(--sea-deep); }
+.rail { display: flex; flex-direction: column; min-height: 0; min-width: 0; border-left: 1px solid var(--border); background: var(--surface); }
+.strip { display: none; }
+.log-icon path { fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
 .rail > .players { overflow: auto; max-height: 50%; }
 
 .status-bar {
@@ -291,7 +303,8 @@ input, select {
   background: var(--surface); border-top: 1px solid var(--border);
 }
 .hand { display: flex; align-items: center; gap: var(--s2); min-width: 0; flex: 0 1 auto; }
-.hand-cards { list-style: none; margin: 0; padding: 0; display: flex; gap: 4px; overflow-x: auto; }
+/* el relleno deja lugar a los contadores, que sobresalen de cada carta */
+.hand-cards { list-style: none; margin: 0; padding: 0 4px 6px 0; display: flex; gap: 4px; overflow-x: auto; }
 .hand-card { position: relative; display: grid; place-items: center; padding: 2px; }
 .hand-card .n { position: absolute; right: -2px; bottom: -4px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: var(--ink); color: #fff; font-size: 12px; font-weight: 750; display: grid; place-items: center; }
 .hand-card.zero { opacity: .32; }
@@ -299,6 +312,7 @@ input, select {
 .hand-extra .n { font-family: var(--font-display); font-weight: 800; font-size: 18px; line-height: 1; }
 .actions { display: flex; flex-wrap: wrap; gap: var(--s2); justify-content: flex-end; flex: 1 1 auto; }
 .actions .btn { padding: 8px 14px; }
+.btn-badge { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--ink); color: #fff; font-size: 12px; font-weight: 750; align-items: center; justify-content: center; }
 .mobile-only { display: none; }
 
 .card-icon .bg { stroke: rgba(38, 50, 56, .25); stroke-width: 1; }
@@ -414,24 +428,46 @@ input, select {
   .island-preview { max-width: 380px; }
 }
 @media (max-width: 760px) {
-  .game-main { grid-template-columns: 1fr; }
+  .game-main { grid-template-columns: minmax(0, 1fr); }
   .rail { display: none; }
-  .players.compact { display: flex; overflow-x: auto; gap: 6px; padding: 6px 8px; background: var(--surface); border-bottom: 1px solid var(--border); }
-  .players.compact .player { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: var(--r-pill); white-space: nowrap; }
+  .strip {
+    display: flex; align-items: center; gap: 6px;
+    padding: 5px max(8px, env(safe-area-inset-right)) 5px max(8px, env(safe-area-inset-left));
+    background: var(--surface); border-bottom: 1px solid var(--border);
+  }
+  .players.compact { display: flex; flex: 1 1 auto; min-width: 0; overflow-x: auto; gap: 6px; padding: 2px 0; }
+  .players.compact .player { flex: none; display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: var(--r-pill); white-space: nowrap; }
   .players.compact .pname { max-width: 9ch; font-size: 13px; }
+  .strip-log { flex: none; position: relative; }
+  .strip-log.unread::after { content: ''; position: absolute; top: -2px; right: -2px; width: 12px; height: 12px; border-radius: 50%; background: var(--danger); border: 2px solid var(--surface); }
   .mobile-only { display: inline-flex; }
+  .topbar { gap: 6px; }
+  .topbar .net-state { order: 10; flex: 1 1 100%; text-align: center; }
+  .room-code { padding: 4px 8px; letter-spacing: .06em; }
+  .hand { flex: 1 1 100%; }
+  .hand-extra { display: none; }
   .lobby { grid-template-columns: 1fr; }
   .two-col { grid-template-columns: 1fr; }
   .overlay { padding: 0; place-items: end stretch; }
   .modal, .modal.wide { width: 100%; max-height: 88dvh; border-radius: var(--r-lg) var(--r-lg) 0 0; }
   .dock { gap: var(--s2); }
   .actions { justify-content: flex-start; flex-basis: 100%; }
-  .actions .btn { flex: 1 1 auto; padding: 6px 10px; }
+  .actions .btn { flex: 1 1 auto; padding: 6px 10px; white-space: normal; line-height: 1.2; text-align: center; }
   .incoming { bottom: 10px; }
   .status-bar { padding: 6px 10px; min-height: 44px; }
   .home-panel { padding: var(--s4); }
   .scenarios { margin-left: 0; }
   .wordmark { font-size: clamp(48px, 16vw, 80px); }
+}
+
+@media (max-width: 520px) {
+  /* en una sala el código importa más que el nombre: queda sólo el hexágono (con nombre accesible) */
+  .topbar.with-code .brand { padding: 4px; }
+  .topbar.with-code .brand-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
+@media (max-width: 359px) {
+  .topbar { padding-left: max(8px, env(safe-area-inset-left)); padding-right: max(8px, env(safe-area-inset-right)); }
+  .hand-card svg { width: 28px; height: 28px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

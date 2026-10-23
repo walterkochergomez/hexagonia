@@ -9,14 +9,16 @@ const axePath = require.resolve('axe-core/axe.min.js');
 const base = 'http://localhost:4173/';
 const browser = await pw.launch({ executablePath: await chromium.executablePath(), args: chromium.args.filter((a) => !['--single-process', '--no-zygote'].includes(a)), headless: true });
 let failed = 0;
-async function check(name, hash, save, before) {
-  const ctx = await browser.newContext({ viewport: { width: 1280, height: 820 } });
-  await ctx.addInitScript(([s]) => {
-    localStorage.setItem('hexagonia.prefs', JSON.stringify({ name: 'Walter', lang: 'es', clientId: 'x', sound: false }));
+async function check(name, hash, save, before, { width = 1280, height = 820, room } = {}) {
+  const ctx = await browser.newContext({ viewport: { width, height }, isMobile: width < 700, hasTouch: width < 700 });
+  await ctx.addInitScript(([s, r]) => {
+    localStorage.setItem('hexagonia.prefs', JSON.stringify({ name: 'walter', lang: 'es', clientId: r ? 'cid-walter' : 'x', sound: false }));
     if (s) localStorage.setItem('hexagonia.local', s);
-  }, [save]);
+    if (r) localStorage.setItem('hexagonia.host', r);
+  }, [save, room]);
   const page = await ctx.newPage();
-  await page.goto(base + hash);
+  // en las salas, un servidor de señalización inexistente: se ve también el aviso de conexión
+  await page.goto(base + (room ? '?peer=127.0.0.1:9&botDelay=60000' : '') + hash);
   await page.waitForTimeout(1200);
   if (before) await before(page);
   await page.addScriptTag({ path: axePath });
@@ -38,5 +40,10 @@ await check('partida', '#/local/juego', save('save-base.json'));
 await check('partida gremios', '#/local/juego', save('save-combo.json'));
 await check('construir', '#/local/juego', save('save-base.json'), async (p) => { await p.getByRole('button', { name: 'Construir' }).click(); });
 await check('descartar', '#/local/juego', save('scene-discard.json'));
+// sala en línea en un celular (npx tsx scripts/make-rooms.ts)
+const phone = { width: 393, height: 760 };
+await check('sala en celular', '#/sala/AHWXVK', null, null, { ...phone, room: save('room-base3-main.json') });
+await check('sala en celular: registro', '#/sala/AHWXVK', null, async (p) => { await p.locator('[data-act="log"]').click(); }, { ...phone, room: save('room-base3-main.json') });
+await check('sala en celular: gremios y mar', '#/sala/AHWXVK', null, null, { ...phone, room: save('room-combo6-main.json') });
 await browser.close();
 process.exit(failed ? 1 : 0);

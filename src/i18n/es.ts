@@ -228,6 +228,7 @@ const es = {
   'act.cancel': 'Cancelar',
   'act.log': 'Registro',
   'act.chat': 'Chat',
+  'act.newMessages': 'mensajes nuevos',
   'act.players': 'Jugadores',
   'act.hand': 'Mano',
   'act.fit': 'Ajustar tablero',

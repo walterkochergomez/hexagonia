@@ -9,7 +9,7 @@ export function Players({ view, me, lobby, compact }: { view: GameState; me: num
   const actor = view.winner === null ? C.actorOf(view) : null;
   const waiting = new Set(view.steps[0] && view.steps[0].k !== 'produce' ? C.waitingSeats(view.steps[0]) : []);
   return (
-    <ol className={`players${compact ? ' compact' : ''}`} tabIndex={compact ? undefined : 0} aria-label={t('act.players')}>
+    <ol className={`players${compact ? ' compact' : ''}`} tabIndex={0} aria-label={t('act.players')}>
       {view.players.map((p) => {
         const seat = p.seat;
         const vp = C.vpOf(view, seat, seat === me || view.winner !== null);

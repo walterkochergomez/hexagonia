@@ -229,6 +229,7 @@ const de: Dict = {
   'act.cancel': 'Abbrechen',
   'act.log': 'Verlauf',
   'act.chat': 'Chat',
+  'act.newMessages': 'neue Nachrichten',
   'act.players': 'Spieler:innen',
   'act.hand': 'Hand',
   'act.fit': 'Spielfeld einpassen',

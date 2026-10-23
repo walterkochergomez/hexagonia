@@ -43,6 +43,7 @@ Pruebas de punta a punta (necesitan `npm run build` y `npx vite preview` corrien
 npm run e2e        # anfitrión + invitado en dos navegadores, reconexión y recarga
 npm run e2e:soak   # partidas completas por la interfaz en cada modo
 npm run e2e:a11y   # revisión de accesibilidad
+npm run e2e:fit    # que nada se salga de la pantalla en celulares (320–430 px, tres idiomas)
 ```
 
 ### Cómo está hecho

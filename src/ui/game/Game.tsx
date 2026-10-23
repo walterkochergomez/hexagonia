@@ -109,7 +109,8 @@ export function Game({ session, snap, onHome }: { session: Session; snap: Snapsh
   const ph = view.turn.phase;
   const guilds = view.settings.guilds;
   const sea = view.settings.openSea;
-  const buttons: { id: string; label: string; onClick: () => void; primary?: boolean; disabled?: boolean }[] = [];
+  const myCards = me === null ? 0 : guilds ? view.players[me].progress.length : view.players[me].dev.length;
+  const buttons: { id: string; label: string; onClick: () => void; primary?: boolean; disabled?: boolean; badge?: number }[] = [];
   if (myTurn && ph === 'preRoll') {
     buttons.push({ id: 'roll', label: t('act.roll'), primary: true, onClick: () => send({ t: 'roll' }) });
   }
@@ -120,10 +121,24 @@ export function Game({ session, snap, onHome }: { session: Session; snap: Snapsh
     if (guilds && ph !== 'specialBuild') buttons.push({ id: 'knight', label: t('act.useKnight'), onClick: () => setMode({ k: 'knight' }) });
     if (sea && ph !== 'specialBuild') buttons.push({ id: 'ship', label: t('act.moveShip'), disabled: view.turn.shipMoved.includes(me!), onClick: () => setMode({ k: 'ship' }) });
   }
-  buttons.push({ id: 'cards', label: t('act.cards'), onClick: () => setSheet('cards') });
+  buttons.push({ id: 'cards', label: t('act.cards'), badge: myCards, onClick: () => setSheet('cards') });
   if (guilds && !buttons.some((b) => b.id === 'guild')) buttons.push({ id: 'guild', label: t('act.improve'), onClick: () => setSheet('guild') });
   if (myTurn && (ph === 'main' || ph === 'paired')) buttons.push({ id: 'end', label: t('act.end'), primary: true, onClick: () => send({ t: 'endTurn' }) });
   if (myTurn && ph === 'specialBuild') buttons.push({ id: 'pass', label: t('act.pass'), primary: true, onClick: () => send({ t: 'endTurn' }) });
+  // la acción principal siempre al final: en el celular queda abajo a la derecha
+  buttons.sort((a, b) => Number(!!a.primary) - Number(!!b.primary));
+
+  // en el celular el registro y el chat van en un botón junto a los jugadores, con aviso de mensajes nuevos
+  const canChat = snap.kind !== 'local';
+  const lastOther = snap.chat.reduce((at, m) => (m.seat !== me && m.at > at ? m.at : at), 0);
+  const [seenChat, setSeenChat] = useState(lastOther);
+  useEffect(() => {
+    if (sheet === 'log') setSeenChat(lastOther);
+  }, [sheet, lastOther]);
+  const unread = canChat && lastOther > seenChat;
+  const [logTab, setLogTab] = useState<'log' | 'chat'>('log');
+  const openLog = () => { setLogTab(unread ? 'chat' : 'log'); setSheet('log'); };
+  const logLabel = canChat ? `${t('act.log')} · ${t('act.chat')}` : t('act.log');
 
   const dice = view.turn.dice;
   const showOver = view.winner !== null && !overClosed;
@@ -134,7 +149,15 @@ export function Game({ session, snap, onHome }: { session: Session; snap: Snapsh
       <main className="game-main">
         <h1 className="sr">{t('app.name')}</h1>
         <section className="board-area">
-          <Players view={view} me={me} lobby={snap.lobby} compact />
+          <div className="strip">
+            <Players view={view} me={me} lobby={snap.lobby} compact />
+            <button type="button" className={`icon-btn strip-log${unread ? ' unread' : ''}`} data-act="log" onClick={openLog} aria-label={unread ? `${logLabel} (${t('act.newMessages')})` : logLabel} title={logLabel}>
+              <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" className="log-icon">
+                <path d="M5 4.5h14a1.5 1.5 0 0 1 1.5 1.5v9.5a1.5 1.5 0 0 1-1.5 1.5h-8l-4.5 3.5V17H5a1.5 1.5 0 0 1-1.5-1.5V6A1.5 1.5 0 0 1 5 4.5z" />
+                <path d="M8 9h8M8 12.5h5" />
+              </svg>
+            </button>
+          </div>
           <div className="status-bar" aria-live="polite">
             {dice && (
               <span className="dice" key={flash?.key}>
@@ -169,9 +192,11 @@ export function Game({ session, snap, onHome }: { session: Session; snap: Snapsh
         <Hand view={view} me={me} onCards={() => setSheet('cards')} />
         <nav className="actions" aria-label={t('act.build')}>
           {buttons.map((b) => (
-            <button key={b.id} type="button" className={`btn ${b.primary ? 'primary' : 'secondary'}`} disabled={b.disabled} onClick={b.onClick}>{b.label}</button>
+            <button key={b.id} type="button" data-act={b.id} className={`btn ${b.primary ? 'primary' : 'secondary'}`} disabled={b.disabled} onClick={b.onClick}>
+              {b.label}
+              {b.badge ? <span className="btn-badge mobile-only">{b.badge}</span> : null}
+            </button>
           ))}
-          <button type="button" className="btn ghost mobile-only" onClick={() => setSheet('log')}>{snap.kind === 'local' ? t('act.log') : `${t('act.log')} · ${t('act.chat')}`}</button>
         </nav>
       </footer>
 
@@ -183,7 +208,7 @@ export function Game({ session, snap, onHome }: { session: Session; snap: Snapsh
         <div className="overlay" onClick={(e) => e.target === e.currentTarget && setSheet(null)}>
           <div className="modal wide" role="dialog" aria-modal="true" aria-label={t('act.log')}>
             <div className="modal-head"><h2>{t('act.log')}</h2><button type="button" className="icon-btn" aria-label={t('common.close')} onClick={() => setSheet(null)}>×</button></div>
-            <div className="modal-body"><Players view={view} me={me} lobby={snap.lobby} /><LogChat view={view} chat={snap.chat} onChat={(s) => session.chat(s)} canChat={snap.kind !== 'local'} /></div>
+            <div className="modal-body"><Players view={view} me={me} lobby={snap.lobby} /><LogChat view={view} chat={snap.chat} onChat={(s) => session.chat(s)} canChat={canChat} initialTab={logTab} /></div>
           </div>
         </div>
       )}

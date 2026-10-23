@@ -229,6 +229,7 @@ const en: Dict = {
   'act.cancel': 'Cancel',
   'act.log': 'Log',
   'act.chat': 'Chat',
+  'act.newMessages': 'new messages',
   'act.players': 'Players',
   'act.hand': 'Hand',
   'act.fit': 'Fit the board',

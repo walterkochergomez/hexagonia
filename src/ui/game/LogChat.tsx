@@ -6,9 +6,9 @@ import { PlayerMark } from '../art';
 import { formatLog } from '../format';
 import { Segmented } from '../common';
 
-export function LogChat({ view, chat, onChat, canChat }: { view: GameState; chat: ChatMsg[]; onChat: (s: string) => void; canChat: boolean }) {
+export function LogChat({ view, chat, onChat, canChat, initialTab = 'log' }: { view: GameState; chat: ChatMsg[]; onChat: (s: string) => void; canChat: boolean; initialTab?: 'log' | 'chat' }) {
   const t = useT();
-  const [tab, setTab] = useState<'log' | 'chat'>('log');
+  const [tab, setTab] = useState<'log' | 'chat'>(initialTab);
   const [text, setText] = useState('');
   const listRef = useRef<HTMLDivElement>(null);
   const entries = view.log.slice(-80);

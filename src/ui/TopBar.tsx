@@ -20,15 +20,16 @@ export function TopBar({ code, status, error, onHome }: { code: string | null; s
     }
   };
   return (
-    <header className="topbar">
+    <header className={`topbar${code ? ' with-code' : ''}`}>
       <button type="button" className="brand" onClick={onHome} title={t('over.home')}>
         <svg width="22" height="22" viewBox="-11 -11 22 22" aria-hidden="true"><path d="M0 -10 L8.7 -5 L8.7 5 L0 10 L-8.7 5 L-8.7 -5 Z" className="brand-hex" /></svg>
-        <span>{t('app.name')}</span>
+        <span className="brand-name">{t('app.name')}</span>
       </button>
       {code && code.length > 0 && (
-        <button type="button" className="room-code" onClick={copy} title={t('lobby.copy')}>
-          {copied ? t('lobby.copied') : code}
-        </button>
+        <span className="code-wrap">
+          <button type="button" className="room-code" onClick={copy} title={t('lobby.copy')}>{code}</button>
+          <span className={`copied-tip${copied ? ' on' : ''}`} role="status">{copied ? t('lobby.copied') : ''}</span>
+        </span>
       )}
       {status && status !== 'open' && status !== 'closed' && (
         <span className={`net-state ${status}`} role="status">{error ? t(error.key, error.params) : t(status === 'connecting' ? 'net.connecting' : 'net.reconnecting')}</span>

@@ -15,7 +15,8 @@
     "e2e": "node e2e/run.mjs",
     "typecheck": "tsc -b --noEmit",
     "e2e:soak": "node e2e/soak.mjs",
-    "e2e:a11y": "node e2e/a11y.mjs"
+    "e2e:a11y": "node e2e/a11y.mjs",
+    "e2e:fit": "tsx scripts/make-rooms.ts && node e2e/fit.mjs"
   },
   "dependencies": {
     "@fontsource-variable/atkinson-hyperlegible-next": "^5.3.0",
