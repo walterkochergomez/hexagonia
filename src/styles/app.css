@@ -248,10 +248,10 @@ input, select {
 .target-vertex .hit { fill: transparent; }
 .target-vertex .mark { fill: rgba(255, 255, 255, .9); stroke: var(--ink); stroke-width: 2; }
 .target-vertex:hover .mark, .target-vertex:focus-visible .mark, .target-vertex.selected .mark { fill: var(--highlight); }
-.target-edge .hit { stroke: transparent; stroke-width: 20; stroke-linecap: round; }
+.target-edge .hit { stroke: transparent; stroke-width: 26; stroke-linecap: round; }
 .target-edge .mark { stroke: #fff; stroke-width: 5; stroke-linecap: round; filter: drop-shadow(0 0 1.6px rgba(38, 50, 56, .95)); }
 .target-edge:hover .mark, .target-edge:focus-visible .mark, .target-edge.selected .mark { stroke: var(--highlight); }
-.target-hex polygon { fill: rgba(255, 255, 255, .12); stroke: #fff; stroke-width: 4; }
+.target-hex polygon { fill: rgba(255, 255, 255, .06); stroke: #fff; stroke-width: 3.5; stroke-dasharray: 7 5; }
 .target-hex:hover polygon, .target-hex:focus-visible polygon, .target-hex.selected polygon { fill: rgba(215, 168, 74, .38); stroke: var(--highlight); }
 
 /* jugadores */
@@ -440,3 +440,6 @@ input, select {
 
 .sound-icon path { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .sound-icon path:first-child { fill: currentColor; }
+.contrib { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; }
+.contrib li { display: flex; align-items: center; gap: 6px; }
+.barb-score { font-family: var(--font-display); font-weight: 750; font-size: 18px; }

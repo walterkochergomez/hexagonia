@@ -48,6 +48,20 @@ function vertexScore(s: GameState, v: string): number {
   return C.G(s).vertices[v].hexes.reduce((a, h) => a + pips(s.board.hexes[h]?.number ?? null), 0);
 }
 
+function roadScore(s: GameState, e: string): number {
+  const g = C.G(s);
+  const ed = g.edges[e];
+  let top = 0;
+  for (const v of [ed.a, ed.b]) {
+    for (const w of [v, ...g.vertices[v].neighbors]) {
+      if (s.buildings[w] || !C.vertexLand(s, w) || !C.distanceOk(s, w)) continue;
+      const sc = vertexScore(s, w) - (w === v ? 0 : 2);
+      if (sc > top) top = sc;
+    }
+  }
+  return top;
+}
+
 function best<T>(rng: Rng, items: T[], score: (x: T) => number): T {
   let top = -Infinity;
   let out: T[] = [];
@@ -73,7 +87,8 @@ export function botAction(s: GameState, seat: number, rng: Rng): Action | null {
         const usePirate = st.pirate && (!st.robber || rng.float() < 0.3) && C.legalPirateHexes(s).length > 0;
         if (usePirate) return { t: 'robber', hex: rng.pick(C.legalPirateHexes(s)), target: 'pirate' };
         const hexes = C.legalRobberHexes(s, seat);
-        return { t: 'robber', hex: best(rng, hexes, (x) => C.robberVictims(s, seat, x).length * 3 + pips(s.board.hexes[x].number)), target: 'robber' };
+        const mine = (x: string) => C.G(s).hexes[x].vertices.some((v) => s.buildings[v]?.owner === seat);
+        return { t: 'robber', hex: best(rng, hexes, (x) => C.robberVictims(s, seat, x).length * 3 + pips(s.board.hexes[x].number) - (mine(x) ? 12 : 0)), target: 'robber' };
       }
       case 'steal': return { t: 'steal', from: rng.pick(st.from) };
       case 'pick': return { t: 'pick', cards: pickFromBank(rng, s, st.waiting[seat]) };
@@ -84,7 +99,7 @@ export function botAction(s: GameState, seat: number, rng: Rng): Action | null {
         const ships = st.source !== 'diplomat' && left.ship > 0 ? C.legalShips(s, seat) : [];
         if (!roads.length && !ships.length) return { t: 'skipFree' };
         if (ships.length && (!roads.length || rng.float() < 0.4)) return { t: 'freeRoute', edge: rng.pick(ships), ship: true };
-        return { t: 'freeRoute', edge: rng.pick(roads) };
+        return { t: 'freeRoute', edge: best(rng, roads, (e) => roadScore(s, e)) };
       }
       case 'pillage': return { t: 'pillage', vertex: rng.pick(C.pillageable(s, seat)) };
       case 'defenderPick': return { t: 'defenderPick', track: rng.pick(TRACKS.filter((t) => s.hidden.progress[t].length > 0)) };
@@ -138,7 +153,7 @@ export function botAction(s: GameState, seat: number, rng: Rng): Action | null {
     }
     const r = C.legalSetupRoutes(s, t.setupVertex!);
     if (r.ships.length && (!r.roads.length || rng.float() < 0.3)) return { t: 'setupRoute', edge: rng.pick(r.ships), ship: true };
-    return { t: 'setupRoute', edge: rng.pick(r.roads) };
+    return { t: 'setupRoute', edge: best(rng, r.roads, (e) => roadScore(s, e)) };
   }
   if (t.phase === 'preRoll') {
     if (s.settings.guilds && p.progress.includes('alchemist') && rng.float() < 0.3) {
@@ -199,7 +214,7 @@ export function botAction(s: GameState, seat: number, rng: Rng): Action | null {
     }
     if (can(COST.road) && left.road > 0) {
       const roads = C.legalRoads(s, seat);
-      if (roads.length) return { t: 'build', what: 'road', at: rng.pick(roads) };
+      if (roads.length) return { t: 'build', what: 'road', at: best(rng, roads, (e) => roadScore(s, e)) };
     }
   }
   if (!s.settings.guilds && can(COST.dev) && s.hidden.devDeck.length && rng.float() < 0.5) return { t: 'buyDev' };
@@ -241,7 +256,13 @@ export function botAction(s: GameState, seat: number, rng: Rng): Action | null {
     }
   }
   // comercio con el banco
-  const goal = rng.pick([COST.city, COST.settlement, COST.road, COST.dev, COST.knight]);
+  const goals: Partial<Hand>[] = [];
+  if (left.city > 0 && C.legalCities(s, seat).length) goals.push(COST.city);
+  if (left.settlement > 0 && C.legalSettlements(s, seat).length) goals.push(COST.settlement);
+  goals.push(COST.road);
+  if (!s.settings.guilds) goals.push(COST.dev);
+  else goals.push(COST.knight);
+  const goal = rng.float() < 0.75 ? goals[0] : rng.pick(goals);
   const missing = CARDS.filter((c) => (goal[c] ?? 0) > h[c]);
   if (missing.length) {
     for (const c of rng.shuffle([...CARDS])) {

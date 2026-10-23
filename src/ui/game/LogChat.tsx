@@ -25,7 +25,7 @@ export function LogChat({ view, chat, onChat, canChat }: { view: GameState; chat
       {canChat && (
         <Segmented value={tab} onChange={setTab} label={t('act.log')} options={[{ value: 'log', label: t('act.log') }, { value: 'chat', label: t('act.chat') }]} />
       )}
-      <div className="log-list" ref={listRef} aria-live="polite">
+      <div className="log-list" ref={listRef} aria-live="polite" tabIndex={0} aria-label={tab === 'log' ? t('act.log') : t('act.chat')}>
         {tab === 'log'
           ? entries.map((e, i) => {
               const c = seatColor(e.p);

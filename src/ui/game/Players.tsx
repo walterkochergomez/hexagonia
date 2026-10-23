@@ -9,7 +9,7 @@ export function Players({ view, me, lobby, compact }: { view: GameState; me: num
   const actor = view.winner === null ? C.actorOf(view) : null;
   const waiting = new Set(view.steps[0] && view.steps[0].k !== 'produce' ? C.waitingSeats(view.steps[0]) : []);
   return (
-    <ol className={`players${compact ? ' compact' : ''}`}>
+    <ol className={`players${compact ? ' compact' : ''}`} tabIndex={compact ? undefined : 0} aria-label={t('act.players')}>
       {view.players.map((p) => {
         const seat = p.seat;
         const vp = C.vpOf(view, seat, seat === me || view.winner !== null);
@@ -22,6 +22,8 @@ export function Players({ view, me, lobby, compact }: { view: GameState; me: num
         if (!view.settings.guilds && view.awards.army.owner === seat) badges.push(t('player.army'));
         for (const tr of TRACKS) if (view.metropolis[tr]?.owner === seat) badges.push(t('guild.metro', { track: t(`track.${tr}`) }));
         if (p.defender) badges.push(`${t('player.defender')} ×${p.defender}`);
+        const bonus = p.bonus.reduce((a, b) => a + b.vp, 0);
+        if (bonus) badges.push(`${t('over.breakdown.bonus')} +${bonus}`);
         const cls = ['player', actor === seat ? 'acting' : '', waiting.has(seat) ? 'waiting' : '', seat === me ? 'me' : '', view.winner === seat ? 'winner' : ''].join(' ');
         if (compact) {
           return (

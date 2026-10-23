@@ -13,6 +13,7 @@ import { BuildMenu } from './BuildMenu';
 import { CardsSheet } from './Cards';
 import { GameOver } from './GameOver';
 import { BarbarianMeter, GuildSheet } from './Guild';
+import { BarbarianReport } from './Barbarians';
 import { Hand } from './Hand';
 import { LogChat } from './LogChat';
 import { plan, stepForMe, type Mode } from './plan';
@@ -129,8 +130,9 @@ export function Game({ session, snap, onHome }: { session: Session; snap: Snapsh
 
   return (
     <div className="game">
-      <TopBar code={snap.code} status={snap.status} error={snap.error} onHome={onHome} />
-      <div className="game-main">
+      <TopBar code={snap.code ?? (snap.kind === 'local' ? '' : null)} status={snap.status} error={snap.error} onHome={() => { if (view.winner !== null || window.confirm(t('game.leaveConfirm'))) onHome(); }} />
+      <main className="game-main">
+        <h1 className="sr">{t('app.name')}</h1>
         <section className="board-area">
           <Players view={view} me={me} lobby={snap.lobby} compact />
           <div className="status-bar" aria-live="polite">
@@ -162,7 +164,7 @@ export function Game({ session, snap, onHome }: { session: Session; snap: Snapsh
           <Players view={view} me={me} lobby={snap.lobby} />
           <LogChat view={view} chat={snap.chat} onChat={(s) => session.chat(s)} canChat={snap.kind !== 'local'} />
         </aside>
-      </div>
+      </main>
       <footer className="dock">
         <Hand view={view} me={me} onCards={() => setSheet('cards')} />
         <nav className="actions" aria-label={t('act.build')}>
@@ -180,13 +182,14 @@ export function Game({ session, snap, onHome }: { session: Session; snap: Snapsh
       {sheet === 'log' && (
         <div className="overlay" onClick={(e) => e.target === e.currentTarget && setSheet(null)}>
           <div className="modal wide" role="dialog" aria-modal="true" aria-label={t('act.log')}>
-            <header className="modal-head"><h2>{t('act.log')}</h2><button type="button" className="icon-btn" aria-label={t('common.close')} onClick={() => setSheet(null)}>×</button></header>
+            <div className="modal-head"><h2>{t('act.log')}</h2><button type="button" className="icon-btn" aria-label={t('common.close')} onClick={() => setSheet(null)}>×</button></div>
             <div className="modal-body"><Players view={view} me={me} lobby={snap.lobby} /><LogChat view={view} chat={snap.chat} onChat={(s) => session.chat(s)} canChat={snap.kind !== 'local'} /></div>
           </div>
         </div>
       )}
       {myStep && me !== null && DIALOG_STEPS.includes(myStep.k) && <StepDialog key={stepKey(view.turn.n, myStep, me)} view={view} me={me} st={myStep} send={send} />}
       {showOver && <GameOver view={view} me={me} onHome={onHome} onRematch={session.rematch ? () => session.rematch!() : undefined} onClose={() => setOverClosed(true)} />}
+      <BarbarianReport view={view} hidden={!!myStep && DIALOG_STEPS.includes(myStep.k)} />
       <Toasts items={toasts} />
     </div>
   );

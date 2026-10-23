@@ -153,6 +153,21 @@ export function Board({ view, targets, onPick, flash }: Props) {
             })}
           </g>
 
+          {targets?.hexes && (
+            <g className="layer-targets hex-targets">
+              {targets.hexes.map((h) => {
+                const [x, y] = hpos(h);
+                return (
+                  <g key={h} transform={`translate(${x} ${y})`} className={`target target-hex${selected.has(h) ? ' selected' : ''}`}
+                    role="button" tabIndex={0} aria-label={name(`terrain.${view.board.hexes[h].terrain}`)}
+                    onClick={() => pick('hex', h)} onKeyDown={keyPick('hex', h)}>
+                    <polygon points={HEX_POINTS} />
+                  </g>
+                );
+              })}
+            </g>
+          )}
+
           <g className="layer-harbors">
             {view.board.harbors.map((hb) => {
               const e = g.edges[hb.edge];
@@ -239,16 +254,6 @@ export function Board({ view, targets, onPick, flash }: Props) {
 
           {targets && (
             <g className="layer-targets">
-              {(targets.hexes ?? []).map((h) => {
-                const [x, y] = hpos(h);
-                return (
-                  <g key={h} transform={`translate(${x} ${y})`} className={`target target-hex${selected.has(h) ? ' selected' : ''}`}
-                    role="button" tabIndex={0} aria-label={name(`terrain.${view.board.hexes[h].terrain}`)}
-                    onClick={() => pick('hex', h)} onKeyDown={keyPick('hex', h)}>
-                    <polygon points={HEX_POINTS} />
-                  </g>
-                );
-              })}
               {(targets.edges ?? []).map((e) => {
                 const ed = g.edges[e];
                 const [ax, ay] = vpos(ed.a);
@@ -268,7 +273,7 @@ export function Board({ view, targets, onPick, flash }: Props) {
                 return (
                   <g key={v} transform={`translate(${x} ${y})`} className={`target target-vertex${selected.has(v) ? ' selected' : ''}`}
                     role="button" tabIndex={0} aria-label={t('pick.settlement')} onClick={() => pick('vertex', v)} onKeyDown={keyPick('vertex', v)}>
-                    <circle r={15} className="hit" />
+                    <circle r={22} className="hit" />
                     <circle r={8} className="mark" />
                   </g>
                 );

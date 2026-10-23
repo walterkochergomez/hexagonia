@@ -79,7 +79,14 @@ export function Home() {
             </label>
           </form>
           <div className="home-block">
-            <button type="button" className="btn secondary" onClick={() => go(local ? 'local/juego' : 'local')}>{t('home.local')}</button>
+            {local && local.game.winner === null ? (
+              <span className="row">
+                <button type="button" className="btn secondary" onClick={() => go('local/juego')}>{t('home.localResume')}</button>
+                <button type="button" className="btn ghost" onClick={() => go('local')}>{t('home.localNew')}</button>
+              </span>
+            ) : (
+              <button type="button" className="btn secondary" onClick={() => go('local')}>{t('home.local')}</button>
+            )}
             <p className="muted small">{t('home.localHint')}</p>
           </div>
           <a className="link" href="#/reglas">{t('home.rules')}</a>

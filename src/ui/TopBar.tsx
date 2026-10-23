@@ -21,11 +21,11 @@ export function TopBar({ code, status, error, onHome }: { code: string | null; s
   };
   return (
     <header className="topbar">
-      <button type="button" className="brand" onClick={onHome} aria-label={t('over.home')}>
+      <button type="button" className="brand" onClick={onHome} title={t('over.home')}>
         <svg width="22" height="22" viewBox="-11 -11 22 22" aria-hidden="true"><path d="M0 -10 L8.7 -5 L8.7 5 L0 10 L-8.7 5 L-8.7 -5 Z" className="brand-hex" /></svg>
         <span>{t('app.name')}</span>
       </button>
-      {code && (
+      {code && code.length > 0 && (
         <button type="button" className="room-code" onClick={copy} title={t('lobby.copy')}>
           {copied ? t('lobby.copied') : code}
         </button>
@@ -46,7 +46,7 @@ export function TopBar({ code, status, error, onHome }: { code: string | null; s
           {sound ? <path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" className="waves" /> : <path d="M16 9l5 6M21 9l-5 6" className="waves" />}
         </svg>
       </button>
-      <a className="icon-btn" href="#/reglas" title={t('home.rules')} aria-label={t('home.rules')}>?</a>
+      <a className="icon-btn" href="#/reglas" target={code ? '_blank' : undefined} rel="noopener" title={t('home.rules')} aria-label={t('home.rules')}>?</a>
     </header>
   );
 }

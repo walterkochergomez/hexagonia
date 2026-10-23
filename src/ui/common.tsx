@@ -18,12 +18,12 @@ export function Modal({ title, children, onClose, wide, actions }: { title: stri
   return (
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && onClose?.()}>
       <div ref={ref} className={`modal${wide ? ' wide' : ''}`} role="dialog" aria-modal="true" aria-label={title}>
-        <header className="modal-head">
+        <div className="modal-head">
           <h2>{title}</h2>
           {onClose && <button type="button" className="icon-btn" aria-label={t('common.close')} onClick={onClose}>×</button>}
-        </header>
+        </div>
         <div className="modal-body">{children}</div>
-        {actions && <footer className="modal-actions">{actions}</footer>}
+        {actions && <div className="modal-actions">{actions}</div>}
       </div>
     </div>
   );

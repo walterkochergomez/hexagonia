@@ -3,6 +3,7 @@ import { useT } from '../../app/i18n';
 import { CARDS, COMMODITIES, RESOURCES, TRACKS, handTotal, type Action, type Card, type GameState, type Hand, type Resource, type Step } from '../../engine/types';
 import { CardIcon, PlayerMark } from '../art';
 import { CardPicker, Modal } from '../common';
+import { lower } from '../format';
 
 /** Diálogos para pasos pendientes que no se resuelven tocando el tablero. */
 export function StepDialog({ view, me, st, send }: { view: GameState; me: number; st: Step; send: (a: Action) => void }) {
@@ -124,7 +125,7 @@ export function StepDialog({ view, me, st, send }: { view: GameState; me: number
     }
     case 'harborReply':
       return (
-        <Modal title={t('step.harborReply', { name: name(st.seat), res: t(`res.${st.offers[me]}`).toLowerCase() })}>
+        <Modal title={t('step.harborReply', { name: name(st.seat), res: lower(t(`res.${st.offers[me]}`)) })}>
           <ResourceButtons cards={COMMODITIES.filter((c) => hand[c] > 0)} onPick={(c) => send({ t: 'harborReply', card: c as 'paper' })} />
         </Modal>
       );

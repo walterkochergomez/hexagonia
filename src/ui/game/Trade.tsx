@@ -4,6 +4,7 @@ import * as C from '../../engine/core';
 import { CARDS, COMMODITIES, RESOURCES, handTotal, type Action, type Card, type GameState, type Hand } from '../../engine/types';
 import { CardIcon, PlayerMark } from '../art';
 import { CardPicker, HandLine, Modal, Segmented } from '../common';
+import { lower } from '../format';
 
 const cardsFor = (v: GameState) => (v.settings.guilds ? CARDS : RESOURCES);
 
@@ -144,7 +145,7 @@ function BankTrade({ view, me, send }: { view: GameState; me: number; send: (a: 
       )}
       <button type="button" className="btn primary" disabled={!give || !get || maxCount < 1}
         onClick={() => give && get && send({ t: 'bank', give, get, count: n })}>
-        {give && get ? t('trade.bankDo', { n: ratio * n, give: t(`res.${give}`).toLowerCase(), m: n, get: t(`res.${get}`).toLowerCase() }) : t('trade.bank')}
+        {give && get ? t('trade.bankDo', { n: ratio * n, give: lower(t(`res.${give}`)), m: n, get: lower(t(`res.${get}`)) }) : t('trade.bank')}
       </button>
     </div>
   );
