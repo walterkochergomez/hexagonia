@@ -9,6 +9,7 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  actions: read
 
 concurrency:
   group: pages
@@ -44,5 +45,18 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      # Si en Settings → Pages quedó «Deploy from a branch», GitHub publica además el código sin
+      # compilar. Se espera a que esa publicación termine para que la versión compilada quede encima.
+      - name: Esperar la publicación automática de GitHub
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for i in $(seq 1 60); do
+            pending=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$GITHUB_SHA&per_page=20" \
+              --jq '[.workflow_runs[] | select(.event == "dynamic" and .status != "completed")] | length' || echo 0)
+            if [ "$pending" = "0" ]; then break; fi
+            echo "Esperando a «pages build and deployment»…"
+            sleep 5
+          done
       - id: deployment
         uses: actions/deploy-pages@v5
