@@ -22,8 +22,8 @@ Las reglas completas están dentro del juego, en el botón **?**.
 ## Publicarlo en tu GitHub
 
 1. Crea un repositorio público en GitHub (por ejemplo `hexagonia`) y sube este código a la rama `main`.
-2. En el repositorio entra a **Settings → Pages** y en **Source** elige **GitHub Actions**.
-3. Cada vez que subas cambios a `main`, el flujo `.github/workflows/deploy.yml` corre las pruebas, arma el sitio y lo publica en `https://<tu-usuario>.github.io/<repositorio>/`.
+2. En el repositorio entra a **Settings → Pages** y en **Build and deployment → Source** elige **GitHub Actions**. No uses «Deploy from a branch»: esa opción publica el código sin compilar y el juego no carga.
+3. La primera vez, ve a la pestaña **Actions**, abre **Publicar en GitHub Pages** y pulsa **Run workflow**. Desde ahí, cada vez que subas cambios a `main` el flujo `.github/workflows/deploy.yml` corre las pruebas, arma el sitio y lo publica solo en `https://<tu-usuario>.github.io/<repositorio>/`.
 
 ## Desarrollo
 
