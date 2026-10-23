@@ -1,0 +1,80 @@
+/* Generado desde replica/design/tokens.json: no editar a mano. */
+:root {
+  --bg: #f1f5f4;
+  --surface: #ffffff;
+  --surface-2: #e4ecea;
+  --border: #cfdad8;
+  --border-input: #6f8086;
+  --text: #263238;
+  --text-muted: #55666c;
+  --accent: #1c6e78;
+  --accent-hover: #155a63;
+  --on-accent: #ffffff;
+  --highlight: #d7a84a;
+  --on-highlight: #263238;
+  --danger: #b23a28;
+  --on-danger: #ffffff;
+  --success: #2e6b48;
+  --focus: #1c6e78;
+  --sea: #3e9da8;
+  --sea-deep: #2c7f8a;
+  --on-sea: #ffffff;
+  --token: #f7faf9;
+  --token-text: #263238;
+  --token-hot: #b23a28;
+  --spot: #ffffff;
+  --terrain-forest: #2f6b4a;
+  --terrain-hills: #b5583a;
+  --terrain-pasture: #8cc37a;
+  --terrain-fields: #e3c15a;
+  --terrain-mountains: #7d8a93;
+  --terrain-desert: #e8d9b0;
+  --terrain-gold: #f2c230;
+  --terrain-fog: #c9d3d6;
+  --player-1: #cf3f2c;
+  --player-2: #2b5faa;
+  --player-3: #e2a72e;
+  --player-4: #7a4fb0;
+  --player-5: #d85c95;
+  --player-6: #3b4148;
+  --track-science: #2e7d50;
+  --track-trade: #b8872a;
+  --track-politics: #2b5faa;
+  --com-paper: #e9dfc6;
+  --com-cloth: #b9a7d8;
+  --com-coin: #d3a64d;
+  --ink: #263238;
+  --pier: #e8dcc0;
+  --wall: #9aa6ab;
+  --font-display: 'Bricolage Grotesque Variable', 'Bricolage Grotesque', system-ui, sans-serif;
+  --font-sans: 'Atkinson Hyperlegible Next Variable', 'Atkinson Hyperlegible Next', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 18px;
+  --r-pill: 999px;
+  --shadow-piece: 0 1px 0 rgba(38,50,56,.45);
+  --shadow-panel: 0 1px 2px rgba(28,58,64,.10), 0 6px 18px rgba(28,58,64,.10);
+  --shadow-pop: 0 18px 48px rgba(20,48,54,.28);
+  --m-fast: 120ms;
+  --m-base: 220ms;
+  --m-dice: 650ms;
+  --m-ease: cubic-bezier(.2,.8,.2,1);
+  --rail: 320px;
+  --header: 52px;
+  --s0: 0px;
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+  --s6: 32px;
+  --s7: 48px;
+  --s8: 64px;
+}
+
+.p0 { --pc: var(--player-1); }
+.p1 { --pc: var(--player-2); }
+.p2 { --pc: var(--player-3); }
+.p3 { --pc: var(--player-4); }
+.p4 { --pc: var(--player-5); }
+.p5 { --pc: var(--player-6); }

@@ -4,3 +4,4 @@ replica
 e2e/out
 *.log
 .DS_Store
+scripts/*.json
