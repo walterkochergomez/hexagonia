@@ -15,7 +15,7 @@ export function normalizeCode(s: string): string {
 }
 
 export interface LobbySettings {
-  seafarers: boolean;
+  openSea: boolean;
   scenario: SeaScenario;
   guilds: boolean;
   vpTarget: number; // 0 = automático
@@ -24,7 +24,7 @@ export interface LobbySettings {
 }
 
 export const DEFAULT_SETTINGS: LobbySettings = {
-  seafarers: false, scenario: 'islands', guilds: false, vpTarget: 0, turnMode: 'specialBuild', friendlyRobber: false,
+  openSea: false, scenario: 'islands', guilds: false, vpTarget: 0, turnMode: 'specialBuild', friendlyRobber: false,
 };
 
 export interface LobbySeat {

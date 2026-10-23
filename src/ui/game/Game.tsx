@@ -108,7 +108,7 @@ export function Game({ session, snap, onHome }: { session: Session; snap: Snapsh
 
   const ph = view.turn.phase;
   const guilds = view.settings.guilds;
-  const sea = view.settings.seafarers;
+  const sea = view.settings.openSea;
   const buttons: { id: string; label: string; onClick: () => void; primary?: boolean; disabled?: boolean }[] = [];
   if (myTurn && ph === 'preRoll') {
     buttons.push({ id: 'roll', label: t('act.roll'), primary: true, onClick: () => send({ t: 'roll' }) });

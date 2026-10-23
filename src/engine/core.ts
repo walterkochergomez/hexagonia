@@ -23,7 +23,7 @@ export function edgeRoadable(s: GameState, e: string): boolean {
 }
 
 export function edgeShippable(s: GameState, e: string): boolean {
-  if (!s.settings.seafarers) return false;
+  if (!s.settings.openSea) return false;
   const ed = G(s).edges[e];
   return !!ed && ed.hexes.length === 2 && ed.hexes.some((h) => hexIsSea(s, h));
 }
@@ -110,7 +110,7 @@ export function piecesLeft(s: GameState, seat: number) {
   const u = piecesUsed(s, seat);
   return {
     road: LIMITS.road - u.road,
-    ship: s.settings.seafarers ? LIMITS.ship - u.ship : 0,
+    ship: s.settings.openSea ? LIMITS.ship - u.ship : 0,
     settlement: LIMITS.settlement - u.settlement,
     city: LIMITS.city - u.city,
     wall: s.settings.guilds ? LIMITS.wall - u.wall : 0,
@@ -337,7 +337,7 @@ export function legalRobberHexes(s: GameState, seat: number): string[] {
 }
 
 export function legalPirateHexes(s: GameState): string[] {
-  if (!s.settings.seafarers) return [];
+  if (!s.settings.openSea) return [];
   return Object.keys(s.board.hexes).filter((h) => hexIsSea(s, h) && h !== s.board.pirate);
 }
 
@@ -365,7 +365,7 @@ export function legalRoads(s: GameState, seat: number): string[] {
   return Object.keys(G(s).edges).filter((e) => canRoad(s, seat, e));
 }
 export function legalShips(s: GameState, seat: number): string[] {
-  if (!s.settings.seafarers) return [];
+  if (!s.settings.openSea) return [];
   return Object.keys(G(s).edges).filter((e) => canShip(s, seat, e));
 }
 export function legalSettlements(s: GameState, seat: number): string[] {
@@ -382,13 +382,13 @@ export function legalSetupRoutes(s: GameState, v: string): { roads: string[]; sh
   if (!vx) return { roads: [], ships: [] };
   return {
     roads: vx.edges.filter((e) => setupRouteOk(s, v, e, false)),
-    ships: s.settings.seafarers ? vx.edges.filter((e) => setupRouteOk(s, v, e, true)) : [],
+    ships: s.settings.openSea ? vx.edges.filter((e) => setupRouteOk(s, v, e, true)) : [],
   };
 }
 
 /** Barcos que `seat` puede mover este turno (extremo de una ruta abierta). */
 export function movableShips(s: GameState, seat: number): string[] {
-  if (!s.settings.seafarers) return [];
+  if (!s.settings.openSea) return [];
   const g = G(s);
   return Object.entries(s.ships)
     .filter(([e, sh]) => {
@@ -459,7 +459,7 @@ export function regionsOfVertex(s: GameState, v: string): number[] {
 /** Vértices alcanzables por un caballero desde `from` por rutas propias. */
 export function knightReach(s: GameState, from: string, seat: number): { empty: string[]; foes: string[] } {
   const g = G(s);
-  const viaShips = s.settings.seafarers;
+  const viaShips = s.settings.openSea;
   const seen = new Set<string>([from]);
   const queue: [string, 'road' | 'ship' | null][] = [[from, null]];
   const empty: string[] = [];
@@ -493,7 +493,7 @@ export function knightReach(s: GameState, from: string, seat: number): { empty: 
 export function recruitSpots(s: GameState, seat: number): string[] {
   const g = G(s);
   return Object.keys(g.vertices).filter((v) => !s.buildings[v] && !s.knights[v]
-    && g.vertices[v].edges.some((e) => s.roads[e]?.owner === seat || (s.settings.seafarers && s.ships[e]?.owner === seat)));
+    && g.vertices[v].edges.some((e) => s.roads[e]?.owner === seat || (s.settings.openSea && s.ships[e]?.owner === seat)));
 }
 
 export function canKnightAct(s: GameState, v: string, seat: number): boolean {

@@ -16,10 +16,10 @@ const need = (cond: unknown, code: string): void => {
   if (!cond) throw new GameError(code);
 };
 
-export function defaultVp(o: { seafarers: boolean; scenario: SeaScenario; guilds: boolean }): number {
+export function defaultVp(o: { openSea: boolean; scenario: SeaScenario; guilds: boolean }): number {
   const sea: Record<SeaScenario, number> = { islands: 13, archipelago: 12, fog: 12, desert: 12, newWorld: 12 };
-  if (o.seafarers && o.guilds) return sea[o.scenario] + 2;
-  if (o.seafarers) return sea[o.scenario];
+  if (o.openSea && o.guilds) return sea[o.scenario] + 2;
+  if (o.openSea) return sea[o.scenario];
   if (o.guilds) return 13;
   return 10;
 }
@@ -29,7 +29,7 @@ export function createGame(settings: Settings, seats: SeatInfo[]): GameState {
   need(n >= 2 && n <= 6, 'seats');
   const big = n > 4;
   const rng = new Rng(seedRng(settings.seed));
-  const map = settings.seafarers ? seaMap(rng, settings.scenario, big) : standardMap(rng, big);
+  const map = settings.openSea ? seaMap(rng, settings.scenario, big) : standardMap(rng, big);
   const resN = big ? 24 : 19;
   const comN = settings.guilds ? (big ? 15 : 12) : 0;
   const bank: Hand = { lumber: resN, brick: resN, wool: resN, grain: resN, ore: resN, paper: comN, cloth: comN, coin: comN };
@@ -276,7 +276,7 @@ function seven(s: GameState) {
   }
   const steps: Step[] = [];
   if (Object.keys(waiting).length) steps.push({ k: 'discard', reason: 'seven', waiting });
-  if (C.robberActive(s)) steps.push({ k: 'robber', seat: s.turn.current, robber: true, pirate: s.settings.seafarers, mode: 'steal1' });
+  if (C.robberActive(s)) steps.push({ k: 'robber', seat: s.turn.current, robber: true, pirate: s.settings.openSea, mode: 'steal1' });
   else C.log(s, 'seven.calm');
   s.steps.unshift(...steps);
 }
@@ -309,7 +309,7 @@ function revealAround(s: GameState, seat: number, e: string) {
 }
 
 function regionBonus(s: GameState, seat: number, v: string) {
-  if (!s.settings.seafarers || !s.board.regionBonus) return;
+  if (!s.settings.openSea || !s.board.regionBonus) return;
   const p = s.players[seat];
   for (const r of C.regionsOfVertex(s, v)) {
     if (p.homeRegions.includes(r) || p.bonus.some((b) => b.id === r)) continue;
@@ -321,7 +321,7 @@ function regionBonus(s: GameState, seat: number, v: string) {
 function placeRoute(s: GameState, seat: number, e: string, ship: boolean, free: boolean) {
   const left = C.piecesLeft(s, seat);
   if (ship) {
-    need(s.settings.seafarers && left.ship > 0, 'noPieces');
+    need(s.settings.openSea && left.ship > 0, 'noPieces');
     need(C.canShip(s, seat, e), 'illegal');
     if (!free) C.pay(s, seat, COST.ship);
     s.ships[e] = { owner: seat };
@@ -490,7 +490,7 @@ function handle(s: GameState, seat: number, a: Action, rng: Rng) {
       if (a.card === 'soldier') {
         p.soldiers++;
         C.updateArmyAward(s);
-        s.steps.unshift({ k: 'robber', seat, robber: true, pirate: s.settings.seafarers, mode: 'steal1' });
+        s.steps.unshift({ k: 'robber', seat, robber: true, pirate: s.settings.openSea, mode: 'steal1' });
       } else if (a.card === 'roads') {
         s.steps.unshift({ k: 'freeRoutes', seat, left: 2, source: 'dev' });
       } else if (a.card === 'plenty') {

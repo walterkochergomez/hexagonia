@@ -5,7 +5,7 @@ import { GameError, type Action, type GameState } from '../engine/types';
 import { pickBotMove } from './bots';
 import { Decoder, makePeer, sendMsg, type DataConnection, type Peer } from './peer';
 import { DEFAULT_SETTINGS, PEER_PREFIX, type ChatMsg, type LobbySeat, type LobbySettings, type LobbyState, type ToGuest, type ToHost } from './protocol';
-import { BOT_NAMES, BaseSession, cleanName, type Session } from './session';
+import { BOT_NAMES, BaseSession, botDelay, cleanName, type Session } from './session';
 
 declare const __BUILD__: string;
 const BUILD = typeof __BUILD__ === 'string' ? __BUILD__ : 'dev';
@@ -262,7 +262,7 @@ export class HostSession extends BaseSession implements Session {
     this.botTimer = setTimeout(() => {
       this.botTimer = null;
       this.runBots();
-    }, 650);
+    }, botDelay());
   }
 
   private runBots() {
@@ -338,7 +338,7 @@ export class HostSession extends BaseSession implements Session {
     if (this.lobby.status !== 'lobby' || this.lobby.seats.length < 2) return;
     const st = this.lobby.settings;
     const game = createGame(
-      { seats: this.lobby.seats.length, seafarers: st.seafarers, scenario: st.scenario, guilds: st.guilds, vpTarget: st.vpTarget, turnMode: st.turnMode, friendlyRobber: st.friendlyRobber, seed: randomSeed() },
+      { seats: this.lobby.seats.length, openSea: st.openSea, scenario: st.scenario, guilds: st.guilds, vpTarget: st.vpTarget, turnMode: st.turnMode, friendlyRobber: st.friendlyRobber, seed: randomSeed() },
       this.lobby.seats.map((s) => ({ name: s.name, color: s.color })),
     );
     this.lobby.status = 'playing';

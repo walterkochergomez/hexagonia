@@ -46,7 +46,7 @@ export const SEA_SCENARIOS: readonly SeaScenario[] = ['islands', 'archipelago', 
 
 export interface Settings {
   seats: number; // 2..6
-  seafarers: boolean;
+  openSea: boolean;
   scenario: SeaScenario;
   guilds: boolean;
   vpTarget: number;

@@ -10,7 +10,7 @@ const n = Number(process.argv[3] ?? 4);
 const out = process.argv[4] ?? 'e2e/out/save.json';
 const minTurn = Number(process.argv[5] ?? 18);
 const settings: Settings = {
-  seats: n, seafarers: mode.includes('sea'), scenario: (process.argv[6] as Settings['scenario']) ?? 'islands', guilds: mode.includes('guilds'),
+  seats: n, openSea: mode.includes('sea'), scenario: (process.argv[6] as Settings['scenario']) ?? 'islands', guilds: mode.includes('guilds'),
   vpTarget: 0, turnMode: 'specialBuild', friendlyRobber: false, seed: 4242,
 };
 const names = ['Walter', 'Lenga', 'Coihue', 'Ñirre', 'Calafate', 'Maqui'];

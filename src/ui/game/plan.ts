@@ -93,7 +93,7 @@ export function plan(v: GameState, me: number | null, mode: Mode, routeKind: 'ro
     const kind = both ? routeKind : r.ships.length && !r.roads.length ? 'ship' : 'road';
     return {
       targets: { edges: kind === 'ship' ? r.ships : r.roads, selected: [t.setupVertex!] },
-      hint: v.settings.seafarers ? 'phase.setupRouteShip' : 'phase.setupRoute',
+      hint: v.settings.openSea ? 'phase.setupRouteShip' : 'phase.setupRoute',
       toggle: both,
       pick: (_k, e) => ({ act: { t: 'setupRoute', edge: e, ship: kind === 'ship' } }),
     };
@@ -141,7 +141,7 @@ export function plan(v: GameState, me: number | null, mode: Mode, routeKind: 'ro
       const foes = reach.foes.filter((x) => v.knights[x].level < k.level);
       const g = C.G(v);
       const robber = C.robberActive(v) && !!v.board.robber && g.hexes[v.board.robber].vertices.includes(from);
-      const pirate = v.settings.seafarers && C.robberActive(v) && !!v.board.pirate && g.hexes[v.board.pirate].vertices.includes(from);
+      const pirate = v.settings.openSea && C.robberActive(v) && !!v.board.pirate && g.hexes[v.board.pirate].vertices.includes(from);
       return {
         targets: { vertices: [...reach.empty, ...foes], selected: [from] },
         hint: 'pick.knightTarget',
@@ -206,7 +206,7 @@ function progressPlan(v: GameState, me: number, mode: Extract<Mode, { k: 'progre
     }
     case 'intrigue': {
       const ids = Object.keys(v.knights).filter((x) => v.knights[x].owner !== me
-        && g.vertices[x].edges.some((e) => v.roads[e]?.owner === me || (v.settings.seafarers && v.ships[e]?.owner === me)));
+        && g.vertices[x].edges.some((e) => v.roads[e]?.owner === me || (v.settings.openSea && v.ships[e]?.owner === me)));
       return { targets: { vertices: ids }, hint: 'pick.foeKnight', cancel: true, pick: (_k, id) => play({ vertex: id }) };
     }
     case 'merchant': {

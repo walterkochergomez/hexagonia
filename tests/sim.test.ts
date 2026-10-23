@@ -7,11 +7,11 @@ const configs: [string, Partial<Settings>, number[]][] = [
   ['5-6 fase especial', { turnMode: 'specialBuild' }, [5, 6]],
   ['5-6 en pareja', { turnMode: 'paired' }, [5, 6]],
   ['ladrón amistoso', { friendlyRobber: true }, [4]],
-  ...(['islands', 'archipelago', 'fog', 'desert', 'newWorld'] as SeaScenario[]).map((sc): [string, Partial<Settings>, number[]] => [`mar ${sc}`, { seafarers: true, scenario: sc }, [3, 4, 5]]),
+  ...(['islands', 'archipelago', 'fog', 'desert', 'newWorld'] as SeaScenario[]).map((sc): [string, Partial<Settings>, number[]] => [`mar ${sc}`, { openSea: true, scenario: sc }, [3, 4, 5]]),
   ['gremios', { guilds: true }, [3, 4]],
   ['gremios 5-6', { guilds: true, turnMode: 'specialBuild' }, [5, 6]],
-  ['gremios + mar', { guilds: true, seafarers: true, scenario: 'islands' }, [4]],
-  ['gremios + mar desierto', { guilds: true, seafarers: true, scenario: 'desert' }, [3, 6]],
+  ['gremios + mar', { guilds: true, openSea: true, scenario: 'islands' }, [4]],
+  ['gremios + mar desierto', { guilds: true, openSea: true, scenario: 'desert' }, [3, 6]],
 ];
 
 const GAMES = Number(process.env.SIM_GAMES ?? 6);

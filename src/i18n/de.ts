@@ -79,8 +79,8 @@ const de: Dict = {
 
   'set.options': 'Optionen',
   'set.modules': 'Module',
-  'set.seafarers': 'Offene See',
-  'set.seafarersHint': 'Schiffe, Inseln, Pirat und Goldfelder.',
+  'set.openSea': 'Offene See',
+  'set.openSeaHint': 'Schiffe, Inseln, Pirat und Goldfelder.',
   'set.guilds': 'Gilden & Wächter',
   'set.guildsHint': 'Waren, Stadtausbauten, Ritter und Barbaren.',
   'set.scenario': 'Szenario',

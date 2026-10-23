@@ -208,7 +208,7 @@ export function botAction(s: GameState, seat: number, rng: Rng): Action | null {
   }
   const wantRoad = rng.float() < (C.legalSettlements(s, seat).length ? 0.25 : 0.8);
   if (wantRoad) {
-    if (s.settings.seafarers && can(COST.ship) && left.ship > 0 && rng.float() < 0.5) {
+    if (s.settings.openSea && can(COST.ship) && left.ship > 0 && rng.float() < 0.5) {
       const ships = C.legalShips(s, seat);
       if (ships.length) return { t: 'build', what: 'ship', at: rng.pick(ships) };
     }
@@ -247,7 +247,7 @@ export function botAction(s: GameState, seat: number, rng: Rng): Action | null {
     }
   }
   // barcos
-  if (s.settings.seafarers && !t.shipMoved.includes(seat) && rng.float() < 0.15) {
+  if (s.settings.openSea && !t.shipMoved.includes(seat) && rng.float() < 0.15) {
     const movable = C.movableShips(s, seat);
     if (movable.length) {
       const from = rng.pick(movable);
@@ -328,7 +328,7 @@ function progressAttempt(s: GameState, seat: number, rng: Rng): Action | null {
     }
     case 'intrigue': {
       const vs = Object.keys(s.knights).filter((v) => s.knights[v].owner !== seat
-        && g.vertices[v].edges.some((e) => s.roads[e]?.owner === seat || (s.settings.seafarers && s.ships[e]?.owner === seat)));
+        && g.vertices[v].edges.some((e) => s.roads[e]?.owner === seat || (s.settings.openSea && s.ships[e]?.owner === seat)));
       return vs.length ? a({ vertex: rng.pick(vs) }) : null;
     }
     case 'spy': {

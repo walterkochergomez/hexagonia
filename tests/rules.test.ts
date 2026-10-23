@@ -369,7 +369,7 @@ describe('turnos y victoria', () => {
 
 describe('Mar Abierto', () => {
   function seaGame(sc: SeaScenario = 'islands', seed = 20) {
-    return main(game({ seafarers: true, scenario: sc, seed }));
+    return main(game({ openSea: true, scenario: sc, seed }));
   }
 
   it('barcos sólo en el mar y unidos a poblado o barco propio; caminos y barcos se unen sólo en edificios', () => {

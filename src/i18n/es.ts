@@ -78,8 +78,8 @@ const es = {
 
   'set.options': 'Opciones',
   'set.modules': 'Módulos',
-  'set.seafarers': 'Mar Abierto',
-  'set.seafarersHint': 'Barcos, islas, pirata y campos de oro.',
+  'set.openSea': 'Mar Abierto',
+  'set.openSeaHint': 'Barcos, islas, pirata y campos de oro.',
   'set.guilds': 'Gremios y Guardianes',
   'set.guildsHint': 'Mercancías, mejoras de ciudad, caballeros y bárbaros.',
   'set.scenario': 'Escenario',

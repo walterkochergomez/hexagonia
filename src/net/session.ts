@@ -56,6 +56,13 @@ export abstract class BaseSession {
   }
 }
 
+/** Pausa entre jugadas de bots (\`?botDelay=50\` acelera las pruebas). */
+export function botDelay(): number {
+  const q = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('botDelay') : null;
+  const n = Number(q);
+  return q !== null && Number.isFinite(n) ? Math.max(0, n) : 650;
+}
+
 export const BOT_NAMES = ['Lenga', 'Coihue', 'Ñirre', 'Calafate', 'Maqui', 'Canelo'];
 
 export function cleanName(s: string): string {

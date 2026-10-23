@@ -9,7 +9,7 @@ import type { GameState, Settings } from '../src/engine/types';
 const names = ['Walter', 'Lenga', 'Coihue', 'Ñirre'];
 const seats = names.map((name, i) => ({ name, color: i, bot: i !== 0 }));
 function base(over: Partial<Settings> = {}, turns = 12): GameState {
-  const st: Settings = { seats: 4, seafarers: false, scenario: 'islands', guilds: false, vpTarget: 0, turnMode: 'specialBuild', friendlyRobber: false, seed: 777, ...over };
+  const st: Settings = { seats: 4, openSea: false, scenario: 'islands', guilds: false, vpTarget: 0, turnMode: 'specialBuild', friendlyRobber: false, seed: 777, ...over };
   let s = createGame(st, names.map((name, i) => ({ name, color: i })));
   const rng = new Rng(seedRng(5));
   for (let i = 0; i < 20000; i++) {
@@ -32,7 +32,7 @@ s = base();
 s.steps = [{ k: 'robber', seat: 0, robber: true, pirate: false, mode: 'steal1' }];
 out('robber', s);
 // 3. preparación
-s = createGame({ seats: 4, seafarers: false, scenario: 'islands', guilds: false, vpTarget: 0, turnMode: 'specialBuild', friendlyRobber: false, seed: 31 }, names.map((name, i) => ({ name, color: i })));
+s = createGame({ seats: 4, openSea: false, scenario: 'islands', guilds: false, vpTarget: 0, turnMode: 'specialBuild', friendlyRobber: false, seed: 31 }, names.map((name, i) => ({ name, color: i })));
 s.turn.setupOrder = [0, 1, 2, 3, 3, 2, 1, 0];
 s.turn.current = 0;
 out('setup', s);

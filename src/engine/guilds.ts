@@ -238,7 +238,7 @@ export function chase(s: GameState, seat: number, from: string, target: 'robber'
   need(C.robberActive(s), 'robberInactive');
   const hex = target === 'robber' ? s.board.robber : s.board.pirate;
   need(hex && C.G(s).hexes[hex].vertices.includes(from), 'illegal');
-  need(target === 'robber' || s.settings.seafarers, 'illegal');
+  need(target === 'robber' || s.settings.openSea, 'illegal');
   s.knights[from].active = false;
   C.log(s, 'knight.chase', { seat, target });
   s.steps.unshift({ k: 'robber', seat, robber: target === 'robber', pirate: target === 'pirate', mode: 'steal1' });
@@ -366,7 +366,7 @@ function progressEffect(s: GameState, seat: number, card: ProgressType, arg: Pro
     case 'intrigue': {
       const v = arg.vertex;
       const k = v ? s.knights[v] : undefined;
-      const linked = v && g.vertices[v].edges.some((e) => s.roads[e]?.owner === seat || (s.settings.seafarers && s.ships[e]?.owner === seat));
+      const linked = v && g.vertices[v].edges.some((e) => s.roads[e]?.owner === seat || (s.settings.openSea && s.ships[e]?.owner === seat));
       need(k && k.owner !== seat && linked, 'illegal');
       return () => {
         delete s.knights[v!];

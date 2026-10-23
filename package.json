@@ -9,11 +9,13 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "test": "vitest run",
+    "test": "vitest run tests/rules.test.ts",
     "test:watch": "vitest",
     "sim": "vitest run tests/sim.test.ts",
     "e2e": "node e2e/run.mjs",
-    "typecheck": "tsc -b --noEmit"
+    "typecheck": "tsc -b --noEmit",
+    "e2e:soak": "node e2e/soak.mjs",
+    "e2e:a11y": "node e2e/a11y.mjs"
   },
   "dependencies": {
     "@fontsource-variable/atkinson-hyperlegible-next": "^5.3.0",

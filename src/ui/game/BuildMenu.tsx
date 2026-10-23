@@ -33,7 +33,7 @@ export function BuildMenu({ view, me, send, setMode, onClose }: { view: GameStat
     { id: 'road', label: t('piece.road'), cost: COST.road, left: left.road, ok: can(COST.road) && left.road > 0 && C.legalRoads(view, me).length > 0,
       icon: icon(<path d="M-12 8 L12 -8" className={`road-fill pstroke p${color}`} />), run: pick({ k: 'build', what: 'road' }) },
   ];
-  if (view.settings.seafarers) {
+  if (view.settings.openSea) {
     items.push({ id: 'ship', label: t('piece.ship'), cost: COST.ship, left: left.ship, ok: can(COST.ship) && left.ship > 0 && C.legalShips(view, me).length > 0,
       icon: icon(<ShipShape color={color} />), run: pick({ k: 'build', what: 'ship' }) });
   }

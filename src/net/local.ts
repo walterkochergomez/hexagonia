@@ -4,7 +4,7 @@ import { Rng, randomSeed, seedRng } from '../engine/rng';
 import { viewFor } from '../engine/view';
 import { GameError, type Action, type GameState, type Settings } from '../engine/types';
 import { pickBotMove } from './bots';
-import { BaseSession, type Session } from './session';
+import { BaseSession, botDelay, type Session } from './session';
 
 export const LOCAL_KEY = 'hexagonia.local';
 
@@ -119,7 +119,7 @@ export class LocalSession extends BaseSession implements Session {
           /* se reintenta en la próxima actualización */
         }
       }
-    }, 600);
+    }, botDelay());
   }
 
   nameOf(seat: number): string {

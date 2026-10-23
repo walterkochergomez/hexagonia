@@ -6,7 +6,7 @@ import * as C from '../src/engine/core';
 import { CARDS, LIMITS, type GameState, type Settings } from '../src/engine/types';
 
 export function settings(over: Partial<Settings> = {}): Settings {
-  return { seats: 4, seafarers: false, scenario: 'islands', guilds: false, vpTarget: 0, turnMode: 'specialBuild', friendlyRobber: false, seed: 1, ...over };
+  return { seats: 4, openSea: false, scenario: 'islands', guilds: false, vpTarget: 0, turnMode: 'specialBuild', friendlyRobber: false, seed: 1, ...over };
 }
 
 export function seats(n: number) {

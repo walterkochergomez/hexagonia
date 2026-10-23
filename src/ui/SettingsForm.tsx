@@ -11,8 +11,8 @@ export function SettingsForm({ value, onChange, readOnly, seats }: { value: Lobb
     <div className="settings">
       <fieldset disabled={readOnly}>
         <legend>{t('set.modules')}</legend>
-        <Toggle checked={value.seafarers} onChange={(v) => onChange({ seafarers: v })} label={t('set.seafarers')} hint={t('set.seafarersHint')} disabled={readOnly} />
-        {value.seafarers && (
+        <Toggle checked={value.openSea} onChange={(v) => onChange({ openSea: v })} label={t('set.openSea')} hint={t('set.openSeaHint')} disabled={readOnly} />
+        {value.openSea && (
           <div className="scenarios" role="radiogroup" aria-label={t('set.scenario')}>
             {SEA_SCENARIOS.map((sc: SeaScenario) => (
               <label key={sc} className={`scenario${value.scenario === sc ? ' on' : ''}`}>
