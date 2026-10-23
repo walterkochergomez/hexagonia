@@ -10,6 +10,12 @@
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <noscript>Hexagonia necesita JavaScript. · Hexagonia benötigt JavaScript. · Hexagonia needs JavaScript.</noscript>
+    <div id="boot-error" style="display: none; max-width: 34rem; margin: 15vh auto; padding: 0 16px; font: 16px/1.5 system-ui, sans-serif; color: #263238">
+      <h1 style="font-size: 1.4rem">Hexagonia no se pudo cargar</h1>
+      <p>Si ves esto en GitHub Pages, el sitio está mostrando el código sin compilar. En el repositorio ve a <b>Settings → Pages → Build and deployment → Source</b> y elige <b>GitHub Actions</b>. Después, en la pestaña <b>Actions</b>, abre «Publicar en GitHub Pages» y pulsa <b>Run workflow</b>.</p>
+      <p lang="en" style="color: #546e7a">On GitHub Pages this means the uncompiled source is being served: set Settings → Pages → Source to “GitHub Actions”, then run the “Publicar en GitHub Pages” workflow from the Actions tab.</p>
+    </div>
+    <script type="module" src="/src/main.tsx" onerror="document.getElementById('boot-error').style.display = 'block'"></script>
   </body>
 </html>
