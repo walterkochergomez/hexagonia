@@ -2,12 +2,16 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEve
 import { graphOf } from '../engine/geometry';
 import type { GameState } from '../engine/types';
 import { useT } from '../app/i18n';
+import { prefs, usePrefs } from '../app/prefs';
 import { CardIcon, CityShape, KnightShape, MerchantShape, RobberShape, SettlementShape, ShipShape } from './art';
-import { Coast, NumberToken, R, SX, SY, SeaFace, TOP_POINTS, TileDefs, TileFace, hexPoints, type LandTerrain } from './tiles';
+import { Coast, NumberToken, R, SX, SY, SeaFace, TOP_POINTS, TileDefs, TileFace, hexPoints, turn, type LandTerrain } from './tiles';
 import { reducedMotion } from './fx';
 
 const px = (X: number, Y: number): [number, number] => [X * SX, Y * SY];
 const BASE_POINTS = hexPoints(1);
+/** Inclinación de la vista en perspectiva (grados). */
+export const TILT = 40;
+const TILT_COS = Math.cos((TILT * Math.PI) / 180);
 
 export interface Targets {
   vertices?: string[];
@@ -67,6 +71,9 @@ function useHop(ref: RefObject<SVGGElement | null>, pos: [number, number] | null
 
 export function Board({ view, targets, onPick, flash, children }: Props) {
   const t = useT();
+  const { boardRot, boardTilt } = usePrefs();
+  // el tablero gira en pasos de 60°: como las casillas son hexágonos, basta con mover los centros y todo queda derecho
+  const rot = (boardRot % 6) * 60;
   const g = graphOf(view.board.hexes);
   const svgRef = useRef<SVGSVGElement>(null);
   const [tf, setTf] = useState({ x: 0, y: 0, k: 1 });
@@ -85,6 +92,12 @@ export function Board({ view, targets, onPick, flash, children }: Props) {
     return () => { clearTimeout(on); clearTimeout(off); };
   }, [flash?.key]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const at = (X: number, Y: number): [number, number] => turn(px(X, Y), rot);
+  const vpos = (v: string) => at(g.vertices[v].X, g.vertices[v].Y);
+  const hpos = (h: string) => at(g.hexes[h].X, g.hexes[h].Y);
+  // con la vista inclinada, las piezas se estiran hacia arriba para que parezcan de pie
+  const stand = boardTilt ? `translate(0 8) scale(1 ${(1 / TILT_COS).toFixed(3)}) translate(0 -8)` : undefined;
+
   // encuadre: sin mar navegable basta con la isla y sus puertos, así la isla se ve más grande en el celular
   const openSea = view.settings.openSea;
   const box = useMemo(() => {
@@ -94,15 +107,15 @@ export function Board({ view, targets, onPick, flash, children }: Props) {
     };
     for (const h of Object.values(view.board.hexes)) {
       if (!openSea && h.terrain === 'sea') continue;
-      const [x, y] = px(g.hexes[h.id].X, g.hexes[h.id].Y);
+      const [x, y] = hpos(h.id);
       grow(x - SX, y - R, x + SX, y + R + 6);
     }
     if (!openSea) {
       for (const hb of view.board.harbors) {
         const e = g.edges[hb.edge];
-        const [ax, ay] = px(g.vertices[e.a].X, g.vertices[e.a].Y);
-        const [bx, by] = px(g.vertices[e.b].X, g.vertices[e.b].Y);
-        const [sx, sy] = px(g.hexes[hb.hex].X, g.hexes[hb.hex].Y);
+        const [ax, ay] = vpos(e.a);
+        const [bx, by] = vpos(e.b);
+        const [sx, sy] = hpos(hb.hex);
         const qx = (ax + bx) / 2 + (sx - (ax + bx) / 2) * 0.62;
         const qy = (ay + by) / 2 + (sy - (ay + by) / 2) * 0.62;
         grow(qx - 17, qy - 17, qx + 17, qy + 19);
@@ -110,15 +123,25 @@ export function Board({ view, targets, onPick, flash, children }: Props) {
     }
     const m = openSea ? 10 : 14;
     return { x: x0 - m, y: y0 - m, w: x1 - x0 + 2 * m, h: y1 - y0 + 2 * m };
-  }, [g, openSea, view.board.harbors]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [g, openSea, view.board.harbors, rot]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const scale = () => svgRef.current?.getScreenCTM()?.a ?? 1;
+  // al girar o inclinar se vuelve al encuadre completo
+  useEffect(() => setTf({ x: 0, y: 0, k: 1 }), [rot, boardTilt]);
+
+  /** Escala de pantalla del SVG sin contar la perspectiva (la inclinación la pone el CSS). */
+  const scale = () => {
+    const svg = svgRef.current;
+    if (!svg) return 1;
+    return Math.min(svg.clientWidth / box.w, svg.clientHeight / box.h) || 1;
+  };
   const toUser = (cx: number, cy: number) => {
     const svg = svgRef.current;
-    const m = svg?.getScreenCTM();
-    if (!svg || !m) return { x: 0, y: 0 };
-    const p = new DOMPoint(cx, cy).matrixTransform(m.inverse());
-    return { x: p.x, y: p.y };
+    if (!svg || boardTilt) return { x: box.x + box.w / 2, y: box.y + box.h / 2 }; // en perspectiva se acerca al centro
+    const r = svg.getBoundingClientRect();
+    const s = scale();
+    const ox = (r.width - box.w * s) / 2;
+    const oy = (r.height - box.h * s) / 2;
+    return { x: box.x + (cx - r.left - ox) / s, y: box.y + (cy - r.top - oy) / s };
   };
   const zoomAt = (ux: number, uy: number, factor: number) => {
     setTf((cur) => {
@@ -149,7 +172,8 @@ export function Board({ view, targets, onPick, flash, children }: Props) {
       if (!gs.moved) (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
       gs.moved = true;
       const s = scale();
-      setTf((cur) => ({ ...cur, x: cur.x + (e.clientX - prev.x) / s, y: cur.y + (e.clientY - prev.y) / s }));
+      const sy = boardTilt ? s * TILT_COS : s;
+      setTf((cur) => ({ ...cur, x: cur.x + (e.clientX - prev.x) / s, y: cur.y + (e.clientY - prev.y) / sy }));
     } else if (pts.length === 2 && gs.dist > 0) {
       gs.moved = true;
       const d = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
@@ -176,8 +200,6 @@ export function Board({ view, targets, onPick, flash, children }: Props) {
   };
 
   const colorOf = (seat: number) => view.players[seat]?.color ?? 0;
-  const vpos = (v: string) => px(g.vertices[v].X, g.vertices[v].Y);
-  const hpos = (h: string) => px(g.hexes[h].X, g.hexes[h].Y);
   const selected = new Set(targets?.selected ?? []);
   const name = (k: string) => t(k);
 
@@ -194,13 +216,13 @@ export function Board({ view, targets, onPick, flash, children }: Props) {
   const pirateRef = useRef<SVGGElement>(null);
   const robberAt = view.board.robber;
   const pirateAt = view.board.pirate;
-  useHop(robberRef, robberAt ? hpos(robberAt) : null, robberAt);
-  useHop(pirateRef, pirateAt ? hpos(pirateAt) : null, pirateAt);
+  useHop(robberRef, robberAt ? hpos(robberAt) : null, robberAt && `${robberAt}:${rot}`);
+  useHop(pirateRef, pirateAt ? hpos(pirateAt) : null, pirateAt && `${pirateAt}:${rot}`);
 
-  // mar, costa e isla: sólo cambian con el tablero, no al mover o acercar
+  // mar, costa e isla: sólo cambian con el tablero o el giro, no al mover o acercar
   const landscape = useMemo(() => {
     const all = Object.values(view.board.hexes);
-    const land = all.filter((h) => h.terrain !== 'sea').sort((a, b) => g.hexes[a.id].Y - g.hexes[b.id].Y || g.hexes[a.id].X - g.hexes[b.id].X);
+    const land = all.filter((h) => h.terrain !== 'sea').sort((a, b) => hpos(a.id)[1] - hpos(b.id)[1] || hpos(a.id)[0] - hpos(b.id)[0]);
     const sea = all.filter((h) => h.terrain === 'sea');
     const centers = land.filter((h) => h.terrain !== 'fog').map((h) => hpos(h.id));
     return (
@@ -270,10 +292,10 @@ export function Board({ view, targets, onPick, flash, children }: Props) {
         </g>
       </>
     );
-  }, [view.board, lit?.key, lit?.number, t]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [view.board, lit?.key, lit?.number, t, rot]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="board-wrap">
+    <div className={`board-wrap${boardTilt ? ' tilted' : ''}`}>
       <svg
         ref={svgRef}
         className="board"
@@ -326,10 +348,10 @@ export function Board({ view, targets, onPick, flash, children }: Props) {
             })}
             {Object.entries(view.ships).map(([e, r]) => {
               const ed = g.edges[e];
-              const [x, y] = px(ed.X, ed.Y);
+              const [x, y] = at(ed.X, ed.Y);
               return (
                 <g key={e} transform={`translate(${x} ${y})`}>
-                  <g className={fresh.has(`s:${e}`) ? 'fresh-drop' : undefined}><ShipShape color={colorOf(r.owner)} /></g>
+                  <g transform={stand}><g className={fresh.has(`s:${e}`) ? 'fresh-drop' : undefined}><ShipShape color={colorOf(r.owner)} /></g></g>
                 </g>
               );
             })}
@@ -342,8 +364,10 @@ export function Board({ view, targets, onPick, flash, children }: Props) {
               return (
                 <g key={v} transform={`translate(${x} ${y})`}>
                   {isNew && <ellipse cx={1} cy={8} rx={13} ry={4} className="dust" />}
-                  <g className={isNew ? 'fresh-drop' : undefined}>
-                    {b.kind === 'city' ? <CityShape color={colorOf(b.owner)} wall={b.wall} metro={b.metro} damaged={b.damaged} /> : <SettlementShape color={colorOf(b.owner)} />}
+                  <g transform={stand}>
+                    <g className={isNew ? 'fresh-drop' : undefined}>
+                      {b.kind === 'city' ? <CityShape color={colorOf(b.owner)} wall={b.wall} metro={b.metro} damaged={b.damaged} /> : <SettlementShape color={colorOf(b.owner)} />}
+                    </g>
                   </g>
                 </g>
               );
@@ -353,7 +377,7 @@ export function Board({ view, targets, onPick, flash, children }: Props) {
               const isNew = fresh.has(`k:${v}:${k.level}:${k.active ? 1 : 0}`);
               return (
                 <g key={v} transform={`translate(${x} ${y})`}>
-                  <g className={isNew ? 'fresh-drop' : undefined}><KnightShape color={colorOf(k.owner)} level={k.level} active={k.active} /></g>
+                  <g transform={stand}><g className={isNew ? 'fresh-drop' : undefined}><KnightShape color={colorOf(k.owner)} level={k.level} active={k.active} /></g></g>
                 </g>
               );
             })}
@@ -362,15 +386,15 @@ export function Board({ view, targets, onPick, flash, children }: Props) {
           <g className="layer-tokens">
             {robberAt && (() => {
               const [x, y] = hpos(robberAt);
-              return <g transform={`translate(${x - 26} ${y + 4})`}><title>{t('piece.robber')}</title><g ref={robberRef}><g transform="scale(1.15)"><RobberShape /></g></g></g>;
+              return <g transform={`translate(${x - 26} ${y + 4})`}><title>{t('piece.robber')}</title><g ref={robberRef}><g transform={stand}><g transform="scale(1.15)"><RobberShape /></g></g></g></g>;
             })()}
             {pirateAt && (() => {
               const [x, y] = hpos(pirateAt);
-              return <g transform={`translate(${x} ${y})`}><title>{t('piece.pirate')}</title><g ref={pirateRef}><g transform="scale(1.5)"><ShipShape /></g></g></g>;
+              return <g transform={`translate(${x} ${y})`}><title>{t('piece.pirate')}</title><g ref={pirateRef}><g transform={stand}><g transform="scale(1.5)"><ShipShape /></g></g></g></g>;
             })()}
             {view.board.merchant && (() => {
               const [x, y] = hpos(view.board.merchant.hex);
-              return <g transform={`translate(${x + 26} ${y + 4})`}><title>{t('piece.merchant')}</title><MerchantShape color={colorOf(view.board.merchant.owner)} /></g>;
+              return <g transform={`translate(${x + 26} ${y + 4})`}><title>{t('piece.merchant')}</title><g transform={stand}><MerchantShape color={colorOf(view.board.merchant.owner)} /></g></g>;
             })()}
           </g>
 
@@ -406,6 +430,16 @@ export function Board({ view, targets, onPick, flash, children }: Props) {
         </g>
       </svg>
       {children}
+      <div className="board-view-tools">
+        <button type="button" className="icon-btn" aria-label={t('act.rotate')} title={t('act.rotate')} onClick={() => prefs.set({ boardRot: (boardRot + 1) % 6 })}>
+          <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" className="tool-icon"><path d="M19.4 12.6A7.5 7.5 0 1 1 16.8 6.2" /><path d="M17.6 2.8 L17.6 7.2 L13.2 7.2" /></svg>
+        </button>
+        <button type="button" className={`icon-btn${boardTilt ? ' on' : ''}`} aria-pressed={boardTilt} aria-label={boardTilt ? t('act.flat') : t('act.tilt')} title={boardTilt ? t('act.flat') : t('act.tilt')} onClick={() => prefs.set({ boardTilt: !boardTilt })}>
+          {boardTilt
+            ? <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" className="tool-icon"><rect x="5" y="5" width="14" height="14" rx="1.5" /><path d="M5 12 H19 M12 5 V19" /></svg>
+            : <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" className="tool-icon"><path d="M8 7 H16 L20 18 H4 Z" /><path d="M6 12.5 H18 M12 7 V18" /></svg>}
+        </button>
+      </div>
       <div className="board-tools">
         <button type="button" className="icon-btn" aria-label={t('act.zoomIn')} title={t('act.zoomIn')} onClick={() => zoomAt(box.x + box.w / 2, box.y + box.h / 2, 1.25)}>+</button>
         <button type="button" className="icon-btn" aria-label={t('act.zoomOut')} title={t('act.zoomOut')} onClick={() => zoomAt(box.x + box.w / 2, box.y + box.h / 2, 0.8)}>−</button>

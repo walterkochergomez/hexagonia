@@ -462,16 +462,24 @@ export function NumberToken({ n }: { n: number }) {
   );
 }
 
-/** Mar alrededor de la isla: sombra, aguas bajas y espuma, en ese orden. */
-export function Coast({ centers }: { centers: [number, number][] }) {
+/** Gira un vector (en grados); sirve para que las sombras sigan cayendo hacia abajo en pantalla con el tablero girado. */
+export function turn([x, y]: [number, number], deg: number): [number, number] {
+  const r = (deg * Math.PI) / 180;
+  return [x * Math.cos(r) - y * Math.sin(r), x * Math.sin(r) + y * Math.cos(r)];
+}
+
+/** Mar alrededor de la isla: sombra, aguas bajas y espuma, en ese orden. `rot` es el giro del tablero. */
+export function Coast({ centers, rot = 0 }: { centers: [number, number][]; rot?: number }) {
   const halo = hexPoints(1.17);
   const foam = hexPoints(1.045);
   const body = hexPoints(1);
+  const [sx, sy] = turn([4, 12], -rot);
+  const [fx, fy] = turn([0, 2], -rot);
   return (
     <g className="coast" aria-hidden="true">
-      <g opacity={0.3} fill="#0b3a43">{centers.map(([x, y], i) => <polygon key={i} points={body} transform={`translate(${x + 4} ${y + 12})`} />)}</g>
+      <g opacity={0.3} fill="#0b3a43">{centers.map(([x, y], i) => <polygon key={i} points={body} transform={`translate(${x + sx} ${y + sy})`} />)}</g>
       <g opacity={0.5} fill="#6cc6c2">{centers.map(([x, y], i) => <polygon key={i} points={halo} transform={`translate(${x} ${y})`} />)}</g>
-      <g className="foam" opacity={0.8} fill="#eef9f6">{centers.map(([x, y], i) => <polygon key={i} points={foam} transform={`translate(${x} ${y + 2})`} />)}</g>
+      <g className="foam" opacity={0.8} fill="#eef9f6">{centers.map(([x, y], i) => <polygon key={i} points={foam} transform={`translate(${x + fx} ${y + fy})`} />)}</g>
     </g>
   );
 }

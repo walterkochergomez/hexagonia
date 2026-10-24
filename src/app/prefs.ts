@@ -1,7 +1,16 @@
 import { useSyncExternalStore } from 'react';
 import { detectLang, type Lang } from '../i18n';
 
-export interface Prefs { name: string; lang: Lang; clientId: string; sound: boolean }
+export interface Prefs {
+  name: string;
+  lang: Lang;
+  clientId: string;
+  sound: boolean;
+  /** giro del tablero en pasos de 60° (0–5) */
+  boardRot: number;
+  /** tablero inclinado (vista en perspectiva) */
+  boardTilt: boolean;
+}
 const KEY = 'hexagonia.prefs';
 
 function load(): Prefs {
@@ -12,7 +21,7 @@ function load(): Prefs {
     /* sin almacenamiento */
   }
   const clientId = saved.clientId ?? (crypto.randomUUID?.() ?? Math.random().toString(36).slice(2) + Date.now().toString(36));
-  return { name: saved.name ?? '', lang: saved.lang ?? detectLang(), clientId, sound: saved.sound ?? true };
+  return { name: saved.name ?? '', lang: saved.lang ?? detectLang(), clientId, sound: saved.sound ?? true, boardRot: ((saved.boardRot ?? 0) % 6 + 6) % 6, boardTilt: saved.boardTilt ?? false };
 }
 
 let state = load();

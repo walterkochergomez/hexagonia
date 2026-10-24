@@ -31,13 +31,13 @@ async function open(reduced) {
   await page.waitForTimeout(900);
   return { ctx, page };
 }
-async function openScene(file) {
+async function openScene(file, view = {}) {
   const ctx = await browser.newContext({ viewport: { width: 1100, height: 800 } });
   const save = readFileSync(`e2e/out/${file}`, 'utf8');
-  await ctx.addInitScript((s) => {
-    localStorage.setItem('hexagonia.prefs', JSON.stringify({ name: 'Walter', lang: 'es', clientId: 'x', sound: false }));
+  await ctx.addInitScript(([s, v]) => {
+    localStorage.setItem('hexagonia.prefs', JSON.stringify({ name: 'Walter', lang: 'es', clientId: 'x', sound: false, ...v }));
     localStorage.setItem('hexagonia.local', s);
-  }, save);
+  }, [save, view]);
   const page = await ctx.newPage();
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto(`http://localhost:${PORT}/?botDelay=600000#/local/juego`);
@@ -130,6 +130,20 @@ try {
   assert.ok(robAnims.includes('hop'), `el ladrón salta: ${robAnims}`);
   log('el ladrón salta a su casilla');
   await rob.ctx.close();
+
+  // tablero girado e inclinado: se sigue pudiendo elegir dónde construir
+  const tilted = await openScene('scene-setup.json', { boardRot: 2, boardTilt: true });
+  const builtBefore = await tilted.page.locator('.layer-buildings > g').count();
+  await tilted.page.locator('.layer-targets .target-vertex').nth(3).click();
+  await tilted.page.locator('.layer-targets .target-edge').first().waitFor({ state: 'attached', timeout: 3000 });
+  assert.equal(await tilted.page.locator('.layer-buildings > g').count(), builtBefore + 1, 'poblado puesto con la vista inclinada');
+  await tilted.page.locator('[aria-label="Girar tablero"]').click();
+  await tilted.page.locator('[aria-label="Ver desde arriba"]').click();
+  await tilted.page.locator('.layer-targets .target-edge').first().click();
+  await tilted.page.waitForTimeout(400);
+  assert.equal(await tilted.page.locator('.layer-routes .road').count() > 0, true, 'camino puesto tras girar y aplanar');
+  log('con el tablero girado e inclinado se puede construir');
+  await tilted.ctx.close();
 
   // ---- movimiento reducido ----
   const r = await open(true);
