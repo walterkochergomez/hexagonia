@@ -45,17 +45,21 @@ export function setup(s: GameState, rng: Rng, marks: Marks) {
   // búsqueda al azar de un reparto parejo: rutas del mismo largo, cortas, sin cruzarse y en islas distintas
   type Trip = { start: string; landing: string; fort: string }[];
   const found: { score: number; trip: Trip }[] = [];
-  for (let trial = 0; trial < 400; trial++) {
+  // a dos lados de distancia: dos cruces que comparten un vecino también cuentan como cerca
+  const near2 = (a: string, b: string) => near(a, b) || g.vertices[a].neighbors.some((x) => g.vertices[x].neighbors.includes(b));
+  for (let trial = 0; trial < 900; trial++) {
+    // primero con lugares bien separados; si no alcanza, sólo sin tocarse
+    const close = trial < 600 ? near2 : near;
     const goal = 9 + rng.int(4);
     const used: string[] = [];
     const trip: { start: string; landing: string; fort: string; len: number }[] = [];
     for (const st of rng.shuffle([...starts])) {
       if (trip.length >= n) break;
-      if (used.some((u) => near(u, st))) continue;
+      if (used.some((u) => close(u, st))) continue;
       let pick: (typeof pairs)[number] | null = null;
       let gap = Infinity;
       for (const p of rng.shuffle([...pairs])) {
-        if (near(p.landing, st) || used.some((u) => near(u, p.landing) || near(u, p.fort))) continue;
+        if (near(p.landing, st) || used.some((u) => close(u, p.landing) || close(u, p.fort))) continue;
         const len = (D(p.landing).get(st) ?? 99) + p.leg;
         if (Math.abs(len - goal) < gap) { gap = Math.abs(len - goal); pick = p; }
       }
@@ -69,45 +73,88 @@ export function setup(s: GameState, rng: Rng, marks: Marks) {
     const mean = lens.reduce((a, b) => a + b, 0) / n;
     const byStart = [...trip].sort((a, b) => px(a.start)[1] - px(b.start)[1]);
     const byLand = [...trip].sort((a, b) => px(a.landing)[1] - px(b.landing)[1]);
-    const crossed = byStart.some((x, i) => x !== byLand[i]);
+    // rutas que se cruzan no pueden existir (las rutas no se tocan)
+    if (byStart.some((x, i) => x !== byLand[i])) continue;
     const islands = new Set(trip.map((x) => isleOf(x.fort))).size;
-    const score = spread * 6 + mean * 3 + (crossed ? 6 : 0) - islands;
+    const score = spread * 6 + mean * 3 - islands + (close === near ? 20 : 0);
     found.push({ score, trip });
+    if (found.length >= 300) break;
   }
   if (!found.length) throw new Error('bastiones: no hay reparto');
   found.sort((a, b) => a.score - b.score);
   // a cada color le toca un tramo al azar
   const seats = rng.shuffle(s.players.map((p) => p.seat));
-  const make = (trip: Trip): Fort[] => trip.map((x, i) => ({ seat: seats[i], v: x.fort, landing: x.landing, start: x.start, chips: CHIPS, taken: false }));
-  // con los puertos y bastiones ya puestos, las rutas no pueden atravesar los de otros: se verifica el largo real
-  const real = (forts: Fort[]): number[] => {
-    s.bastions = { rock: [], loop: [], fleet: null, forts, last: null };
-    for (const f of forts) s.buildings[f.start] = { owner: f.seat, kind: 'settlement' };
-    const lens = forts.map((f) => (C.shipDistances(s, f.landing, f.seat).get(f.start) ?? 99) + (C.shipDistances(s, f.v, f.seat).get(f.landing) ?? 99));
-    for (const f of forts) delete s.buildings[f.start];
-    return lens;
+  /**
+   * Trazado de las rutas: cada una es un carril fijo desde el puerto, por su desembarco, hasta su bastión, por el
+   * camino más corto que no toque los carriles ya trazados ni los puertos, desembarcos o bastiones de otros.
+   * Así ninguna ruta puede quedar encerrada por otra durante la partida.
+   */
+  const lane = (from: string, to: string, banned: Set<string>): string[] | null => {
+    const prev = new Map<string, string>([[from, '']]);
+    const queue = [from];
+    while (queue.length) {
+      const x = queue.shift()!;
+      if (x === to) break;
+      if (x !== from && banned.has(x)) continue;
+      for (const e of g.vertices[x].edges) {
+        if (!C.edgeShippable(s, e)) continue;
+        const w = otherEnd(g, e, x);
+        if (prev.has(w) || (w !== to && banned.has(w))) continue;
+        prev.set(w, e);
+        queue.push(w);
+      }
+    }
+    if (!prev.has(to)) return null;
+    const out: string[] = [];
+    for (let v = to; v !== from;) {
+      const e = prev.get(v)!;
+      out.unshift(e);
+      v = otherEnd(g, e, v);
+    }
+    return out;
   };
-  let forts = make(found[0].trip);
-  let bestGap = Infinity;
-  for (const cand of found.slice(0, 40)) {
-    const fs = make(cand.trip);
-    const lens = real(fs);
-    const gap = Math.max(...lens) - Math.min(...lens) + (Math.max(...lens) >= 99 ? 100 : 0);
-    if (gap < bestGap) {
-      bestGap = gap;
+  const plan = (trip: Trip): Fort[] | null => {
+    const forts: Fort[] = trip.map((x, i) => ({ seat: seats[i], v: x.fort, landing: x.landing, start: x.start, chips: CHIPS, taken: false, plan: [] }));
+    const spots = new Set(forts.flatMap((f) => [f.start, f.landing, f.v]));
+    const taken = new Set<string>();
+    // primero los trayectos más largos, que tienen menos alternativas
+    const order = [...forts].sort((x, y) => (D(y.landing).get(y.start) ?? 0) - (D(x.landing).get(x.start) ?? 0));
+    for (const f of order) {
+      const mine = new Set([f.start, f.landing, f.v]);
+      const banned = new Set([...taken, ...[...spots].filter((v) => !mine.has(v))]);
+      const one = lane(f.start, f.landing, new Set([...banned, f.v]));
+      if (!one) return null;
+      const used = new Set<string>([f.start]);
+      for (const e of one) { used.add(g.edges[e].a); used.add(g.edges[e].b); }
+      used.delete(f.landing);
+      const two = lane(f.landing, f.v, new Set([...banned, ...used]));
+      if (!two) return null;
+      f.plan = [...one, ...two];
+      for (const e of f.plan) { taken.add(g.edges[e].a); taken.add(g.edges[e].b); }
+    }
+    return forts;
+  };
+  let forts: Fort[] | null = null;
+  let bestScore = Infinity;
+  for (const cand of found) {
+    const fs = plan(cand.trip);
+    if (!fs) continue;
+    const lens = fs.map((f) => f.plan.length);
+    // parejas y cortas: la diferencia pesa más que el largo
+    const score = (Math.max(...lens) - Math.min(...lens)) * 4 + Math.max(...lens);
+    if (score < bestScore) {
+      bestScore = score;
       forts = fs;
     }
-    if (gap <= 1) break;
+    if (Math.max(...lens) - Math.min(...lens) <= 1 && Math.max(...lens) <= (n > 4 ? 12 : 11)) break;
   }
+  if (!forts) throw new Error('bastiones: no hay rutas');
   forts.sort((a, b) => a.seat - b.seat);
   s.bastions = { rock: [...(marks.rock ?? [])], loop: [...(marks.loop ?? [])], fleet: 0, forts, last: null };
-  // cada uno empieza con un poblado en su puerto y el primer barco hacia su desembarco
+  // cada uno empieza con un poblado en su puerto y el primer barco de su carril
   for (const f of forts) {
     s.buildings[f.start] = { owner: f.seat, kind: 'settlement' };
-    const dist = C.shipDistances(s, f.landing, f.seat);
-    const here = dist.get(f.start)!;
-    const first = g.vertices[f.start].edges.find((e) => C.edgeShippable(s, e) && !s.ships[e] && dist.get(otherEnd(g, e, f.start)) === here - 1);
-    if (first) s.ships[first] = { owner: f.seat };
+    s.ships[f.plan[0]] = { owner: f.seat };
   }
 }
 

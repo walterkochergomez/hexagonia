@@ -646,6 +646,11 @@ function handle(s: GameState, seat: number, a: Action, rng: Rng) {
     case 'buyDev': {
       need(!s.settings.guilds, 'badAction');
       need(BUILD_PHASES.includes(t.phase) && seat === actor, 'notYourTurn');
+      // bastiones: los soldados jugados vuelven al mazo cuando se acaba
+      if (!s.hidden.devDeck.length && s.hidden.devDiscard?.length) {
+        s.hidden.devDeck = rng.shuffle(s.hidden.devDiscard);
+        s.hidden.devDiscard = [];
+      }
       need(s.hidden.devDeck.length > 0, 'emptyDeck');
       C.pay(s, seat, COST.dev);
       const card = s.hidden.devDeck.shift()!;
@@ -668,6 +673,7 @@ function handle(s: GameState, seat: number, a: Action, rng: Rng) {
       C.log(s, 'dev.play', { seat, card: a.card });
       if (a.card === 'soldier' && s.bastions) {
         Bastions.arm(s, seat);
+        s.hidden.devDiscard = [...(s.hidden.devDiscard ?? []), 'soldier'];
       } else if (a.card === 'soldier') {
         p.soldiers++;
         C.updateArmyAward(s);

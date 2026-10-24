@@ -612,12 +612,14 @@ const BASTION_PLANS: Record<'small' | 'big', string[]> = {
     '...........',
     '.PP...HHH..',
     '.PPP..HHHH.',
-    '....D.HHHH.',
-    '.PP.D.HHHH.',
+    '......HHH..',
+    '.PP...HHHH.',
     '.PP.D.HHH..',
-    '......HHHH.',
+    '....D.HHHH.',
     '.PP...HHH..',
-    '.PPP.......',
+    '.PPP..HHHH.',
+    '...........',
+    '.PP........',
     '...........',
   ],
 };
@@ -654,12 +656,8 @@ function tryBastions(rng: Rng, big: boolean): MapResult | null {
     rng.shuffle(pool);
     cells.forEach((c, i) => terrain.set(c, pool[i]));
   };
-  setTerrain(home, big
-    ? [...rep<Terrain>('forest', 6), ...rep<Terrain>('pasture', 5), ...rep<Terrain>('fields', 5), ...rep<Terrain>('hills', 5), ...rep<Terrain>('mountains', 4)]
-    : [...rep<Terrain>('forest', 4), ...rep<Terrain>('pasture', 3), ...rep<Terrain>('fields', 3), ...rep<Terrain>('hills', 3), ...rep<Terrain>('mountains', 3)]);
-  setTerrain(pirate, big
-    ? [...rep<Terrain>('forest', 3), ...rep<Terrain>('pasture', 3), ...rep<Terrain>('fields', 3), ...rep<Terrain>('hills', 2), ...rep<Terrain>('mountains', 3), 'gold']
-    : [...rep<Terrain>('forest', 2), ...rep<Terrain>('pasture', 2), ...rep<Terrain>('fields', 3), ...rep<Terrain>('hills', 2), ...rep<Terrain>('mountains', 2), 'gold']);
+  setTerrain(home, terrainPool(home.length, 0, 0));
+  setTerrain(pirate, terrainPool(pirate.length, big ? 2 : 1, 0));
   for (const c of rock) terrain.set(c, 'desert');
   // circuito: el mar que rodea al peñón, en sentido horario
   const loopSet = new Set<Cell>();

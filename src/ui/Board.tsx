@@ -562,6 +562,16 @@ export function Board({ view, targets, onPick, flash, children, still = false, l
         );
       })}
       {view.bastions?.forts.map((f) => {
+        // el tramo que le falta a la ruta: punteado del color del jugador
+        if (f.taken || !f.plan.length) return null;
+        const built = Object.keys(view.ships).filter((e) => view.ships[e].owner === f.seat && f.plan.includes(e)).length;
+        const rest = f.plan.slice(built);
+        if (!rest.length) return null;
+        const pts = rest.map((e) => at(g.edges[e].X, g.edges[e].Y));
+        const d = `M${pts.map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join(' L')}`;
+        return <path key={`lane${f.seat}`} d={d} className={`lane p${colorOf(f.seat)}`} />;
+      })}
+      {view.bastions?.forts.map((f) => {
         const owner = view.players[f.seat]?.name ?? '';
         const out: ReactNode[] = [];
         if (!f.taken) {

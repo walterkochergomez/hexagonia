@@ -114,6 +114,7 @@ s = base({ openSea: true, scenario: 'bastions' });
   for (const e of r.edges.slice(0, 3)) s.ships[e] = { owner: 0, war: true };
   f.chips = 2;
   s.players[0].dev.push({ type: 'soldier', turn: 1 });
+  s.players[0].devPlayedTurn = -1;
 }
 out('bastions', s);
 // 14. Mar Abierto: grandes obras, con dos ciudades y para empezar el observatorio

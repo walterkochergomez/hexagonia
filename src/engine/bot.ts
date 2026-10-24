@@ -283,6 +283,9 @@ export function botAction(s: GameState, seat: number, rng: Rng): Action | null {
     const w = Bastions.warships(s, seat);
     if (Bastions.canAssault(s, seat) && (w >= 4 || (w >= 2 && rng.float() < 0.3))) return { t: 'assault' };
     if (p.devPlayedTurn !== t.n && p.dev.some((d) => d.type === 'soldier' && d.turn !== t.n) && Bastions.canArm(s, seat)) return { t: 'playDev', card: 'soldier' };
+    // con la ruta en el bastión, hacen falta barcos de guerra: comprar cartas
+    const f = C.fortOf(s, seat);
+    if (f && !f.taken && C.bastionRoute(s, seat).head === f.v && w < 5 && can(COST.dev) && s.decks.dev > 0) return { t: 'buyDev' };
   }
   if (s.bastions && can(COST.ship) && left.ship > 0 && rng.float() < 0.85) {
     const ships = C.legalShips(s, seat);

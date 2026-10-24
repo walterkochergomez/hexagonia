@@ -28,7 +28,7 @@ const configs: [string, Partial<Settings>, number[]][] = [
   ['aldeas tejedoras', { openSea: true, scenario: 'looms' }, [3, 4, 5]],
   ['bastiones corsarios', { openSea: true, scenario: 'bastions' }, [3, 4, 5, 6]],
   ['grandes obras', { openSea: true, scenario: 'works' }, [3, 4, 6]],
-  ['bastiones + sucesos + muelles', { openSea: true, scenario: 'bastions', chronicle: true, harbormaster: true }, [4]],
+  ['bastiones + sucesos', { openSea: true, scenario: 'bastions', chronicle: true }, [4]],
   ['aldeas + sucesos', { openSea: true, scenario: 'looms', chronicle: true }, [4]],
 ];
 

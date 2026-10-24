@@ -45,7 +45,7 @@ interface Scene {
   tribe?: { hexes: string[]; gifts: TribeGift[] };
   looms?: { hexes: string[]; villages: { v: string; n: number; cloth: number; linked: number[] }[] };
   /** bastiones: peñón (su anillo de mar es el recorrido de la flota) y bastiones */
-  bastions?: { rock: string; fleet: number; forts: { seat: number; v: string; landing: string; chips: number }[] };
+  bastions?: { rock: string; fleet: number; forts: { seat: number; v: string; landing: string; chips: number; plan?: string[] }[] };
   works?: { strait: string[]; waste: string[] };
 }
 
@@ -84,7 +84,7 @@ function stateOf(sc: Scene): GameState {
       const [q, r] = sc.bastions.rock.slice(1).split(',').map(Number);
       // el anillo alrededor del peñón, en sentido horario desde el noreste
       const loop = [[1, -1], [1, 0], [0, 1], [-1, 1], [-1, 0], [0, -1]].map(([dq, dr]) => hexId(q + dq, r + dr));
-      return { rock: [sc.bastions.rock], loop, fleet: sc.bastions.fleet, forts: sc.bastions.forts.map((f) => ({ ...f, start: '', taken: false })), last: null };
+      return { rock: [sc.bastions.rock], loop, fleet: sc.bastions.fleet, forts: sc.bastions.forts.map((f) => ({ plan: [], ...f, start: '', taken: false })), last: null };
     })(),
     works: sc.works && { ...sc.works, wonders: [] },
     roads: { ...own(sc.roads), ...Object.fromEntries((sc.bridges ?? []).map(([e, owner]) => [e, { owner, bridge: true }])) },

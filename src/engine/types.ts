@@ -53,7 +53,7 @@ export interface TribeGift { edge: string; kind: 'vp' | 'dev' | 'harbor'; harbor
 /** Aldeas tejedoras: cada aldea es un cruce con número y telas. */
 export interface Village { v: string; n: number; cloth: number; linked: number[] }
 /** Bastiones corsarios: el de cada jugador, su punto de desembarco y su puerto de salida. */
-export interface Fort { seat: number; v: string; landing: string; start: string; chips: number; taken: boolean }
+export interface Fort { seat: number; v: string; landing: string; start: string; chips: number; taken: boolean; plan: string[] }
 /** Grandes obras. */
 export type WonderId = 'tower' | 'library' | 'lock' | 'mills' | 'observatory';
 export const WONDERS: readonly WonderId[] = ['tower', 'library', 'lock', 'mills', 'observatory'];
@@ -263,6 +263,8 @@ export interface GameState {
   hidden: {
     fog: Record<string, { terrain: Terrain; number: number | null }>;
     devDeck: DevType[];
+    /** bastiones: soldados ya jugados; cuando el mazo se acaba, se vuelven a mezclar */
+    devDiscard?: DevType[];
     progress: Record<Track, ProgressType[]>;
     rng: [number, number, number, number];
     chronicle?: ChronicleCard[];

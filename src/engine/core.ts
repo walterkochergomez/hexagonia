@@ -60,6 +60,7 @@ export const isCrossing = (s: GameState, e: string) => !!s.river?.crossings.incl
 
 export function canRoad(s: GameState, seat: number, e: string): boolean {
   if (!G(s).edges[e] || s.roads[e] || s.ships[e] || isCrossing(s, e)) return false;
+  if (s.bastions?.forts.some((f) => f.plan.includes(e))) return false; // los carriles de barcos no llevan caminos
   return edgeRoadable(s, e) && routeConnects(s, seat, e, s.roads) && !hasBrokenRoad(s, seat);
 }
 
@@ -94,18 +95,30 @@ export function bastionRoute(s: GameState, seat: number): { edges: string[]; hea
   return { edges, head: v, landed };
 }
 
-/** Distancias en barcos hasta `target` por lados navegables libres, sin pasar por edificios ajenos ni bastiones sin tomar. */
+/**
+ * Cruces por donde no puede pasar la ruta de `seat`: edificios ajenos, bastiones sin tomar, desembarcos ajenos y
+ * cruces que ya toca la ruta de otro jugador (las rutas no se tocan, así ninguna queda encerrada por otra).
+ */
+function routeBlocked(s: GameState, seat: number, v: string): boolean {
+  if (blocksFor(s, v, seat)) return true;
+  for (const f of s.bastions?.forts ?? []) {
+    if (!f.taken && f.v === v) return true;
+    if (f.seat !== seat && f.landing === v) return true;
+  }
+  return G(s).vertices[v].edges.some((e) => s.ships[e] && s.ships[e].owner !== seat);
+}
+
+/** Distancias en barcos hasta `target` por lados navegables libres, sin pasar por cruces bloqueados. */
 export function shipDistances(s: GameState, target: string, seat: number): Map<string, number> {
   const g = G(s);
-  const forts = new Set((s.bastions?.forts ?? []).filter((f) => !f.taken).map((f) => f.v));
   const dist = new Map<string, number>([[target, 0]]);
   const queue = [target];
   while (queue.length) {
     const x = queue.shift()!;
     const d = dist.get(x)!;
-    if (x !== target && (forts.has(x) || blocksFor(s, x, seat))) continue;
+    if (x !== target && routeBlocked(s, seat, x)) continue;
     for (const e of g.vertices[x].edges) {
-      if (!edgeShippable(s, e) || (s.ships[e] && s.ships[e].owner !== seat) || s.roads[e]) continue;
+      if (!edgeShippable(s, e) || s.ships[e] || s.roads[e]) continue;
       const w = otherEnd(g, e, x);
       if (dist.has(w)) continue;
       dist.set(w, d + 1);
@@ -115,17 +128,18 @@ export function shipDistances(s: GameState, target: string, seat: number): Map<s
   return dist;
 }
 
+/** Bastiones: el barco nuevo va en el lado siguiente del carril trazado al empezar. */
 function bastionStep(s: GameState, seat: number, e: string): boolean {
   const f = fortOf(s, seat);
   if (!f || f.taken) return false;
   const r = bastionRoute(s, seat);
-  if (r.head === f.v) return false; // la ruta termina en el bastión
-  const ed = G(s).edges[e];
-  if (ed.a !== r.head && ed.b !== r.head) return false;
-  const dist = shipDistances(s, r.landed ? f.v : f.landing, seat);
-  const here = dist.get(r.head);
-  const next = dist.get(otherEnd(G(s), e, r.head));
-  return here !== undefined && next !== undefined && next === here - 1;
+  return f.plan[r.edges.length] === e;
+}
+
+/** Cruces de los carriles ajenos (ahí no se funda). */
+export function laneOfOthers(s: GameState, seat: number, v: string): boolean {
+  const g = G(s);
+  return (s.bastions?.forts ?? []).some((f) => f.seat !== seat && f.plan.some((e) => g.edges[e].a === v || g.edges[e].b === v));
 }
 
 export function distanceOk(s: GameState, v: string): boolean {
@@ -145,6 +159,7 @@ function scenarioSettleOk(s: GameState, seat: number, v: string): boolean {
   if (s.tribe && land.every((h) => s.tribe!.hexes.includes(h))) return false;
   if (s.looms && land.every((h) => s.looms!.hexes.includes(h))) return false;
   if (s.bastions && !land.some((h) => s.board.hexes[h].region === 0)) return fortOf(s, seat)?.landing === v;
+  if (s.bastions && laneOfOthers(s, seat, v)) return false;
   return true;
 }
 
@@ -157,6 +172,7 @@ export function setupVertexOk(s: GameState, v: string): boolean {
   const vx = G(s).vertices[v];
   if (!vx || s.buildings[v] || !vertexLand(s, v) || !distanceOk(s, v)) return false;
   if (s.works && (s.works.strait.includes(v) || s.works.waste.includes(v))) return false;
+  if (s.bastions && laneOfOthers(s, -1, v)) return false;
   const home = s.board.homeRegions;
   if (!home) return true;
   return vx.hexes.some((h) => hexIsLand(s, h) && home.includes(s.board.hexes[h].region ?? -1));
@@ -166,6 +182,7 @@ export function setupRouteOk(s: GameState, v: string, e: string, ship: boolean):
   const ed = G(s).edges[e];
   if (!ed || (ed.a !== v && ed.b !== v) || s.roads[e] || s.ships[e]) return false;
   if (ship && s.bastions) return false; // la única ruta de barcos ya está puesta
+  if (s.bastions?.forts.some((f) => f.plan.includes(e))) return false;
   return ship ? edgeShippable(s, e) && !pirateTouches(s, e) : edgeRoadable(s, e) && !isCrossing(s, e);
 }
 
@@ -642,7 +659,7 @@ export function defaultCity(s: GameState, seat: number): string[] {
 
 export function decksOf(s: GameState) {
   return {
-    dev: s.hidden.devDeck.length,
+    dev: s.hidden.devDeck.length + (s.hidden.devDiscard?.length ?? 0),
     science: s.hidden.progress.science.length,
     trade: s.hidden.progress.trade.length,
     politics: s.hidden.progress.politics.length,

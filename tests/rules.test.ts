@@ -1278,6 +1278,28 @@ describe('Mar Abierto: bastiones corsarios', () => {
     expect(C.setupRouteOk(s, s.bastions!.forts[0].start, C.bastionRoute(s, 0).edges[0], true)).toBe(false);
   });
 
+  it('cada ruta tiene su carril: del puerto al desembarco y al bastión, sin tocar los de otros ni llevar caminos', () => {
+    for (const n of [3, 4, 5, 6]) {
+      const s = game({ seed: 330 + n, openSea: true, scenario: 'bastions' }, n);
+      const g = C.G(s);
+      const seen = new Map<string, number>();
+      const lens: number[] = [];
+      for (const f of s.bastions!.forts) {
+        const vs = new Set(f.plan.flatMap((e) => [g.edges[e].a, g.edges[e].b]));
+        expect(vs.has(f.start) && vs.has(f.landing) && vs.has(f.v)).toBe(true);
+        expect(s.ships[f.plan[0]]).toEqual({ owner: f.seat });
+        for (const v of vs) {
+          expect(seen.get(v) ?? f.seat).toBe(f.seat);
+          seen.set(v, f.seat);
+        }
+        for (const e of f.plan) expect(C.canRoad(s, f.seat, e)).toBe(false);
+        lens.push(f.plan.length);
+      }
+      // rutas parejas
+      expect(Math.max(...lens) - Math.min(...lens)).toBeLessThanOrEqual(2);
+    }
+  });
+
   it('una sola ruta: sólo se alarga por la punta, acercándose al desembarco y luego al bastión; no se mueven', () => {
     let s = main(game({ seed: 321, openSea: true, scenario: 'bastions' }));
     const f = s.bastions!.forts.find((x) => x.seat === 0)!;

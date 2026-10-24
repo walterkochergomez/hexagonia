@@ -808,3 +808,4 @@ input, select {
 .assault-row { display: flex; align-items: center; gap: var(--s3); margin-bottom: var(--s3); }
 .assault-row p { margin: 0; }
 .scenarios-sub { margin: var(--s2) 0 0; font-weight: 700; font-size: 14px; color: var(--text-muted); }
+.lane { fill: none; stroke: var(--pc); stroke-width: 2.4; stroke-dasharray: 1.5 6; stroke-linecap: round; opacity: .75; }
