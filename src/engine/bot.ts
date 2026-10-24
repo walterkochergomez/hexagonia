@@ -6,8 +6,12 @@ import * as Duel from './mods/duel';
 import * as Fish from './mods/fish';
 import * as River from './mods/river';
 import * as Caravan from './mods/caravan';
+import * as Tribe from './mods/tribe';
+import * as Bastions from './mods/bastions';
+import * as Works from './mods/works';
+import { otherEnd } from './geometry';
 import {
-  CARDS, COMMODITIES, COST, RESOURCES, TRACKS, TRACK_COMMODITY, emptyHand, handTotal,
+  CARDS, COMMODITIES, COST, RESOURCES, TRACKS, TRACK_COMMODITY, WONDERS, WONDER_COST, emptyHand, handTotal,
   type Action, type Card, type GameState, type Hand, type Resource,
 } from './types';
 
@@ -66,6 +70,46 @@ function roadScore(s: GameState, e: string): number {
   return top;
 }
 
+/** Escenarios con metas en el mar: a qué cruces conviene acercar los barcos (regalos o aldeas). */
+function seaGoals(s: GameState, seat: number): string[] {
+  const g = C.G(s);
+  if (s.tribe) return s.tribe.gifts.flatMap((x) => [g.edges[x.edge].a, g.edges[x.edge].b]);
+  if (s.looms) return s.looms.villages.filter((x) => x.cloth > 0 && !x.linked.includes(seat)).map((x) => x.v);
+  return [];
+}
+
+/** Distancia en barcos desde varias metas a la vez. */
+function goalDistances(s: GameState, goals: string[]): Map<string, number> {
+  const g = C.G(s);
+  const dist = new Map<string, number>(goals.map((v) => [v, 0]));
+  const queue = [...goals];
+  while (queue.length) {
+    const x = queue.shift()!;
+    for (const e of g.vertices[x].edges) {
+      if (!C.edgeShippable(s, e)) continue;
+      const w = otherEnd(g, e, x);
+      if (dist.has(w)) continue;
+      dist.set(w, dist.get(x)! + 1);
+      queue.push(w);
+    }
+  }
+  return dist;
+}
+
+/** El mejor lado para un barco nuevo: el que más se acerca a una meta del escenario. */
+function shipTowardGoal(s: GameState, seat: number, rng: Rng, ships: string[]): string | null {
+  const goals = seaGoals(s, seat);
+  if (!goals.length || !ships.length) return null;
+  const dist = goalDistances(s, goals);
+  const g = C.G(s);
+  // si el lado ya es la meta (un regalo), ese
+  const gift = s.tribe ? ships.find((e) => s.tribe!.gifts.some((x) => x.edge === e)) : undefined;
+  if (gift) return gift;
+  const score = (e: string) => -Math.min(dist.get(g.edges[e].a) ?? 99, dist.get(g.edges[e].b) ?? 99);
+  const top = best(rng, ships, score);
+  return score(top) > -99 ? top : null;
+}
+
 function best<T>(rng: Rng, items: T[], score: (x: T) => number): T {
   let top = -Infinity;
   let out: T[] = [];
@@ -94,7 +138,12 @@ export function botAction(s: GameState, seat: number, rng: Rng): Action | null {
         const mine = (x: string) => C.G(s).hexes[x].vertices.some((v) => s.buildings[v]?.owner === seat);
         return { t: 'robber', hex: best(rng, hexes, (x) => C.robberVictims(s, seat, x).length * 3 + pips(s.board.hexes[x].number) - (mine(x) ? 12 : 0)), target: 'robber' };
       }
-      case 'steal': return { t: 'steal', from: rng.pick(st.from) };
+      case 'steal': {
+        const from = rng.pick(st.from);
+        // aldeas tejedoras: con el pirata, a veces una tela en vez de una carta
+        const cloth = !!s.looms && st.on === 'pirate' && s.looms.cloth[from] > 0 && (!handTotal(s.players[from].hand) || rng.float() < 0.5);
+        return cloth ? { t: 'steal', from, cloth: true } : { t: 'steal', from };
+      }
       case 'pick': return { t: 'pick', cards: pickFromBank(rng, s, st.waiting[seat]) };
       case 'monopoly': return { t: 'monopoly', card: rng.pick(RESOURCES) };
       case 'freeRoutes': {
@@ -146,6 +195,7 @@ export function botAction(s: GameState, seat: number, rng: Rng): Action | null {
         const c = rng.pick(opts);
         return { t: 'camelBid', bid: { [c]: Math.min(h[c], 1 + rng.int(2)) } };
       }
+      case 'placeHarbor': return { t: 'placeHarbor', edge: rng.pick(Tribe.harborSpots(s, seat)) };
       case 'camelPlace': {
         const opts = Caravan.legalCamels(s);
         const g = C.G(s);
@@ -181,7 +231,8 @@ export function botAction(s: GameState, seat: number, rng: Rng): Action | null {
     if (s.settings.guilds && p.progress.includes('alchemist') && rng.float() < 0.3) {
       return { t: 'playProgress', card: 'alchemist', arg: { dice: [rng.int(6) + 1, rng.int(6) + 1] } };
     }
-    if (!s.settings.guilds && p.devPlayedTurn !== t.n && p.dev.some((d) => d.type === 'soldier' && d.turn !== t.n) && rng.float() < 0.4) {
+    if (!s.settings.guilds && p.devPlayedTurn !== t.n && p.dev.some((d) => d.type === 'soldier' && d.turn !== t.n) && rng.float() < 0.4
+      && (!s.bastions || Bastions.canArm(s, seat))) {
       return { t: 'playDev', card: 'soldier' };
     }
     return { t: 'roll' };
@@ -227,6 +278,27 @@ export function botAction(s: GameState, seat: number, rng: Rng): Action | null {
     if (Duel.canUseToken(s, seat, 'force') && rng.float() < 0.08) return { t: 'token', use: 'force' };
     if (p.soldiers > 0 && s.awards.army.owner !== seat && (p.tokens ?? 0) < 2 && (s.duel?.supply ?? 0) > 0 && rng.float() < 0.1) return { t: 'cashSoldier' };
   }
+  // bastiones: atacar cuando hay barcos de guerra suficientes (cierra el turno); armar barcos; seguir la ruta
+  if (s.bastions && t.phase === 'main') {
+    const w = Bastions.warships(s, seat);
+    if (Bastions.canAssault(s, seat) && (w >= 4 || (w >= 2 && rng.float() < 0.3))) return { t: 'assault' };
+    if (p.devPlayedTurn !== t.n && p.dev.some((d) => d.type === 'soldier' && d.turn !== t.n) && Bastions.canArm(s, seat)) return { t: 'playDev', card: 'soldier' };
+  }
+  if (s.bastions && can(COST.ship) && left.ship > 0 && rng.float() < 0.85) {
+    const ships = C.legalShips(s, seat);
+    if (ships.length) return { t: 'build', what: 'ship', at: ships[0] };
+  }
+  // grandes obras: subir la obra propia, o empezar una
+  if (s.works) {
+    const mine = Works.wonderOf(s, seat);
+    if (mine && Works.canBuild(s, seat, mine.id) && rng.float() < 0.9) return { t: 'wonder', id: mine.id };
+    if (!mine) for (const id of WONDERS) if (Works.canBuild(s, seat, id) && rng.float() < 0.8) return { t: 'wonder', id };
+  }
+  // regalos y aldeas: barcos hacia la meta más cercana
+  if ((s.tribe || s.looms) && can(COST.ship) && left.ship > 0 && rng.float() < 0.55) {
+    const to = shipTowardGoal(s, seat, rng, C.legalShips(s, seat));
+    if (to) return { t: 'build', what: 'ship', at: to };
+  }
   // construir
   if (can(COST.city) && left.city > 0) {
     const cities = C.legalCities(s, seat);
@@ -270,7 +342,7 @@ export function botAction(s: GameState, seat: number, rng: Rng): Action | null {
   if (sbp) return { t: 'endTurn' };
   // cartas
   if (!s.settings.guilds && p.devPlayedTurn !== t.n) {
-    const playable = p.dev.filter((d) => d.turn !== t.n && d.type !== 'point').map((d) => d.type);
+    const playable = p.dev.filter((d) => d.turn !== t.n && d.type !== 'point' && (d.type !== 'soldier' || !s.bastions || Bastions.canArm(s, seat))).map((d) => d.type);
     if (playable.length && rng.float() < 0.5) {
       const card = rng.pick(playable) as 'soldier' | 'roads' | 'plenty' | 'monopoly';
       return { t: 'playDev', card } as Action;
@@ -306,6 +378,9 @@ export function botAction(s: GameState, seat: number, rng: Rng): Action | null {
   }
   // comercio con el banco
   const goals: Partial<Hand>[] = [];
+  const wonder = s.works ? Works.wonderOf(s, seat) ?? (WONDERS.map((id) => ({ id })).find((x) => !s.works!.wonders.find((w) => w.id === x.id)!.owner && Works.meets(s, seat, x.id)) ?? null) : null;
+  if (wonder) goals.push(WONDER_COST[wonder.id]);
+  if (s.bastions && C.legalShips(s, seat).length) goals.push(COST.ship);
   if (left.city > 0 && C.legalCities(s, seat).length) goals.push(COST.city);
   if (left.settlement > 0 && C.legalSettlements(s, seat).length) goals.push(COST.settlement);
   goals.push(COST.road);

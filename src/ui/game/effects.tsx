@@ -260,7 +260,12 @@ function flightsFor(entries: LogEntry[], view: GameState, me: number | null, new
       case 'dev.buy':
       case 'progress.draw.card':
       case 'progress.draw':
+      case 'tribe.dev.card':
+      case 'tribe.dev':
         out.push({ from: deckSpot(), to: seatSpot(seat, me, 'dev'), card: 'dev', delay: next() });
+        break;
+      case 'fleet.lost':
+        for (let k = 0; k < Math.min(Number(p.n) || 0, 4); k++) out.push({ from: seatSpot(seat, me), to: boardCenter(), card: 'back', vanish: true, delay: next() });
         break;
     }
   }

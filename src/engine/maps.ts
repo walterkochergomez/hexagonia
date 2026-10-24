@@ -15,6 +15,8 @@ export interface MapResult {
   regionBonus: number;
   regionNames: Record<number, 'main' | 'island' | 'far'>;
   vpTarget: number;
+  /** datos de escenario: islitas especiales, peñón, circuito de la flota, estrecho */
+  marks?: { isles?: string[]; rock?: string[]; loop?: string[]; strait?: string; home?: string[] };
 }
 
 const NUMBERS_34 = [2, 3, 3, 4, 4, 5, 5, 6, 6, 8, 8, 9, 9, 10, 10, 11, 11, 12];
@@ -276,15 +278,17 @@ interface SeaPlan {
   names: Record<number, 'main' | 'island' | 'far'>;
   terrain: Map<Cell, Terrain>;
   fogCells: Set<Cell>;
-  harborPlan: { region: number | null; kind: Kind }[];
+  harborPlan: { region: number | number[] | null; kind: Kind }[];
   noHotOnGold?: boolean;
+  /** casillas de tierra sin ficha de número (islitas especiales) */
+  noNumbers?: Set<Cell>;
 }
 
 function finishSea(g: Gen, plan: SeaPlan): MapResult {
   const { rng } = g;
   const hexes: Record<string, HexTile> = {};
   const fog: MapResult['fog'] = {};
-  const producing = [...plan.terrain].filter(([, t]) => t !== 'desert').map(([c]) => c);
+  const producing = [...plan.terrain].filter(([c, t]) => t !== 'desert' && !plan.noNumbers?.has(c)).map(([c]) => c);
   const nums = assignNumbers(rng, producing, numberPool(producing.length), plan.noHotOnGold ? (c, n) => hot(n) && plan.terrain.get(c) === 'gold' : undefined);
   for (const c of g.frame) {
     const [q, r] = parseHex(c);
@@ -306,7 +310,7 @@ function finishSea(g: Gen, plan: SeaPlan): MapResult {
     const cand: { edge: string; sea: string }[] = [];
     for (const [c, region] of g.land) {
       if (plan.fogCells.has(c) || plan.terrain.get(c) === 'desert') continue;
-      if (item.region !== null && region !== item.region) continue;
+      if (item.region !== null && (Array.isArray(item.region) ? !item.region.includes(region) : region !== item.region)) continue;
       const h = gr.hexes[c];
       h.neighbors.forEach((nb, side) => {
         if (!nb || g.land.has(nb) || plan.fogCells.has(nb)) return;
@@ -340,17 +344,26 @@ function kindsFor(n: number): Kind[] {
 }
 
 export function seaMap(rng: Rng, scenario: SeaScenario, big: boolean): MapResult {
-  for (let attempt = 0; attempt < 200; attempt++) {
-    const res = trySea(rng, scenario, big);
+  for (let attempt = 0; attempt < 400; attempt++) {
+    const res = scenario === 'bastions' ? tryBastions(rng, big) : trySea(rng, scenario, big);
     if (res) return res;
   }
   throw new Error('no se pudo generar el mapa');
 }
 
+/** Tamaño del marco (ancho y alto, para 3-4 y para 5-6) de los escenarios que necesitan más mar. */
+const FRAMES: Partial<Record<SeaScenario, [number, number, number, number]>> = {
+  tribe: [10, 8, 12, 9],
+  looms: [12, 8, 14, 9],
+  works: [10, 8, 12, 9],
+};
+
 function trySea(rng: Rng, scenario: SeaScenario, big: boolean): MapResult | null {
-  const W = big ? 11 : 9;
-  const H = big ? 8 : 7;
+  const fr = FRAMES[scenario];
+  const W = fr ? (big ? fr[2] : fr[0]) : big ? 11 : 9;
+  const H = fr ? (big ? fr[3] : fr[1]) : big ? 8 : 7;
   const g = rectGen(rng, W, H);
+  const middle = hexId(Math.floor(W / 2) - Math.floor(Math.floor(H / 2) / 2), Math.floor(H / 2));
   const terrain = new Map<Cell, Terrain>();
   const names: SeaPlan['names'] = { 0: 'main' };
   const fogCells = new Set<Cell>();
@@ -466,6 +479,97 @@ function trySea(rng: Rng, scenario: SeaScenario, big: boolean): MapResult | null
     return finishSea(g, { vp: 12, bonus: 2, home: [0], names, terrain, fogCells, harborPlan: hp, noHotOnGold: true });
   }
 
+  if (scenario === 'tribe') {
+    // una isla grande para todos y, alrededor, las islitas del pueblo isleño: sin números y sin edificios
+    const main = grow(g, 0, big ? 27 : 20, any, false, middle);
+    if (!main) return null;
+    setTerrain(main, big
+      ? [...rep<Terrain>('forest', 6), ...rep<Terrain>('pasture', 5), ...rep<Terrain>('fields', 5), ...rep<Terrain>('hills', 5), ...rep<Terrain>('mountains', 5), 'desert']
+      : [...rep<Terrain>('forest', 4), ...rep<Terrain>('pasture', 4), ...rep<Terrain>('fields', 4), ...rep<Terrain>('hills', 4), ...rep<Terrain>('mountains', 3), 'desert']);
+    const sizes = big ? [3, 3, 3, 2, 2, 2] : [3, 3, 2, 2];
+    const isles: Cell[] = [];
+    for (let i = 0; i < sizes.length; i++) {
+      const isl = grow(g, i + 1, sizes[i], any, false);
+      if (!isl) return null;
+      names[i + 1] = 'island';
+      isles.push(...isl);
+    }
+    setTerrain(isles, terrainPool(isles.length, 0, 0));
+    const res = finishSea(g, { vp: 13, bonus: 0, home: [0], names, terrain, fogCells, harborPlan: [], noNumbers: new Set(isles) });
+    res.marks = { isles };
+    return res;
+  }
+
+  if (scenario === 'looms') {
+    // dos islas grandes a los lados y, entre ellas, islitas con dos aldeas tejedoras cada una
+    const westArea = (c: Cell) => g.col(c) <= (big ? 4 : 3);
+    const eastArea = (c: Cell) => g.col(c) >= W - (big ? 5 : 4);
+    const midArea = (c: Cell) => !westArea(c) && !eastArea(c);
+    const size = big ? 16 : 12;
+    const west = grow(g, 0, size, westArea);
+    const east = west && grow(g, 1, size, eastArea);
+    if (!west || !east) return null;
+    names[1] = 'main';
+    const isles: Cell[] = [];
+    for (let i = 0; i < (big ? 5 : 4); i++) {
+      const isl = grow(g, i + 2, 2, midArea, false);
+      if (!isl) return null;
+      names[i + 2] = 'island';
+      isles.push(...isl);
+    }
+    const pool: Terrain[] = big
+      ? [...rep<Terrain>('forest', 7), ...rep<Terrain>('pasture', 7), ...rep<Terrain>('fields', 6), ...rep<Terrain>('hills', 5), ...rep<Terrain>('mountains', 5), 'desert', 'desert']
+      : [...rep<Terrain>('forest', 5), ...rep<Terrain>('pasture', 5), ...rep<Terrain>('fields', 5), ...rep<Terrain>('hills', 4), ...rep<Terrain>('mountains', 4), 'desert'];
+    rng.shuffle(pool);
+    const order = [rng.shuffle([...west]), rng.shuffle([...east])];
+    let k = 0;
+    for (let round = 0; k < pool.length; round++) for (const isl of order) if (round < isl.length) terrain.set(isl[round], pool[k++]);
+    setTerrain(isles, isles.map((_, i) => (i % 2 ? 'forest' : 'pasture')));
+    const hp = kindsFor(big ? 11 : 9).map((kind) => ({ region: [0, 1], kind }));
+    const res = finishSea(g, { vp: 14, bonus: 0, home: [0, 1], names, terrain, fogCells, harborPlan: hp, noNumbers: new Set(isles) });
+    res.marks = { isles };
+    return res;
+  }
+
+  if (scenario === 'works') {
+    // isla grande con un páramo de tres desiertos; las islitas dan un punto; el estrecho separa una de ellas
+    const main = grow(g, 0, big ? 30 : 21, any, false, middle);
+    if (!main) return null;
+    const inMain = new Set(main);
+    const inner = (c: Cell) => neighbors(c).filter((n) => inMain.has(n)).length;
+    const tris: Cell[][] = [];
+    for (const a of main) for (const b of neighbors(a)) for (const c of neighbors(a)) {
+      if (b >= c || a >= b || !inMain.has(b) || !inMain.has(c) || !neighbors(b).includes(c)) continue;
+      tris.push([a, b, c]);
+    }
+    if (!tris.length) return null;
+    tris.sort((x, y) => y.reduce((s, c) => s + inner(c), 0) - x.reduce((s, c) => s + inner(c), 0));
+    const waste = rng.pick(tris.slice(0, 4));
+    setTerrain(main.filter((c) => !waste.includes(c)), big
+      ? [...rep<Terrain>('forest', 6), ...rep<Terrain>('pasture', 6), ...rep<Terrain>('fields', 5), ...rep<Terrain>('hills', 5), ...rep<Terrain>('mountains', 5)]
+      : [...rep<Terrain>('forest', 4), ...rep<Terrain>('pasture', 4), ...rep<Terrain>('fields', 4), ...rep<Terrain>('hills', 3), ...rep<Terrain>('mountains', 3)]);
+    for (const c of waste) terrain.set(c, 'desert');
+    const sizes = big ? [3, 3, 2, 2] : [3, 2, 2];
+    const isles: Cell[] = [];
+    for (let i = 0; i < sizes.length; i++) {
+      const isl = grow(g, i + 1, sizes[i], any, false);
+      if (!isl) return null;
+      names[i + 1] = 'island';
+      isles.push(...isl);
+    }
+    setTerrain(isles, terrainPool(isles.length, big ? 2 : 1, 0));
+    // estrecho: casilla de mar que toca la isla grande y una islita, con la mayor costa posible
+    const straits = [...g.frame].filter((c) => !g.land.has(c) && !g.border.has(c)
+      && neighbors(c).some((n) => g.land.get(n) === 0) && neighbors(c).some((n) => (g.land.get(n) ?? 0) > 0));
+    if (!straits.length) return null;
+    const landAround = (c: Cell) => neighbors(c).filter((n) => g.land.has(n)).length;
+    straits.sort((a, b) => landAround(b) - landAround(a));
+    const hp = kindsFor(big ? 11 : 9).map((kind) => ({ region: 0, kind }));
+    const res = finishSea(g, { vp: 10, bonus: 1, home: [0], names, terrain, fogCells, harborPlan: hp, noHotOnGold: true });
+    res.marks = { isles, strait: straits[0], rock: waste };
+    return res;
+  }
+
   // newWorld: islas al azar
   const target = big ? 40 : 30;
   const count = big ? 4 + rng.int(3) : 3 + rng.int(3);
@@ -488,6 +592,87 @@ function trySea(rng: Rng, scenario: SeaScenario, big: boolean): MapResult | null
   setTerrain(cells, terrainPool(cells.length, 2, 1));
   const hp = kindsFor(big ? 10 : 8).map((kind) => ({ region: null, kind }));
   return finishSea(g, { vp: 12, bonus: 2, home: null, names, terrain, fogCells, harborPlan: hp });
+}
+
+// ---------- bastiones corsarios: plano propio con terrenos y números al azar ----------
+
+// H: isla de inicio · P: islas corsarias · D: peñón (la flota da vueltas a su alrededor) · '.': mar
+const BASTION_PLANS: Record<'small' | 'big', string[]> = {
+  small: [
+    '..........',
+    '.PP...HH..',
+    '.PPP..HHH.',
+    '....D.HHH.',
+    '....D.HHH.',
+    '.PP...HHH.',
+    '.PPP..HH..',
+    '..........',
+  ],
+  big: [
+    '...........',
+    '.PP...HHH..',
+    '.PPP..HHHH.',
+    '....D.HHHH.',
+    '.PP.D.HHHH.',
+    '.PP.D.HHH..',
+    '......HHHH.',
+    '.PP...HHH..',
+    '.PPP.......',
+    '...........',
+  ],
+};
+
+function tryBastions(rng: Rng, big: boolean): MapResult | null {
+  const rows = BASTION_PLANS[big ? 'big' : 'small'];
+  const H = rows.length;
+  const W = rows[0].length;
+  const g = rectGen(rng, W, H);
+  const kind = new Map<Cell, string>();
+  rows.forEach((row, r) => [...row].forEach((ch, col) => kind.set(hexId(col - Math.floor(r / 2), r), ch)));
+  const of = (ch: string) => [...kind].filter(([, k]) => k === ch).map(([c]) => c);
+  const home = of('H');
+  const rock = of('D');
+  const pirate = of('P');
+  for (const c of home) g.land.set(c, 0);
+  // cada isla corsaria es una región propia
+  const names: SeaPlan['names'] = { 0: 'main' };
+  let region = 1;
+  for (const c of pirate) {
+    if (g.land.has(c)) continue;
+    const stack = [c];
+    g.land.set(c, region);
+    while (stack.length) {
+      const x = stack.pop()!;
+      for (const n of neighbors(x)) if (kind.get(n) === 'P' && !g.land.has(n)) { g.land.set(n, region); stack.push(n); }
+    }
+    names[region] = 'island';
+    region++;
+  }
+  for (const c of rock) g.land.set(c, 90);
+  const terrain = new Map<Cell, Terrain>();
+  const setTerrain = (cells: Cell[], pool: Terrain[]) => {
+    rng.shuffle(pool);
+    cells.forEach((c, i) => terrain.set(c, pool[i]));
+  };
+  setTerrain(home, big
+    ? [...rep<Terrain>('forest', 6), ...rep<Terrain>('pasture', 5), ...rep<Terrain>('fields', 5), ...rep<Terrain>('hills', 5), ...rep<Terrain>('mountains', 4)]
+    : [...rep<Terrain>('forest', 4), ...rep<Terrain>('pasture', 3), ...rep<Terrain>('fields', 3), ...rep<Terrain>('hills', 3), ...rep<Terrain>('mountains', 3)]);
+  setTerrain(pirate, big
+    ? [...rep<Terrain>('forest', 3), ...rep<Terrain>('pasture', 3), ...rep<Terrain>('fields', 3), ...rep<Terrain>('hills', 2), ...rep<Terrain>('mountains', 3), 'gold']
+    : [...rep<Terrain>('forest', 2), ...rep<Terrain>('pasture', 2), ...rep<Terrain>('fields', 3), ...rep<Terrain>('hills', 2), ...rep<Terrain>('mountains', 2), 'gold']);
+  for (const c of rock) terrain.set(c, 'desert');
+  // circuito: el mar que rodea al peñón, en sentido horario
+  const loopSet = new Set<Cell>();
+  for (const c of rock) for (const n of neighbors(c)) if (kind.get(n) === '.') loopSet.add(n);
+  const pos = (c: Cell) => { const [q, r] = parseHex(c); return [Math.sqrt(3) * (q + r / 2), 1.5 * r]; };
+  const cx = rock.reduce((a, c) => a + pos(c)[0], 0) / rock.length;
+  const cy = rock.reduce((a, c) => a + pos(c)[1], 0) / rock.length;
+  const loop = [...loopSet].sort((a, b) => Math.atan2(pos(a)[1] - cy, pos(a)[0] - cx) - Math.atan2(pos(b)[1] - cy, pos(b)[0] - cx));
+  const hp = kindsFor(big ? 9 : 8).map((k) => ({ region: 0, kind: k }));
+  const res = finishSea(g, { vp: 10, bonus: 0, home: [0], names, terrain, fogCells: new Set(), harborPlan: hp, noHotOnGold: true });
+  res.robber = null;
+  res.marks = { rock, loop, isles: pirate, home };
+  return res;
 }
 
 // ---------- mapas de Comarcas (sobre la isla base) ----------

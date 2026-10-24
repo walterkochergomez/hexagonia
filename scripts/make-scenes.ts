@@ -20,7 +20,7 @@ function base(over: Partial<Settings> = {}, turns = 12): GameState {
   }
   return s;
 }
-const out = (name: string, game: GameState, extraSeats = seats) => writeFileSync(`e2e/out/scene-${name}.json`, JSON.stringify({ seats: extraSeats, game }));
+const out = (name: string, game: GameState, extraSeats = seats, hint?: string) => writeFileSync(`e2e/out/scene-${name}.json`, JSON.stringify({ seats: extraSeats, game, ...(hint ? { hint } : {}) }));
 
 // 1. descarte
 let s = base();
@@ -75,4 +75,55 @@ s.players[0].hand = { lumber: 0, brick: 0, wool: 2, grain: 1, ore: 0, paper: 0, 
 s.turn.phase = 'preRoll';
 s.steps = [{ k: 'camelBid', waiting: [0, 1, 2, 3], bids: {} }];
 out('caravans', s);
+// 11. Mar Abierto: pueblo isleño, con un barco al lado de un regalo
+s = base({ openSea: true, scenario: 'tribe' });
+{
+  const g = C.G(s);
+  const gift = s.tribe!.gifts.find((x) => x.kind === 'vp')!;
+  const v = [g.edges[gift.edge].a, g.edges[gift.edge].b].find((x) => g.vertices[x].edges.some((e) => e !== gift.edge && C.edgeShippable(s, e) && !s.ships[e]))!;
+  const e2 = g.vertices[v].edges.find((e) => e !== gift.edge && C.edgeShippable(s, e) && !s.ships[e])!;
+  s.ships[e2] = { owner: 0 };
+  s.players[0].hand = { lumber: 2, brick: 0, wool: 2, grain: 0, ore: 0, paper: 0, cloth: 0, coin: 0 };
+  s.tribe!.vp[1] = 1;
+}
+out('tribe', s);
+// 12. Mar Abierto: aldeas tejedoras, con un barco al lado de una aldea
+s = base({ openSea: true, scenario: 'looms' });
+{
+  const g = C.G(s);
+  const vil = s.looms!.villages.find((x) => !x.linked.length)!;
+  const e = g.vertices[vil.v].edges.find((x) => C.edgeShippable(s, x) && !s.ships[x])!;
+  const w = g.edges[e].a === vil.v ? g.edges[e].b : g.edges[e].a;
+  const e2 = g.vertices[w].edges.find((x) => x !== e && C.edgeShippable(s, x) && !s.ships[x])!;
+  s.ships[e2] = { owner: 0 };
+  s.players[0].hand = { lumber: 2, brick: 0, wool: 2, grain: 0, ore: 0, paper: 0, cloth: 0, coin: 0 };
+  s.looms!.villages[0].linked = [1];
+  s.looms!.cloth[1] = 3;
+  out('looms', s, seats, e);
+}
+// 13. Mar Abierto: bastiones, con la ruta en el bastión y barcos de guerra
+s = base({ openSea: true, scenario: 'bastions' });
+{
+  const f = s.bastions!.forts.find((x) => x.seat === 0)!;
+  for (let i = 0; i < 40 && C.bastionRoute(s, 0).head !== f.v; i++) {
+    const e = C.legalShips(s, 0)[0];
+    if (!e) break;
+    s.ships[e] = { owner: 0 };
+  }
+  const r = C.bastionRoute(s, 0);
+  for (const e of r.edges.slice(0, 3)) s.ships[e] = { owner: 0, war: true };
+  f.chips = 2;
+  s.players[0].dev.push({ type: 'soldier', turn: 1 });
+}
+out('bastions', s);
+// 14. Mar Abierto: grandes obras, con dos ciudades y para empezar el observatorio
+s = base({ openSea: true, scenario: 'works' });
+{
+  const mine = Object.keys(s.buildings).filter((v) => s.buildings[v].owner === 0);
+  for (const v of mine.slice(0, 2)) s.buildings[v].kind = 'city';
+  s.players[0].hand = { lumber: 0, brick: 2, wool: 0, grain: 4, ore: 4, paper: 0, cloth: 0, coin: 0 };
+  s.works!.wonders[1].owner = 2;
+  s.works!.wonders[1].level = 1;
+}
+out('works', s);
 console.log('ok', C.vpOf(s, 0));

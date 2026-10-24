@@ -4,6 +4,7 @@ import * as Guild from '../../engine/guilds';
 import * as Duel from '../../engine/mods/duel';
 import * as River from '../../engine/mods/river';
 import * as Caravan from '../../engine/mods/caravan';
+import * as Tribe from '../../engine/mods/tribe';
 import type { Action, GameState, ProgressType } from '../../engine/types';
 import type { Targets } from '../Board';
 
@@ -78,6 +79,8 @@ export function plan(v: GameState, me: number | null, mode: Mode, routeKind: 'ro
         return { targets: { vertices: C.recruitSpots(v, me) }, hint: 'step.deserterPlace', hintParams: { n: st.level }, pick: (_k, id) => ({ act: { t: 'deserterPlace', vertex: id } }), skip: { t: 'deserterPlace', vertex: null } };
       case 'quake':
         return { targets: { edges: Object.keys(v.roads).filter((e) => v.roads[e].owner === me && !v.roads[e].broken) }, hint: 'step.quake', pick: (_k, id) => ({ act: { t: 'quake', edge: id } }) };
+      case 'placeHarbor':
+        return { targets: { edges: Tribe.harborSpots(v, me) }, hint: 'step.placeHarbor', hintParams: { port: st.kind }, pick: (_k, id) => ({ act: { t: 'placeHarbor', edge: id } }) };
       case 'camelPlace':
         return { targets: { edges: Caravan.legalCamels(v) }, hint: 'step.camelPlace', pick: (_k, id) => ({ act: { t: 'camel', at: id } }) };
       case 'neutral': {

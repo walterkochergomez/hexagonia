@@ -1,12 +1,20 @@
 import { useT } from '../app/i18n';
 import { defaultVp } from '../engine/game';
-import { SEA_SCENARIOS, SHIRES, type SeaScenario, type Shire } from '../engine/types';
+import { SEA_SCENARIOS, SEA_SPECIAL, SHIRES, type SeaScenario, type Shire } from '../engine/types';
 import type { LobbySettings } from '../net/protocol';
 import { Toggle } from './common';
 
 export function SettingsForm({ value, onChange, readOnly, seats }: { value: LobbySettings; onChange: (p: Partial<LobbySettings>) => void; readOnly?: boolean; seats: number }) {
   const t = useT();
   const auto = defaultVp(value);
+  const special = value.openSea && SEA_SPECIAL.includes(value.scenario);
+  const scenario = (sc: SeaScenario) => (
+    <label key={sc} className={`scenario${value.scenario === sc ? ' on' : ''}`}>
+      <input type="radio" name="scenario" checked={value.scenario === sc} onChange={() => onChange(SEA_SPECIAL.includes(sc) ? { scenario: sc, guilds: false } : { scenario: sc })} />
+      <span className="scenario-name">{t(`scenario.${sc}`)}</span>
+      <span className="hint">{t(`scenario.${sc}Hint`)}</span>
+    </label>
+  );
   return (
     <div className="settings">
       <fieldset disabled={readOnly}>
@@ -14,16 +22,12 @@ export function SettingsForm({ value, onChange, readOnly, seats }: { value: Lobb
         <Toggle checked={value.openSea} onChange={(v) => onChange(v ? { openSea: v, duel: false, shire: null } : { openSea: v })} label={t('set.openSea')} hint={t('set.openSeaHint')} disabled={readOnly} />
         {value.openSea && (
           <div className="scenarios" role="radiogroup" aria-label={t('set.scenario')}>
-            {SEA_SCENARIOS.map((sc: SeaScenario) => (
-              <label key={sc} className={`scenario${value.scenario === sc ? ' on' : ''}`}>
-                <input type="radio" name="scenario" checked={value.scenario === sc} onChange={() => onChange({ scenario: sc })} />
-                <span className="scenario-name">{t(`scenario.${sc}`)}</span>
-                <span className="hint">{t(`scenario.${sc}Hint`)}</span>
-              </label>
-            ))}
+            {SEA_SCENARIOS.filter((sc) => !SEA_SPECIAL.includes(sc)).map(scenario)}
+            <p className="scenarios-sub">{t('set.special')}</p>
+            {SEA_SPECIAL.map(scenario)}
           </div>
         )}
-        <Toggle checked={value.guilds} onChange={(v) => onChange(v ? { guilds: v, chronicle: false, duel: false, shire: null } : { guilds: v })} label={t('set.guilds')} hint={t('set.guildsHint')} disabled={readOnly} />
+        <Toggle checked={value.guilds && !special} onChange={(v) => onChange(v ? { guilds: v, chronicle: false, duel: false, shire: null } : { guilds: v })} label={t('set.guilds')} hint={special ? t('set.notWithScenario') : t('set.guildsHint')} disabled={readOnly || special} />
       </fieldset>
       <fieldset disabled={readOnly}>
         <legend>{t('set.shires')}</legend>

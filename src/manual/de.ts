@@ -207,8 +207,8 @@ const book: ManualBook = {
     sea: {
       id: 'sea',
       title: 'Offene See',
-      summary: 'Die Insel ist nicht mehr allein: Es gibt befahrbares Meer, Schiffe, Inseln zum Entdecken, Goldfelder und einen Piraten. Fünf Szenarien mit einer neuen Karte in jeder Partie.',
-      meta: ['3–6 Personen', '90–120 Minuten', 'Ziel: 12 oder 13 Punkte'],
+      summary: 'Die Insel ist nicht mehr allein: Es gibt befahrbares Meer, Schiffe, Inseln zum Entdecken, Goldfelder und einen Piraten. Neun Szenarien mit einer neuen Karte in jeder Partie: fünf zum Erkunden und vier mit Sonderregeln.',
+      meta: ['3–6 Personen', '90–120 Minuten', 'Ziel: 10 bis 14 Punkte je nach Szenario'],
       sections: [
         {
           id: 'changes',
@@ -286,7 +286,7 @@ const book: ManualBook = {
           id: 'scenarios',
           title: 'Szenarien',
           blocks: [
-            { t: 'p', text: 'Die Karten entstehen beim Start, keine Partie gleicht der anderen. Jedes Szenario legt fest, wie das Meer aussieht, wo man beginnt und wie viele Punkte man braucht.' },
+            { t: 'p', text: 'Die Karten entstehen beim Start, keine Partie gleicht der anderen. Jedes Szenario legt fest, wie das Meer aussieht, wo man beginnt und wie viele Punkte man braucht. Diese fünf nutzen die Regeln oben unverändert; die vier folgenden bringen eigene Regeln mit und lassen sich nicht mit Gilden und Wächter kombinieren.' },
             { t: 'h3', text: 'Äußere Inseln' },
             { t: 'p', text: 'Eine große Insel und kleine Inseln rundherum. Alle beginnen auf der großen Insel; jede kleine Insel gibt 2 Extrapunkte. Ziel: 13.' },
             { t: 'h3', text: 'Archipel' },
@@ -297,6 +297,118 @@ const book: ManualBook = {
             { t: 'p', text: 'Ein Wüstenstreifen trennt das Startgebiet von einem fernen Gebiet; dazu gibt es kleine Inseln. Das ferne Gebiet oder eine kleine Insel zu erreichen gibt 2 Punkte. Auf Goldfeldern liegt nie eine 6 oder 8. Ziel: 12.' },
             { t: 'h3', text: 'Zufallsinseln' },
             { t: 'p', text: 'Drei bis sechs Inseln zufälliger Größe. Man beginnt, wo man will; Inseln ohne eigenen Start geben 2 Punkte. Ziel: 12.' },
+          ],
+        },
+        {
+          id: 'tribe',
+          title: 'Das Inselvolk',
+          blocks: [
+            {
+              t: 'p',
+              text: 'Eine große Insel für alle und ringsum die kleinen Inseln des Inselvolks. Dort gibt es keine Zahlen und man baut nicht, aber an ihren Küsten warten **18 Geschenke**: 8 Siegpunkte, 4 Entwicklungskarten und 6 Häfen (22 mit 5–6 Personen).',
+            },
+            {
+              t: 'list',
+              items: [
+                'Man beginnt auf der großen Insel. Zu Beginn gibt es keine Häfen: Alle sind Geschenke.',
+                'Wer ein Schiff an die Kante mit einem Geschenk baut oder versetzt, bekommt es.',
+                '**Siegpunkt**: zählt 1 Punkt. **Karte**: eine verdeckte Entwicklungskarte; wie gekaufte erst ab dem nächsten Zug spielbar.',
+                '**Hafen**: kommt sofort an die Küste, an eine Kante neben einer eigenen Siedlung oder Stadt, ohne einen anderen Hafen zu berühren. Hast du noch keinen Platz, bewahrst du ihn auf, bis du an der Küste baust.',
+                'Mit einer 7 oder einem Ritter versetzt man den Räuber oder den Piraten. Der Räuber betritt die kleinen Inseln nicht und kehrt nach dem Verlassen nicht in die Wüste zurück.',
+                'Ziel: 13 Punkte.',
+              ],
+            },
+            { t: 'fig', id: 'tribe', caption: 'Noch ein Schiff, und das Geschenk an dieser Kante gehört dir: ein Siegpunkt.' },
+          ],
+        },
+        {
+          id: 'looms',
+          title: 'Weberdörfer',
+          blocks: [
+            {
+              t: 'p',
+              text: 'Zwei große Inseln und dazwischen kleine Inseln mit je zwei Dörfern (acht Dörfer; zehn mit 5–6 Personen). Jedes Dorf ist eine Kreuzung mit eigener Zahl und **fünf Stoffen**.',
+            },
+            {
+              t: 'list',
+              items: [
+                'Aufbau: drei Siedlungen pro Person. Nach den zwei üblichen Runden folgt eine dritte in der Reihenfolge der ersten; die Startrohstoffe gibt die **dritte** Siedlung.',
+                'Auf den kleinen Inseln wird nicht gebaut. Erreicht deine Schiffsroute ein Dorf, bekommst du einen Stoff von dort.',
+                'Fällt die Zahl eines Dorfes, erhält jede Person, die es erreicht hat, einen Stoff. Reicht der Vorrat des Dorfes nicht, kommt der Rest aus der Reserve; ein leeres Dorf gibt nichts mehr.',
+                'Zwei Stoffe zählen 1 Punkt; ein einzelner zählt nicht.',
+                'Routen, die ein Dorf erreichen, sind geschlossen: ihre Schiffe werden nicht mehr versetzt.',
+                'Den Piraten versetzt nur, wer schon ein Dorf erreicht hat; er nimmt jemandem mit Schiffen daneben eine Karte **oder einen Stoff** ab. Der Räuber betritt die kleinen Inseln nicht.',
+                'Für die längste Handelsstraße gibt es keine Punkte.',
+                'Ende: 14 Punkte im eigenen Zug, oder wenn nur noch 3 Dörfer oder weniger Stoff haben. Dann gewinnt, wer die meisten Punkte hat, bei Gleichstand die meisten Stoffe.',
+              ],
+            },
+            { t: 'fig', id: 'looms', caption: 'Es fällt eine 5: Das Dorf gibt dem, der mit dem Schiff angekommen ist, einen Stoff.' },
+          ],
+        },
+        {
+          id: 'bastions',
+          title: 'Korsarenfesten',
+          blocks: [
+            {
+              t: 'p',
+              text: 'Alle beginnen auf der Insel im Osten. Im Westen liegen die Korsareninseln mit einer feindlichen Festung für jede Person; dazwischen umkreist eine Korsarenflotte einen Felsen.',
+            },
+            {
+              t: 'list',
+              items: [
+                'Jede:r beginnt mit einer Siedlung an der Küste und dem ersten Schiff und setzt im Aufbau zwei weitere Siedlungen mit Straßen (ohne Schiffe).',
+                'Du hast **eine einzige Schiffsroute** ohne Abzweigungen: Sie beginnt an deinem Hafen, führt über deinen Landeplatz (Wimpel) und endet an deiner Festung. Jedes neue Schiff kommt an die Spitze, auf dem kürzesten Weg. Schiffe werden nicht versetzt.',
+                'Auf deinem Landeplatz darfst du eine Siedlung gründen: der einzige Ort auf den Korsareninseln, wo das geht.',
+                'Bei jedem Wurf segelt zuerst die Flotte so viele Felder weiter, wie der **kleinere Würfel** zeigt. Hält sie neben deinen Gebäuden, vergleicht sie diesen Würfel mit deinen Kriegsschiffen: Ist er höher, verlierst du eine Karte und eine weitere für jede deiner Städte dort; ist er niedriger, wählst du einen Rohstoff; bei Gleichstand passiert nichts.',
+                'Eine Ritterkarte macht das Schiff deiner Route, das deinem Hafen am nächsten ist, zum **Kriegsschiff**. Es gibt keine Siegpunktkarten, dafür mehr Ritter.',
+                'Es gibt keinen Räuber: Bei einer 7 wird wie üblich abgeworfen, und wer gewürfelt hat, zieht jemandem nach Wahl eine Karte.',
+                'Reicht deine Route bis zur Festung, kannst du sie **angreifen**, und damit endet dein Zug: Du würfelst einmal. Mit mehr Kriegsschiffen als Augen entfernst du eine Kerbe; mit weniger verlierst du die zwei Schiffe, die der Festung am nächsten sind; bei Gleichstand eines. Nach der dritten Kerbe gehört die Festung dir und wird eine Siedlung (du brauchst eine in Reserve).',
+                'Keine längste Handelsstraße, keine größte Rittermacht. Es gewinnt, wer seine Festung erobert hat und 10 Punkte hat.',
+              ],
+            },
+            {
+              t: 'fig',
+              id: 'bastions',
+              caption: 'Zwei Kriegsschiffe unterwegs. Die Flotte umkreist den Felsen; die Festung hat schon eine Kerbe verloren.',
+            },
+          ],
+        },
+        {
+          id: 'works',
+          title: 'Große Bauwerke',
+          blocks: [
+            {
+              t: 'p',
+              text: 'Eine große Insel mit einem **Ödland** aus drei Wüsten, kleine Inseln ringsum und eine **Meerenge** zwischen der großen Insel und einer davon. Eine Siedlung auf einer kleinen Insel gibt 1 Punkt. Im Aufbau darf man nicht an der Meerenge oder im Ödland bauen, danach schon.',
+            },
+            { t: 'fig', id: 'worksMap', caption: 'Das Ödland zwischen den drei Wüsten und die beiden Ufer der Meerenge.' },
+            {
+              t: 'p',
+              text: 'Es gibt fünf Bauwerke mit vier Stufen. Jede Person kann **nur eines** errichten: Es beginnt, wer zuerst die Bedingung erfüllt und die erste Stufe bezahlt, und danach gehört es ihr. Jede Stufe kostet dasselbe, und man kann mehrere in einem Zug bauen.',
+            },
+            {
+              t: 'costs',
+              rows: [
+                {
+                  icon: 'w-tower',
+                  label: 'Signalturm',
+                  cost: { brick: 2, ore: 2, wool: 1 },
+                  note: 'Bedingung: eine Stadt an einem Hafen und eine Handelsstraße von mindestens 5.',
+                },
+                { icon: 'w-library', label: 'Bibliothek', cost: { lumber: 2, wool: 2, grain: 1 }, note: 'Bedingung: eine Stadt und 6 Siegpunkte.' },
+                { icon: 'w-lock', label: 'Schleuse', cost: { lumber: 2, brick: 2, ore: 1 }, note: 'Bedingung: eine Siedlung oder Stadt an der Meerenge.' },
+                { icon: 'w-mills', label: 'Windmühlen', cost: { grain: 2, lumber: 2, wool: 1 }, note: 'Bedingung: eine Siedlung oder Stadt im Ödland.' },
+                { icon: 'w-observatory', label: 'Sternwarte', cost: { ore: 2, grain: 2, brick: 1 }, note: 'Bedingung: zwei Städte.' },
+              ],
+            },
+            { t: 'fig', id: 'works', caption: 'Fertige Stufen sind ganz gezeichnet, fehlende gestrichelt.' },
+            {
+              t: 'list',
+              items: [
+                'Der Pirat wird nicht benutzt.',
+                'Es gewinnt, wer Stufe 4 seines Bauwerks fertigstellt, oder wer 10 Punkte und eine höhere Stufe als alle anderen hat.',
+              ],
+            },
           ],
         },
       ],

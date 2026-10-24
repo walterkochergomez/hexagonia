@@ -23,6 +23,13 @@ const configs: [string, Partial<Settings>, number[]][] = [
   ['ríos de oro', { shire: 'rivers' }, [3, 4, 5]],
   ['ruta de camellos', { shire: 'caravans' }, [3, 4, 6]],
   ['pesca + sucesos + muelles', { shire: 'fishers', chronicle: true, harbormaster: true }, [4]],
+  // Mar Abierto: escenarios especiales
+  ['pueblo isleño', { openSea: true, scenario: 'tribe' }, [3, 4, 6]],
+  ['aldeas tejedoras', { openSea: true, scenario: 'looms' }, [3, 4, 5]],
+  ['bastiones corsarios', { openSea: true, scenario: 'bastions' }, [3, 4, 5, 6]],
+  ['grandes obras', { openSea: true, scenario: 'works' }, [3, 4, 6]],
+  ['bastiones + sucesos + muelles', { openSea: true, scenario: 'bastions', chronicle: true, harbormaster: true }, [4]],
+  ['aldeas + sucesos', { openSea: true, scenario: 'looms', chronicle: true }, [4]],
 ];
 
 const GAMES = Number(process.env.SIM_GAMES ?? 6);

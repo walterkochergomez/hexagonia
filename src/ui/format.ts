@@ -37,9 +37,16 @@ export function formatLog(e: { k: string; p?: LogEntry['p'] }, view: GameState, 
     else if (k === 'terrain') p[k] = lower(t(`terrain.${v}`));
     else if (k === 'kind' || k === 'target') p[k] = lower(t(`piece.${v}`));
     else if (k === 'ev') p[k] = t(`chronicle.ev.${v}`);
+    else if (k === 'port') p[k] = portName(String(v), t);
+    else if (k === 'id') p[k] = t(`wonder.${v}`);
     else p[k] = v as string | number;
   }
   return t(`log.${e.k}`, p);
+}
+
+/** Puerto por su tipo: «3:1» o «2:1 de lana». */
+export function portName(kind: string, t: T): string {
+  return kind === 'any' ? t('harbor.any') : t('harbor.res', { res: lower(t(`res.${kind}`)) });
 }
 
 export function errorText(code: string, t: T): string {

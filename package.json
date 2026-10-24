@@ -19,7 +19,8 @@
     "e2e:fit": "tsx scripts/make-rooms.ts && node e2e/fit.mjs",
     "e2e:fx": "tsx scripts/make-rooms.ts && tsx scripts/make-scenes.ts && node e2e/fx.mjs",
     "e2e:manual": "node e2e/manual.mjs",
-    "e2e:shires": "tsx scripts/make-scenes.ts && node e2e/shires.mjs"
+    "e2e:shires": "tsx scripts/make-scenes.ts && node e2e/shires.mjs",
+    "e2e:seas": "tsx scripts/make-scenes.ts && node e2e/seas.mjs"
   },
   "dependencies": {
     "@fontsource-variable/atkinson-hyperlegible-next": "^5.3.0",

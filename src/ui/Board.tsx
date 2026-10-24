@@ -3,7 +3,8 @@ import { graphOf } from '../engine/geometry';
 import type { GameState } from '../engine/types';
 import { useT } from '../app/i18n';
 import { prefs, usePrefs } from '../app/prefs';
-import { CamelShape, CardIcon, CityShape, KnightShape, MerchantShape, RobberShape, SettlementShape, ShipShape } from './art';
+import { CamelShape, CardIcon, CityShape, FleetShape, FortShape, GiftToken, Huts, KnightShape, LandingFlag, MerchantShape, RobberShape, SettlementShape, ShipShape, VillageShape } from './art';
+import { portName } from './format';
 import { Coast, NumberToken, Palm, R, SX, SY, SeaFace, TOP_POINTS, TileDefs, TileFace, hexPoints, turn, type LandTerrain } from './tiles';
 import type { FishGround } from '../engine/types';
 import { reducedMotion } from './fx';
@@ -278,6 +279,9 @@ export function Board({ view, targets, onPick, flash, children, still = false, l
   const pirateAt = view.board.pirate;
   useHop(robberRef, robberAt ? hpos(robberAt) : null, robberAt && `${robberAt}:${rot}`);
   useHop(pirateRef, pirateAt ? hpos(pirateAt) : null, pirateAt && `${pirateAt}:${rot}`);
+  const fleetRef = useRef<SVGGElement>(null);
+  const fleetAt = view.bastions && view.bastions.fleet !== null ? view.bastions.loop[view.bastions.fleet] : null;
+  useHop(fleetRef, fleetAt ? hpos(fleetAt) : null, fleetAt && `${fleetAt}:${rot}`);
 
   // mar, costa e isla: sólo cambian con el tablero o el giro, no al mover o acercar
   const landscape = useMemo(() => {
@@ -394,6 +398,55 @@ export function Board({ view, targets, onPick, flash, children, still = false, l
             </g>
           );
         })()}
+        {view.bastions && view.bastions.loop.length > 2 && (() => {
+          // recorrido de la flota: curva cerrada por los centros del circuito, con flechas en sentido horario
+          const pts = view.bastions.loop.map(hpos);
+          const n = pts.length;
+          let d = `M${pts[0][0]} ${pts[0][1]}`;
+          for (let j = 0; j < n; j++) {
+            const p0 = pts[(j - 1 + n) % n], p1 = pts[j], p2 = pts[(j + 1) % n], p3 = pts[(j + 2) % n];
+            const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
+            const c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+            d += ` C${c1[0].toFixed(1)} ${c1[1].toFixed(1)} ${c2[0].toFixed(1)} ${c2[1].toFixed(1)} ${p2[0].toFixed(1)} ${p2[1].toFixed(1)}`;
+          }
+          return (
+            <g className="layer-loop">
+              <title>{t('fort.loopTitle')}</title>
+              <path d={d} className="fleet-loop" />
+              {pts.filter((_, j) => j % 2 === 0).map((p1, j) => {
+                const k = j * 2;
+                const p2 = pts[(k + 1) % n];
+                const ang = (Math.atan2(p2[1] - p1[1], p2[0] - p1[0]) * 180) / Math.PI;
+                const mx = (p1[0] + p2[0]) / 2, my = (p1[1] + p2[1]) / 2;
+                return <path key={k} d="M-4 -3.4 L4 0 L-4 3.4 Z" transform={`translate(${mx.toFixed(1)} ${my.toFixed(1)}) rotate(${ang.toFixed(0)})`} className="fleet-arrow" />;
+              })}
+            </g>
+          );
+        })()}
+        {view.tribe && (
+          <g className="layer-tribe">
+            {view.tribe.hexes.map((h) => {
+              const [x, y] = hpos(h);
+              return <g key={h} transform={`translate(${x} ${y - 10})`}><Huts /></g>;
+            })}
+          </g>
+        )}
+        {view.works && (
+          <g className="layer-sites">
+            {[...view.works.strait.map((v) => ['strait', v] as const), ...view.works.waste.map((v) => ['waste', v] as const)].map(([kind, v]) => {
+              const [x, y] = vpos(v);
+              return (
+                <g key={`${kind}${v}`} transform={`translate(${x} ${y})`}>
+                  <title>{t(kind === 'strait' ? 'works.straitTitle' : 'works.wasteTitle')}</title>
+                  <circle r={8.2} className={`site-disc ${kind}`} />
+                  {kind === 'strait'
+                    ? <path d="M-5.4 -1.4 Q-2.7 -4 0 -1.4 Q2.7 1.2 5.4 -1.4 M-5.4 2.8 Q-2.7 0.2 0 2.8 Q2.7 5.4 5.4 2.8" className="site-glyph" />
+                    : <path d="M-5 3.4 L-3 -3.6 L-1 2 L1 -4.6 L3 2.2 L5 -2.6" className="site-glyph" />}
+                </g>
+              );
+            })}
+          </g>
+        )}
         <g className="layer-harbors">
           {view.board.harbors.map((hb) => {
             const e = g.edges[hb.edge];
@@ -430,7 +483,7 @@ export function Board({ view, targets, onPick, flash, children, still = false, l
         </g>
       </>
     );
-  }, [view.board, view.river?.rivers, view.fish?.grounds, view.fish?.lakes, view.caravan?.oasis, lit?.key, lit?.numbers.join(), t, rot]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [view.board, view.river?.rivers, view.fish?.grounds, view.fish?.lakes, view.caravan?.oasis, view.bastions?.loop, view.works, lit?.key, lit?.numbers.join(), t, rot]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const routes = () => (
     <>
@@ -474,9 +527,52 @@ export function Board({ view, targets, onPick, flash, children, still = false, l
         const [x, y] = at(ed.X, ed.Y);
         return (
           <g key={e} transform={`translate(${x} ${y})`}>
-            <g transform={stand}><g className={fresh.has(`s:${e}`) ? 'fresh-drop' : undefined}><ShipShape color={colorOf(r.owner)} /></g></g>
+            <g transform={stand}><g className={fresh.has(`s:${e}`) ? 'fresh-drop' : undefined}><ShipShape color={colorOf(r.owner)} war={r.war} /></g></g>
           </g>
         );
+      })}
+    </>
+  );
+  /** Regalos, aldeas, bastiones y desembarcos: cambian durante la partida. */
+  const marks = () => (
+    <>
+      {view.tribe?.gifts.map((gf) => {
+        const ed = g.edges[gf.edge];
+        const sea = ed.hexes.find((h) => view.board.hexes[h]?.terrain === 'sea') ?? ed.hexes[0];
+        const [mx, my] = at(ed.X, ed.Y);
+        const [sx, sy] = hpos(sea);
+        const x = mx + (sx - mx) * 0.5, y = my + (sy - my) * 0.5;
+        const title = gf.kind === 'vp' ? t('tribe.giftVp') : gf.kind === 'dev' ? t('tribe.giftDev') : t('tribe.giftHarbor', { what: portName(gf.harbor ?? 'any', t) });
+        return (
+          <g key={`g${gf.edge}`} className="gift-spot">
+            <title>{title}</title>
+            <path d={`M${mx} ${my} L${x} ${y}`} className="gift-tether" />
+            <g transform={`translate(${x} ${y})`}><GiftToken kind={gf.kind} harbor={gf.harbor} /></g>
+          </g>
+        );
+      })}
+      {view.looms?.villages.map((vil) => {
+        const [x, y] = vpos(vil.v);
+        const on = !!lit && lit.numbers.includes(vil.n) && vil.cloth > 0;
+        return (
+          <g key={`v${vil.v}`} transform={`translate(${x} ${y})`} className="village-spot" data-village={vil.v}>
+            <title>{t('looms.villageTitle', { n: vil.n, cloth: vil.cloth })}</title>
+            <g transform={stand}><VillageShape n={vil.n} cloth={vil.cloth} linked={vil.linked.map(colorOf)} lit={on} /></g>
+          </g>
+        );
+      })}
+      {view.bastions?.forts.map((f) => {
+        const owner = view.players[f.seat]?.name ?? '';
+        const out: ReactNode[] = [];
+        if (!f.taken) {
+          const [x, y] = vpos(f.v);
+          out.push(<g key={`f${f.v}`} transform={`translate(${x} ${y})`}><title>{t('fort.title', { name: owner, n: f.chips })}</title><g transform={stand}><g transform="scale(1.3)"><FortShape color={colorOf(f.seat)} chips={f.chips} /></g></g></g>);
+        }
+        if (!view.buildings[f.landing]) {
+          const [x, y] = vpos(f.landing);
+          out.push(<g key={`l${f.landing}`} transform={`translate(${x} ${y})`}><title>{t('fort.landingTitle', { name: owner })}</title><g transform={stand}><g transform="scale(1.3)"><LandingFlag color={colorOf(f.seat)} /></g></g></g>);
+        }
+        return out;
       })}
     </>
   );
@@ -517,6 +613,10 @@ export function Board({ view, targets, onPick, flash, children, still = false, l
         const [x, y] = hpos(pirateAt);
         return <g transform={`translate(${x} ${y})`}><title>{t('piece.pirate')}</title><g ref={pirateRef}><g transform={stand}><g transform="scale(1.5)"><ShipShape /></g></g></g></g>;
       })()}
+      {fleetAt && (() => {
+        const [x, y] = hpos(fleetAt);
+        return <g transform={`translate(${x} ${y})`}><title>{t('piece.fleet')}</title><g ref={fleetRef}><g transform={stand}><g transform="scale(1.35)"><FleetShape /></g></g></g></g>;
+      })()}
       {view.board.merchant && (() => {
         const [x, y] = hpos(view.board.merchant.hex);
         return <g transform={`translate(${x + 26} ${y + 4})`}><title>{t('piece.merchant')}</title><g transform={stand}><MerchantShape color={colorOf(view.board.merchant.owner)} /></g></g>;
@@ -530,6 +630,7 @@ export function Board({ view, targets, onPick, flash, children, still = false, l
         {defs && <TileDefs />}
         {landscape}
         <g className="layer-routes">{routes()}</g>
+        <g className="layer-marks">{marks()}</g>
         <g className="layer-buildings">{pieces()}</g>
         <g className="layer-tokens">{tokens()}</g>
         {overlay && <g className="layer-overlay">{overlay({ v: vpos, h: hpos, e: (id) => at(g.edges[id].X, g.edges[id].Y) })}</g>}
@@ -561,7 +662,7 @@ export function Board({ view, targets, onPick, flash, children, still = false, l
               {targets.hexes.map((h) => {
                 const [x, y] = hpos(h);
                 return (
-                  <g key={h} transform={`translate(${x} ${y})`} className={`target target-hex${selected.has(h) ? ' selected' : ''}`}
+                  <g key={h} data-target-hex={h} transform={`translate(${x} ${y})`} className={`target target-hex${selected.has(h) ? ' selected' : ''}`}
                     role="button" tabIndex={0} aria-label={name(`terrain.${view.board.hexes[h].terrain}`)}
                     onClick={() => pick('hex', h)} onKeyDown={keyPick('hex', h)}>
                     <polygon points={TOP_POINTS} />
@@ -572,6 +673,7 @@ export function Board({ view, targets, onPick, flash, children, still = false, l
           )}
 
           <g className="layer-routes">{routes()}</g>
+          <g className="layer-marks">{marks()}</g>
           <g className="layer-buildings">{pieces()}</g>
           <g className="layer-tokens">{tokens()}</g>
 
@@ -584,7 +686,7 @@ export function Board({ view, targets, onPick, flash, children, still = false, l
                 const k = 0.22;
                 const d = `M${ax + (bx - ax) * k} ${ay + (by - ay) * k} L${bx - (bx - ax) * k} ${by - (by - ay) * k}`;
                 return (
-                  <g key={e} className={`target target-edge${selected.has(e) ? ' selected' : ''}`} role="button" tabIndex={0}
+                  <g key={e} data-edge={e} className={`target target-edge${selected.has(e) ? ' selected' : ''}`} role="button" tabIndex={0}
                     aria-label={t('pick.road')} onClick={() => pick('edge', e)} onKeyDown={keyPick('edge', e)}>
                     <circle cx={(ax + bx) / 2} cy={(ay + by) / 2} r={13} className="hit-dot" />
                     <path d={d} className="hit" />
@@ -595,7 +697,7 @@ export function Board({ view, targets, onPick, flash, children, still = false, l
               {(targets.vertices ?? []).map((v) => {
                 const [x, y] = vpos(v);
                 return (
-                  <g key={v} transform={`translate(${x} ${y})`} className={`target target-vertex${selected.has(v) ? ' selected' : ''}`}
+                  <g key={v} data-vertex={v} transform={`translate(${x} ${y})`} className={`target target-vertex${selected.has(v) ? ' selected' : ''}`}
                     role="button" tabIndex={0} aria-label={t('pick.settlement')} onClick={() => pick('vertex', v)} onKeyDown={keyPick('vertex', v)}>
                     <circle r={22} className="hit" />
                     <circle r={8} className="mark" />

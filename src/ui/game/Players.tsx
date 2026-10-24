@@ -1,5 +1,7 @@
 import { useT } from '../../app/i18n';
 import * as C from '../../engine/core';
+import * as Bastions from '../../engine/mods/bastions';
+import * as Works from '../../engine/mods/works';
 import { TRACKS, type GameState } from '../../engine/types';
 import type { LobbyState } from '../../net/protocol';
 import { PlayerMark } from '../art';
@@ -43,6 +45,12 @@ export function Players({ view, me, lobby, compact }: { view: GameState; me: num
         if (p.defender) badges.push(`${t('player.defender')} ×${p.defender}`);
         const bonus = p.bonus.reduce((a, b) => a + b.vp, 0);
         if (bonus) badges.push(`${t('over.breakdown.bonus')} +${bonus}`);
+        const gifts = view.tribe?.vp[seat] ?? 0;
+        if (gifts) badges.push(t('player.gifts', { n: gifts }));
+        const fort = C.fortOf(view, seat);
+        if (fort?.taken) badges.push(t('player.fortTaken'));
+        const wonder = Works.wonderOf(view, seat);
+        if (wonder) badges.push(t('player.wonder', { name: t(`wonder.${wonder.id}`), n: wonder.level }));
         const cls = ['player', actor === seat ? 'acting' : '', waiting.has(seat) ? 'waiting' : '', seat === me ? 'me' : '', view.winner === seat ? 'winner' : ''].join(' ');
         if (compact) {
           return (
@@ -65,10 +73,14 @@ export function Players({ view, me, lobby, compact }: { view: GameState; me: num
             <div className="pstats">
               <span>{t('player.cards', { n: p.handCount ?? 0 })}</span>
               {!view.settings.guilds && <span>{t('player.dev', { n: p.devCount ?? 0 })}</span>}
-              {!view.settings.guilds && p.soldiers > 0 && <span>{t('player.soldiers', { n: p.soldiers })}</span>}
+              {!view.settings.guilds && !view.bastions && p.soldiers > 0 && <span>{t('player.soldiers', { n: p.soldiers })}</span>}
               {view.settings.guilds && <span>{t('player.progress', { n: p.progressCount ?? 0 })}</span>}
               {view.settings.guilds && <span>{t('player.knights', { n: `${strength}/${knights.reduce((a, k) => a + k.level, 0)}` })}</span>}
-              <span>{t('player.route', { n: route })}</span>
+              {!view.looms && !view.bastions && <span>{t('player.route', { n: route })}</span>}
+              {view.looms && <span>{t('player.cloth', { n: view.looms.cloth[seat] ?? 0 })}</span>}
+              {view.bastions && <span>{t('player.warships', { n: Bastions.warships(view, seat) })}</span>}
+              {fort && !fort.taken && <span>{t('player.fort', { n: 3 - fort.chips })}</span>}
+              {(view.tribe?.held[seat].length ?? 0) > 0 && <span>{t('tribe.held', { n: view.tribe!.held[seat].length })}</span>}
               {p.tokens !== undefined && <span>{t('player.tokens', { n: p.tokens })}</span>}
               {view.fish && <span>{t('player.fish', { n: p.fish?.length || p.fishCount || 0 })}</span>}
               {view.river && <span>{t('player.coins', { n: view.river.coins[seat] ?? 0 })}</span>}

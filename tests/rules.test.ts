@@ -11,6 +11,11 @@ import * as Duel from '../src/engine/mods/duel';
 import * as Fish from '../src/engine/mods/fish';
 import * as River from '../src/engine/mods/river';
 import * as Caravan from '../src/engine/mods/caravan';
+import * as Tribe from '../src/engine/mods/tribe';
+import * as Looms from '../src/engine/mods/looms';
+import * as Bastions from '../src/engine/mods/bastions';
+import * as Works from '../src/engine/mods/works';
+import { otherEnd } from '../src/engine/geometry';
 import { settings, seats, totals } from './helpers';
 import {
   CARDS, RESOURCES, handTotal, type Action, type Card, type GameState, type Hand, type SeaScenario, type Settings,
@@ -1058,3 +1063,383 @@ describe('Comarcas: ruta de camellos', () => {
 });
 
 export const _unused: Card | undefined = undefined;
+
+// ---------- Mar Abierto: escenarios especiales ----------
+
+/** Pone un barco propio junto a `e` (que comparta un cruce) para poder construir en `e`. */
+function shipNext(s: GameState, seat: number, e: string) {
+  const g = C.G(s);
+  for (const v of [g.edges[e].a, g.edges[e].b]) {
+    const e2 = g.vertices[v].edges.find((x) => x !== e && C.edgeShippable(s, x) && !s.ships[x]);
+    if (e2) {
+      s.ships[e2] = { owner: seat };
+      return;
+    }
+  }
+  throw new Error('sin lugar para el barco');
+}
+
+describe('Mar Abierto: pueblo isleño', () => {
+  it('islitas sin números ni edificios; 18 regalos (8 puntos, 4 cartas, 6 puertos) y sin puertos al empezar', () => {
+    const s = game({ seed: 300, openSea: true, scenario: 'tribe' });
+    expect(s.settings.vpTarget).toBe(13);
+    expect(s.tribe!.hexes.length).toBe(10);
+    expect(s.tribe!.hexes.every((h) => s.board.hexes[h].number === null)).toBe(true);
+    const kinds = s.tribe!.gifts.map((x) => x.kind);
+    expect(kinds.filter((k) => k === 'vp').length).toBe(8);
+    expect(kinds.filter((k) => k === 'dev').length).toBe(4);
+    expect(s.tribe!.gifts.filter((x) => x.kind === 'harbor').map((x) => x.harbor).sort()).toEqual(['any', 'brick', 'grain', 'lumber', 'ore', 'wool']);
+    expect(s.hidden.tribeDev!.length).toBe(4);
+    expect(s.board.harbors).toEqual([]);
+    // en las islitas no se funda, ni siquiera llegando en barco
+    const g = C.G(s);
+    const v = g.hexes[s.tribe!.hexes[0]].vertices[0];
+    const e = g.vertices[v].edges.find((x) => C.edgeShippable(s, x))!;
+    s.ships[e] = { owner: 0 };
+    expect(C.canSettle(s, 0, v)).toBe(false);
+    // el ladrón no entra en las islitas ni vuelve al desierto
+    const hexes = C.legalRobberHexes(s, 0);
+    expect(hexes.some((h) => s.tribe!.hexes.includes(h) || s.board.hexes[h].terrain === 'desert')).toBe(false);
+  });
+
+  it('un barco en el lado del regalo se lo lleva: punto, carta de desarrollo o puerto', () => {
+    let s = main(game({ seed: 301, openSea: true, scenario: 'tribe' }));
+    const vp = s.tribe!.gifts.find((x) => x.kind === 'vp')!;
+    shipNext(s, 0, vp.edge);
+    give(s, 0, { lumber: 1, wool: 1 });
+    const before = C.vpOf(s, 0);
+    s = act(s, 0, { t: 'build', what: 'ship', at: vp.edge });
+    expect(C.vpOf(s, 0)).toBe(before + 1);
+    expect(s.tribe!.gifts.some((x) => x.edge === vp.edge)).toBe(false);
+    expect(C.vpBreakdown(s, 0).gifts).toBe(1);
+    const dev = s.tribe!.gifts.find((x) => x.kind === 'dev')!;
+    shipNext(s, 0, dev.edge);
+    give(s, 0, { lumber: 1, wool: 1 });
+    s = act(s, 0, { t: 'build', what: 'ship', at: dev.edge });
+    expect(s.players[0].dev.length).toBe(1);
+    expect(s.players[0].dev[0].turn).toBe(s.turn.n);
+    expect(s.hidden.tribeDev!.length).toBe(3);
+  });
+
+  it('el puerto regalado se pone junto a un poblado de la costa; sin poblado en la costa, queda guardado', () => {
+    let s = main(game({ seed: 302, openSea: true, scenario: 'tribe' }));
+    const gift = s.tribe!.gifts.find((x) => x.kind === 'harbor' && x.harbor !== 'any')!;
+    shipNext(s, 0, gift.edge);
+    give(s, 0, { lumber: 1, wool: 1 });
+    s = act(s, 0, { t: 'build', what: 'ship', at: gift.edge });
+    expect(s.tribe!.held[0]).toEqual([gift.harbor]);
+    expect(s.steps).toEqual([]);
+    // un poblado en la costa de la isla grande: aparece el paso para ponerlo
+    const g = C.G(s);
+    const coastV = Object.keys(g.vertices).find((v) => C.vertexLand(s, v) && C.distanceOk(s, v)
+      && g.vertices[v].hexes.some((h) => s.board.hexes[h].region === 0)
+      && g.vertices[v].edges.some((e) => g.edges[e].hexes.length === 2 && g.edges[e].hexes.some((h) => C.hexIsSea(s, h))))!;
+    const road = g.vertices[coastV].edges.find((e) => C.edgeRoadable(s, e))!;
+    s.roads[road] = { owner: 0 };
+    give(s, 0, { lumber: 1, brick: 1, wool: 1, grain: 1 });
+    s = act(s, 0, { t: 'build', what: 'settlement', at: coastV });
+    expect(s.steps[0]).toMatchObject({ k: 'placeHarbor', seat: 0, kind: gift.harbor });
+    const spot = Tribe.harborSpots(s, 0)[0];
+    s = act(s, 0, { t: 'placeHarbor', edge: spot });
+    expect(s.board.harbors.length).toBe(1);
+    expect(C.ratioFor(s, 0, gift.harbor as Card)).toBe(2);
+    expect(s.tribe!.held[0]).toEqual([]);
+  });
+});
+
+describe('Mar Abierto: aldeas tejedoras', () => {
+  it('ocho aldeas con número y cinco telas; tercera ronda de preparación que da los recursos', () => {
+    let s = game({ seed: 310, openSea: true, scenario: 'looms' });
+    expect(s.settings.vpTarget).toBe(14);
+    expect(s.looms!.villages.length).toBe(8);
+    expect(new Set(s.looms!.villages.map((x) => x.n)).size).toBe(8);
+    expect(s.looms!.villages.every((x) => x.cloth === 5 && x.n !== 7)).toBe(true);
+    expect(s.looms!.hexes.every((h) => s.board.hexes[h].number === null)).toBe(true);
+    expect(s.turn.setupOrder.length).toBe(12);
+    // con bots hasta terminar la preparación: sólo la tercera ronda da recursos
+    let guard = 0;
+    while (s.turn.phase === 'setup' && guard++ < 100) {
+      const seat = C.actorOf(s);
+      if (s.turn.setupAwait === 'building') {
+        const before = handTotal(s.players[seat].hand);
+        const round = Math.floor(s.turn.setupIndex / 4);
+        const v = C.legalSetupVertices(s).sort((a, b) => C.G(s).vertices[b].hexes.filter((h) => s.board.hexes[h].number).length - C.G(s).vertices[a].hexes.filter((h) => s.board.hexes[h].number).length)[0];
+        s = act(s, seat, { t: 'setupBuild', vertex: v });
+        const got = handTotal(s.players[seat].hand) - before;
+        if (round < 2) expect(got).toBe(0);
+        else expect(got).toBeGreaterThan(0);
+      } else {
+        const r = C.legalSetupRoutes(s, s.turn.setupVertex!);
+        s = act(s, seat, r.roads.length ? { t: 'setupRoute', edge: r.roads[0] } : { t: 'setupRoute', edge: r.ships[0], ship: true });
+      }
+    }
+    expect(Object.values(s.buildings).filter((b) => b.owner === 0).length).toBe(3);
+  });
+
+  it('llegar en barco a una aldea da una tela; su número da una a cada uno; dos telas valen un punto', () => {
+    let s = main(game({ seed: 311, openSea: true, scenario: 'looms' }));
+    const vil = s.looms!.villages[0];
+    const g = C.G(s);
+    const e = g.vertices[vil.v].edges.find((x) => C.edgeShippable(s, x))!;
+    shipNext(s, 0, e);
+    give(s, 0, { lumber: 1, wool: 1 });
+    s = act(s, 0, { t: 'build', what: 'ship', at: e });
+    expect(s.looms!.villages[0].linked).toEqual([0]);
+    expect(s.looms!.cloth[0]).toBe(1);
+    expect(s.looms!.villages[0].cloth).toBe(4);
+    // la ruta que llega a una aldea no se mueve
+    expect(C.movableShips(s, 0)).not.toContain(e);
+    s.looms!.villages[0].linked.push(1);
+    Looms.produce(s, vil.n);
+    expect(s.looms!.cloth[0]).toBe(2);
+    expect(s.looms!.cloth[1]).toBe(1);
+    expect(C.clothPoints(s, 0)).toBe(1);
+    // aldea con una sola tela y dos unidos: la segunda sale de la reserva
+    s.looms!.villages[0].cloth = 1;
+    const supply = s.looms!.supply;
+    Looms.produce(s, vil.n);
+    expect(s.looms!.villages[0].cloth).toBe(0);
+    expect(s.looms!.supply).toBe(supply - 1);
+    // vacía: ya no da nada
+    const before = [...s.looms!.cloth];
+    Looms.produce(s, vil.n);
+    expect(s.looms!.cloth).toEqual(before);
+  });
+
+  it('sin premio por la ruta más larga; el pirata sólo lo mueve quien llegó a una aldea y puede robar una tela', () => {
+    let s = main(game({ seed: 312, openSea: true, scenario: 'looms' }));
+    const { es } = landPath(s, 6);
+    for (const e of es) s.roads[e] = { owner: 0 };
+    C.updateRoadAward(s);
+    expect(s.awards.road.owner).toBeNull();
+    // un siete: sin aldea propia, sólo el ladrón
+    s.steps = [];
+    s.turn.dice = [3, 4];
+    s.steps.push({ k: 'robber', seat: 0, robber: true, pirate: Looms.linked(s, 0), mode: 'steal1' });
+    expect(s.steps[0]).toMatchObject({ pirate: false });
+    s.looms!.villages[0].linked = [0];
+    expect(Looms.linked(s, 0)).toBe(true);
+    // robar tela con el pirata
+    const g = C.G(s);
+    const seaHex = Object.keys(s.board.hexes).find((h) => C.hexIsSea(s, h) && g.hexes[h].edges.some((e) => C.edgeShippable(s, e)))!;
+    const e1 = g.hexes[seaHex].edges.find((e) => C.edgeShippable(s, e))!;
+    s.ships[e1] = { owner: 1 };
+    s.looms!.cloth[1] = 3;
+    s.steps = [{ k: 'robber', seat: 0, robber: true, pirate: true, mode: 'steal1' }];
+    s = act(s, 0, { t: 'robber', hex: seaHex, target: 'pirate' });
+    expect(s.steps[0]).toMatchObject({ k: 'steal', on: 'pirate' });
+    s = act(s, 0, { t: 'steal', from: 1, cloth: true });
+    expect(s.looms!.cloth).toEqual([1, 2, 0, 0]);
+  });
+
+  it('termina cuando quedan tres aldeas o menos con telas: gana quien tiene más puntos (y si empatan, más telas)', () => {
+    let s = main(game({ seed: 313, openSea: true, scenario: 'looms' }));
+    for (const v of s.looms!.villages.slice(0, 4)) v.cloth = 0;
+    const g = C.G(s);
+    s.buildings[landVertex(s, (v) => g.vertices[v].hexes.some((h) => s.board.hexes[h].region === 0))] = { owner: 2, kind: 'city' };
+    s.looms!.cloth = [0, 0, 1, 4];
+    const vil = s.looms!.villages[4];
+    vil.linked = [1];
+    vil.cloth = 1;
+    s = act(s, 0, { t: 'endTurn' }); // cualquier acción revisa el final
+    expect(s.winner).toBeNull();
+    s.looms!.villages[5].cloth = 0;
+    s.turn.phase = 'main';
+    s = act(s, s.turn.current, { t: 'endTurn' });
+    // jugador 2 (ciudad, 2 PV) y jugador 3 (4 telas, 2 PV) empatan en puntos: gana el de más telas
+    expect(s.winner).toBe(3);
+  });
+});
+
+describe('Mar Abierto: bastiones corsarios', () => {
+  /** Construye la ruta de `seat` hasta el bastión con barcos puestos directamente. */
+  function fullRoute(s: GameState, seat: number) {
+    const f = s.bastions!.forts.find((x) => x.seat === seat)!;
+    for (let i = 0; i < 40 && C.bastionRoute(s, seat).head !== f.v; i++) {
+      const e = C.legalShips(s, seat)[0];
+      if (!e) throw new Error('ruta trabada');
+      s.ships[e] = { owner: seat };
+    }
+  }
+
+  it('cada uno empieza con poblado y barco hacia su desembarco; sin ladrón; las cartas de punto son soldados', () => {
+    const s = game({ seed: 320, openSea: true, scenario: 'bastions' });
+    expect(s.settings.vpTarget).toBe(10);
+    expect(s.board.robber).toBeNull();
+    expect(s.bastions!.forts.length).toBe(4);
+    for (const f of s.bastions!.forts) {
+      expect(s.buildings[f.start]).toEqual({ owner: f.seat, kind: 'settlement' });
+      expect(f.chips).toBe(3);
+      expect(C.bastionRoute(s, f.seat).edges.length).toBe(1);
+    }
+    expect(s.hidden.devDeck.filter((d) => d === 'point').length).toBe(0);
+    expect(s.hidden.devDeck.filter((d) => d === 'soldier').length).toBe(19);
+    // en la preparación no hay barcos
+    expect(C.setupRouteOk(s, s.bastions!.forts[0].start, C.bastionRoute(s, 0).edges[0], true)).toBe(false);
+  });
+
+  it('una sola ruta: sólo se alarga por la punta, acercándose al desembarco y luego al bastión; no se mueven', () => {
+    let s = main(game({ seed: 321, openSea: true, scenario: 'bastions' }));
+    const f = s.bastions!.forts.find((x) => x.seat === 0)!;
+    const r = C.bastionRoute(s, 0);
+    const legal = C.legalShips(s, 0);
+    expect(legal.length).toBeGreaterThan(0);
+    const g = C.G(s);
+    const d0 = C.shipDistances(s, f.landing, 0).get(r.head)!;
+    for (const e of legal) expect(C.shipDistances(s, f.landing, 0).get(otherEnd(g, e, r.head))).toBe(d0 - 1);
+    // un barco que sale del poblado por otro lado sería una rama
+    const branch = g.vertices[f.start].edges.find((e) => C.edgeShippable(s, e) && !s.ships[e]);
+    if (branch) expect(C.canShip(s, 0, branch)).toBe(false);
+    give(s, 0, { lumber: 1, wool: 1 });
+    s = act(s, 0, { t: 'build', what: 'ship', at: legal[0] });
+    expect(C.bastionRoute(s, 0).edges.length).toBe(2);
+    expect(C.movableShips(s, 0)).toEqual([]);
+    fullRoute(s, 0);
+    expect(C.bastionRoute(s, 0).landed).toBe(true);
+    expect(C.legalShips(s, 0)).toEqual([]);
+    // en el desembarco se puede fundar; en otra parte de las islas corsarias, no
+    expect(C.canSettle(s, 0, f.landing) || !C.distanceOk(s, f.landing)).toBe(true);
+    const other = s.bastions!.forts.find((x) => x.seat === 1)!;
+    expect(C.canSettle(s, 0, other.landing)).toBe(false);
+  });
+
+  it('el soldado arma el barco más cercano al puerto; la flota ataca según el dado menor', () => {
+    let s = main(game({ seed: 322, openSea: true, scenario: 'bastions' }));
+    s.players[0].dev.push({ type: 'soldier', turn: 1 });
+    s = act(s, 0, { t: 'playDev', card: 'soldier' });
+    expect(s.steps).toEqual([]);
+    expect(Bastions.warships(s, 0)).toBe(1);
+    expect(s.ships[C.bastionRoute(s, 0).edges[0]].war).toBe(true);
+    expect(s.awards.army.owner).toBeNull();
+    // sin barcos para armar, el soldado no se puede jugar
+    s.players[0].dev.push({ type: 'soldier', turn: 1 });
+    s.players[0].devPlayedTurn = -1;
+    expect(() => act(s, 0, { t: 'playDev', card: 'soldier' })).toThrow();
+    // la flota: se detiene junto a una ciudad del jugador 1 con fuerza 2 y él no tiene barcos de guerra
+    const g = C.G(s);
+    const b = s.bastions!;
+    const i = b.loop.findIndex((h) => g.hexes[h].vertices.some((v) => C.vertexLand(s, v) && C.distanceOk(s, v)));
+    const v = g.hexes[b.loop[i]].vertices.find((x) => C.vertexLand(s, x) && C.distanceOk(s, x))!;
+    s.buildings[v] = { owner: 1, kind: 'city' };
+    give(s, 1, { ore: 3 });
+    b.fleet = (i - 2 + b.loop.length) % b.loop.length;
+    s.turn.dice = [2, 5];
+    Bastions.sail(s, new Rng(seedRng(5)));
+    expect(b.fleet).toBe(i);
+    expect(s.players[1].hand.ore).toBe(1); // pierde 1 + 1 por la ciudad
+    expect(b.last).toMatchObject({ strength: 2, lost: [1] });
+    // con tres barcos de guerra le gana a la flota y elige un recurso
+    for (const e of Object.keys(s.ships).filter((x) => s.ships[x].owner === 1)) s.ships[e] = { owner: 1, war: true };
+    s.ships['x1'] = { owner: 1, war: true };
+    s.ships['x2'] = { owner: 1, war: true };
+    b.fleet = (i - 2 + b.loop.length) % b.loop.length;
+    Bastions.sail(s, new Rng(seedRng(5)));
+    expect(s.steps[0]).toMatchObject({ k: 'pick', reason: 'fleet', waiting: { 1: 1 } });
+  });
+
+  it('con un siete no hay ladrón: quien tira le roba a cualquiera', () => {
+    const s = main(game({ seed: 323, openSea: true, scenario: 'bastions' }));
+    give(s, 2, { grain: 2 });
+    s.turn.phase = 'preRoll';
+    let r: GameState = s;
+    for (let k = 0; k < 60; k++) {
+      r = act(s, 0, { t: 'roll' });
+      if (r.turn.dice![0] + r.turn.dice![1] === 7) break;
+      s.hidden.rng = r.hidden.rng;
+    }
+    expect(r.turn.dice![0] + r.turn.dice![1]).toBe(7);
+    expect(r.steps.find((x) => x.k === 'steal')).toMatchObject({ k: 'steal', on: 'event', from: [2] });
+    expect(r.steps.some((x) => x.k === 'robber')).toBe(false);
+  });
+
+  it('el ataque al bastión cierra el turno: si gana, una muesca menos; si pierde, dos barcos; con tres, es suyo y gana con la meta', () => {
+    let s = main(game({ seed: 324, openSea: true, scenario: 'bastions', vpTarget: 2 }));
+    fullRoute(s, 0);
+    const f = s.bastions!.forts.find((x) => x.seat === 0)!;
+    const len = C.bastionRoute(s, 0).edges.length;
+    // sin barcos de guerra pierde siempre: se van los dos barcos más cercanos al bastión
+    s = act(s, 0, { t: 'assault' });
+    expect(C.bastionRoute(s, 0).edges.length).toBe(len - 2);
+    expect(s.turn.current).not.toBe(0);
+    // con siete barcos de guerra gana siempre
+    s = main(s);
+    fullRoute(s, 0);
+    for (const e of C.bastionRoute(s, 0).edges) s.ships[e] = { owner: 0, war: true };
+    while (Bastions.warships(s, 0) < 7) s.ships[`w${Bastions.warships(s, 0)}`] = { owner: 0, war: true };
+    s = act(s, 0, { t: 'assault' });
+    expect(s.bastions!.forts.find((x) => x.seat === 0)!.chips).toBe(2);
+    s = main(s);
+    s.bastions!.forts.find((x) => x.seat === 0)!.chips = 1;
+    expect(s.winner).toBeNull();
+    s = act(s, 0, { t: 'assault' });
+    expect(s.buildings[f.v]).toEqual({ owner: 0, kind: 'settlement' });
+    expect(s.winner).toBe(0);
+  });
+
+  it('con la meta de puntos pero sin el bastión no se gana', () => {
+    let s = main(game({ seed: 325, openSea: true, scenario: 'bastions', vpTarget: 1 }));
+    s = act(s, 0, { t: 'endTurn' });
+    expect(s.winner).toBeNull();
+  });
+});
+
+describe('Mar Abierto: grandes obras', () => {
+  it('el estrecho y el páramo no se ocupan en la preparación; las islitas dan un punto', () => {
+    const s = game({ seed: 330, openSea: true, scenario: 'works' });
+    expect(s.settings.vpTarget).toBe(10);
+    expect(s.works!.wonders.length).toBe(5);
+    expect(s.works!.strait.length).toBeGreaterThan(1);
+    expect(s.works!.waste.length).toBeGreaterThan(1);
+    const legal = C.legalSetupVertices(s);
+    expect(legal.some((v) => s.works!.strait.includes(v) || s.works!.waste.includes(v))).toBe(false);
+    expect(s.board.regionBonus).toBe(1);
+    expect(Object.values(s.board.hexes).filter((h) => h.terrain === 'desert').length).toBe(3);
+  });
+
+  it('una obra por jugador: se empieza cumpliendo el requisito y cada nivel cuesta lo mismo', () => {
+    let s = main(game({ seed: 331, openSea: true, scenario: 'works' }));
+    const g = C.G(s);
+    const spots = Object.keys(g.vertices).filter((v) => C.vertexLand(s, v)).filter((v, i, all) => all.slice(0, i).every((w) => w !== v && !g.vertices[w].neighbors.includes(v)));
+    s.buildings[spots[0]] = { owner: 0, kind: 'city' };
+    give(s, 0, { ore: 4, grain: 4, brick: 2 });
+    expect(Works.canBuild(s, 0, 'observatory')).toBe(false); // hacen falta dos ciudades
+    s.buildings[spots[1]] = { owner: 0, kind: 'city' };
+    expect(Works.canBuild(s, 0, 'observatory')).toBe(true);
+    s = act(s, 0, { t: 'wonder', id: 'observatory' });
+    expect(s.works!.wonders.find((w) => w.id === 'observatory')).toEqual({ id: 'observatory', owner: 0, level: 1 });
+    expect(s.players[0].hand).toMatchObject({ ore: 2, grain: 2, brick: 1 });
+    s = act(s, 0, { t: 'wonder', id: 'observatory' });
+    expect(Works.levelOf(s, 0)).toBe(2);
+    // ya tiene una: no puede empezar otra; otro jugador no puede tomar la suya
+    give(s, 0, { lumber: 2, wool: 2, grain: 1 });
+    expect(Works.canBuild(s, 0, 'library')).toBe(false);
+    s.buildings[spots[2]] = { owner: 1, kind: 'city' };
+    s.buildings[spots[3]] = { owner: 1, kind: 'city' };
+    s = main(s, 1);
+    give(s, 1, { ore: 2, grain: 2, brick: 1 });
+    expect(Works.canBuild(s, 1, 'observatory')).toBe(false);
+  });
+
+  it('gana con el cuarto nivel, o con la meta y un nivel más alto que todos', () => {
+    let s = main(game({ seed: 332, openSea: true, scenario: 'works' }));
+    const w = s.works!.wonders.find((x) => x.id === 'library')!;
+    w.owner = 0;
+    w.level = 3;
+    give(s, 0, { lumber: 2, wool: 2, grain: 1 });
+    s = act(s, 0, { t: 'wonder', id: 'library' });
+    expect(s.winner).toBe(0);
+    // meta de puntos: hace falta estar más alto que todos
+    s = main(game({ seed: 333, openSea: true, scenario: 'works', vpTarget: 2 }));
+    const g = C.G(s);
+    const vs = Object.keys(g.vertices).filter((v) => C.vertexLand(s, v)).filter((v, i, all) => all.slice(0, i).every((x) => !g.vertices[x].neighbors.includes(v)));
+    s.buildings[vs[0]] = { owner: 0, kind: 'city' };
+    s.works!.wonders[0].owner = 1;
+    s.works!.wonders[0].level = 1;
+    s.works!.wonders[1].owner = 0;
+    s.works!.wonders[1].level = 1;
+    expect(Works.wins(s, 0)).toBe(false); // empatados en nivel
+    give(s, 0, { lumber: 2, wool: 2, grain: 1 });
+    s = act(s, 0, { t: 'wonder', id: s.works!.wonders[1].id });
+    expect(s.winner).toBe(0);
+  });
+});

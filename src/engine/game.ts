@@ -9,8 +9,12 @@ import * as Duel from './mods/duel';
 import * as Fish from './mods/fish';
 import * as River from './mods/river';
 import * as Caravan from './mods/caravan';
+import * as Tribe from './mods/tribe';
+import * as Looms from './mods/looms';
+import * as Bastions from './mods/bastions';
+import * as Works from './mods/works';
 import {
-  CARDS, COST, EVENT_FACES, GameError, PROGRESS_DECKS, RESOURCES, SHIRES, TERRAIN_COMMODITY, TERRAIN_RESOURCE, TRACKS,
+  CARDS, COST, EVENT_FACES, GameError, PROGRESS_DECKS, RESOURCES, SEA_SPECIAL, SHIRES, TERRAIN_COMMODITY, TERRAIN_RESOURCE, TRACKS,
   emptyHand, handTotal, isCard, isResource,
   type Action, type DevType, type GameState, type Hand, type PlayerState, type ProgressType, type SeaScenario,
   type Settings, type Step, type Track,
@@ -25,7 +29,7 @@ const need = (cond: unknown, code: string): void => {
 const SHIRE_VP: Record<string, number> = { fishers: 10, rivers: 10, caravans: 12, raid: 12, traders: 13 };
 
 export function defaultVp(o: Pick<Settings, 'openSea' | 'scenario' | 'guilds' | 'harbormaster' | 'shire'>): number {
-  const sea: Record<SeaScenario, number> = { islands: 13, archipelago: 12, fog: 12, desert: 12, newWorld: 12 };
+  const sea: Record<SeaScenario, number> = { islands: 13, archipelago: 12, fog: 12, desert: 12, newWorld: 12, tribe: 13, looms: 14, bastions: 10, works: 10 };
   let vp = 10;
   if (o.openSea && o.guilds) vp = sea[o.scenario] + 2;
   else if (o.openSea) vp = sea[o.scenario];
@@ -42,6 +46,8 @@ export function normalizeSettings(st: Settings): Settings {
     s.openSea = false;
     s.guilds = false;
   }
+  // los escenarios con reglas especiales no se combinan con Gremios
+  if (s.openSea && SEA_SPECIAL.includes(s.scenario)) s.guilds = false;
   if (s.guilds) s.chronicle = false;
   if (s.seats !== 2 || s.openSea || s.guilds || s.shire) s.duel = false;
   return s;
@@ -58,10 +64,12 @@ export function createGame(input: Settings, seats: SeatInfo[]): GameState {
   const comN = settings.guilds ? (big ? 15 : 12) : 0;
   const bank: Hand = { lumber: resN, brick: resN, wool: resN, grain: resN, ore: resN, paper: comN, cloth: comN, coin: comN };
   const devDeck: DevType[] = [];
+  const bastions = settings.openSea && settings.scenario === 'bastions';
   if (!settings.guilds) {
     const add = (t: DevType, k: number) => { for (let i = 0; i < k; i++) devDeck.push(t); };
-    add('soldier', big ? 20 : 14);
-    add('point', 5);
+    // en los bastiones no hay cartas de punto: son soldiers que arman barcos
+    add('soldier', (big ? 20 : 14) + (bastions ? 5 : 0));
+    add('point', bastions ? 0 : 5);
     add('roads', big ? 3 : 2);
     add('plenty', big ? 3 : 2);
     add('monopoly', big ? 3 : 2);
@@ -76,6 +84,8 @@ export function createGame(input: Settings, seats: SeatInfo[]): GameState {
   }
   const first = rng.int(n);
   const order = Array.from({ length: n }, (_, i) => (first + i) % n);
+  // aldeas tejedoras: una tercera ronda de preparación, otra vez en el orden del primero
+  const setupOrder = [...order, ...[...order].reverse(), ...(settings.openSea && settings.scenario === 'looms' ? order : [])];
   const players: PlayerState[] = seats.map((p, i) => ({
     seat: i, name: p.name, color: p.color, hand: emptyHand(), dev: [], devPlayedTurn: -1, soldiers: 0,
     progress: [], vpCards: [], improvements: { science: 0, trade: 0, politics: 0 }, defender: 0, bonus: [], homeRegions: [],
@@ -95,7 +105,7 @@ export function createGame(input: Settings, seats: SeatInfo[]): GameState {
     players, bank,
     decks: { dev: 0, science: 0, trade: 0, politics: 0 },
     turn: {
-      n: 0, current: first, phase: 'setup', setupOrder: [...order, ...[...order].reverse()], setupIndex: 0,
+      n: 0, current: first, phase: 'setup', setupOrder, setupIndex: 0,
       setupAwait: 'building', setupVertex: null, dice: null, event: null, shipMoved: [], builtShips: [],
       sbpOrder: [], sbpIndex: 0, partner: null, fleet: null, alchemist: null,
     },
@@ -114,6 +124,13 @@ export function createGame(input: Settings, seats: SeatInfo[]): GameState {
   if (settings.shire === 'fishers') Fish.setup(s, rng);
   if (settings.shire === 'rivers') River.setup(s, rng);
   if (settings.shire === 'caravans') Caravan.setup(s);
+  if (settings.openSea) {
+    const m = map.marks ?? {};
+    if (settings.scenario === 'tribe') Tribe.setup(s, rng, m.isles ?? []);
+    if (settings.scenario === 'looms') Looms.setup(s, rng, m.isles ?? []);
+    if (bastions) Bastions.setup(s, rng, m);
+    if (settings.scenario === 'works') Works.setup(s, m);
+  }
   s.hidden.rng = rng.s;
   s.decks = C.decksOf(s);
   C.log(s, 'game.start', { seat: first });
@@ -148,6 +165,11 @@ function settle(s: GameState, rng: Rng) {
     if (st.k === 'duelRoll') {
       s.steps.shift();
       secondRoll(s, rng);
+      continue;
+    }
+    if (st.k === 'fleet') {
+      s.steps.shift();
+      Bastions.sail(s, rng);
       continue;
     }
     if (stepDone(s, st)) {
@@ -188,6 +210,8 @@ function stepDone(s: GameState, st: Step): boolean {
       return !st.waiting.length;
     case 'camelPlace':
       return !Caravan.legalCamels(s).length;
+    case 'placeHarbor':
+      return Tribe.stuck(s, st);
     case 'steal':
       return !st.from.length;
     case 'freeRoutes':
@@ -208,21 +232,36 @@ function freeOptions(s: GameState, seat: number, source: string): string[] {
 
 function checkVictory(s: GameState) {
   if (s.winner !== null || s.turn.phase === 'setup') return;
+  const declare = (c: number) => {
+    s.winner = c;
+    s.turn.phase = 'over';
+    s.steps = [];
+    s.trade = null;
+    C.log(s, 'win', { seat: c, vp: C.vpOf(s, c) });
+  };
   const cands = [s.turn.current];
   const partner = C.pairedPartner(s);
   if (partner !== null) cands.push(partner);
   for (const c of cands) {
-    const vp = C.vpOf(s, c);
-    if (vp >= C.targetOf(s, c)) {
-      s.winner = c;
-      s.turn.phase = 'over';
-      s.steps = [];
-      s.trade = null;
-      C.log(s, 'win', { seat: c, vp });
+    if (wins(s, c)) {
+      declare(c);
       return;
     }
   }
+  // aldeas tejedoras: también termina cuando quedan pocas aldeas con telas
+  if (Looms.exhausted(s)) {
+    C.log(s, 'looms.over');
+    declare(Looms.leader(s));
+  }
 }
+
+function wins(s: GameState, c: number): boolean {
+  if (s.works) return Works.wins(s, c);
+  return C.vpOf(s, c) >= C.targetOf(s, c) && (!s.bastions || Bastions.taken(s, c));
+}
+
+/** ¿Se puede mover el pirata? (no hay en las obras ni en los bastiones; en las aldeas, sólo quien ya llegó a una) */
+const pirateOk = (s: GameState, seat: number) => s.settings.openSea && !s.works && !s.bastions && (!s.looms || Looms.linked(s, seat));
 
 function nextTurn(s: GameState) {
   const t = s.turn;
@@ -325,6 +364,7 @@ function produce(s: GameState, rng: Rng) {
     if (got) C.log(s, 'produce', { seat: i, cards: C.handText(gains[i]) });
   }
   Fish.produce(s, total);
+  Looms.produce(s, total);
   const steps: Step[] = [];
   if (Object.keys(gold).length) steps.push({ k: 'pick', reason: 'gold', waiting: gold });
   if (s.settings.guilds) {
@@ -348,6 +388,7 @@ function rollOnce(s: GameState, rng: Rng, seat: number, avoid?: number) {
     t.dice = [d1, d2];
     s.stats.rolls[card.n]++;
     C.log(s, 'roll.card', { seat, n: card.n, ev: card.ev ?? null });
+    if (s.bastions && s.bastions.fleet !== null) s.steps.push({ k: 'fleet' });
     s.steps.push(...Chron.resolve(s, card));
   } else {
     do {
@@ -360,6 +401,8 @@ function rollOnce(s: GameState, rng: Rng, seat: number, avoid?: number) {
     }
     t.dice = [d1, d2];
     s.stats.rolls[d1 + d2]++;
+    // la flota corsaria se mueve antes que todo lo demás
+    if (s.bastions && s.bastions.fleet !== null) s.steps.push({ k: 'fleet' });
     if (s.settings.guilds) {
       const face = rng.pick(EVENT_FACES);
       t.event = face;
@@ -387,7 +430,11 @@ function seven(s: GameState) {
   }
   const steps: Step[] = [];
   if (Object.keys(waiting).length) steps.push({ k: 'discard', reason: 'seven', waiting });
-  if (C.robberActive(s)) steps.push({ k: 'robber', seat: s.turn.current, robber: true, pirate: s.settings.openSea, mode: 'steal1' });
+  if (s.bastions) {
+    // sin ladrón: quien tira le roba una carta a quien quiera
+    const from = s.players.filter((p) => p.seat !== s.turn.current && !p.neutral && handTotal(p.hand) > 0).map((p) => p.seat);
+    if (from.length) steps.push({ k: 'steal', seat: s.turn.current, hex: '', on: 'event', from });
+  } else if (C.robberActive(s)) steps.push({ k: 'robber', seat: s.turn.current, robber: true, pirate: pirateOk(s, s.turn.current), mode: 'steal1' });
   else C.log(s, 'seven.calm');
   s.steps.unshift(...steps);
 }
@@ -437,6 +484,8 @@ function placeRoute(s: GameState, seat: number, e: string, ship: boolean, free: 
     if (!free) C.pay(s, seat, COST.ship);
     s.ships[e] = { owner: seat };
     s.turn.builtShips.push(e);
+    Tribe.afterShip(s, seat, e);
+    Looms.afterShip(s, seat, e);
   } else {
     need(left.road > 0, 'noPieces');
     need(C.canRoad(s, seat, e), 'illegal');
@@ -471,6 +520,7 @@ function build(s: GameState, seat: number, what: string, at: string) {
       Duel.earnForSettlement(s, seat, at);
       Duel.afterBuild(s, seat, 'settlement');
       River.afterSettlement(s, seat, at);
+      Tribe.offerHeld(s, seat);
       s.turn.built = true;
       return;
     }
@@ -520,11 +570,13 @@ function handle(s: GameState, seat: number, a: Action, rng: Rng) {
     case 'setupBuild': {
       need(t.phase === 'setup' && seat === actor && t.setupAwait === 'building', 'notYourTurn');
       need(C.setupVertexOk(s, a.vertex), 'illegal');
-      const round2 = t.setupIndex >= s.players.length;
-      const kind = s.settings.guilds && round2 ? 'city' : 'settlement';
+      const round = Math.floor(t.setupIndex / s.players.length);
+      const lastRound = round === t.setupOrder.length / s.players.length - 1;
+      const kind = s.settings.guilds && round === 1 ? 'city' : 'settlement';
       s.buildings[a.vertex] = { owner: seat, kind };
       C.log(s, 'setup.build', { seat, kind });
-      if (round2) {
+      // los recursos iniciales los da el último edificio de la preparación
+      if (lastRound) {
         let picks = 0;
         const got = emptyHand();
         for (const h of C.G(s).vertices[a.vertex].hexes) {
@@ -548,6 +600,10 @@ function handle(s: GameState, seat: number, a: Action, rng: Rng) {
       else s.roads[a.edge] = { owner: seat };
       C.log(s, a.ship ? 'build.ship' : 'build.road', { seat });
       if (!a.ship) River.afterRoad(s, seat, a.edge);
+      else {
+        Tribe.afterShip(s, seat, a.edge);
+        Looms.afterShip(s, seat, a.edge);
+      }
       revealAround(s, seat, a.edge);
       t.setupIndex++;
       t.setupAwait = 'building';
@@ -582,6 +638,8 @@ function handle(s: GameState, seat: number, a: Action, rng: Rng) {
       t.shipMoved.push(seat);
       C.log(s, 'ship.move', { seat });
       revealAround(s, seat, a.to);
+      Tribe.afterShip(s, seat, a.to);
+      Looms.afterShip(s, seat, a.to);
       C.updateRoadAward(s);
       return;
     }
@@ -603,13 +661,17 @@ function handle(s: GameState, seat: number, a: Action, rng: Rng) {
       need(p.devPlayedTurn !== t.n, 'oneDevPerTurn');
       const idx = p.dev.findIndex((d) => d.type === a.card && d.turn !== t.n);
       need(idx >= 0, 'noCard');
+      // bastiones: el soldado arma un barco de la ruta (hace falta uno sin armar)
+      if (a.card === 'soldier' && s.bastions) need(Bastions.canArm(s, seat), 'noShipToArm');
       p.dev.splice(idx, 1);
       p.devPlayedTurn = t.n;
       C.log(s, 'dev.play', { seat, card: a.card });
-      if (a.card === 'soldier') {
+      if (a.card === 'soldier' && s.bastions) {
+        Bastions.arm(s, seat);
+      } else if (a.card === 'soldier') {
         p.soldiers++;
         C.updateArmyAward(s);
-        s.steps.unshift({ k: 'robber', seat, robber: true, pirate: s.settings.openSea, mode: 'steal1' });
+        s.steps.unshift({ k: 'robber', seat, robber: true, pirate: pirateOk(s, seat), mode: 'steal1' });
       } else if (a.card === 'roads') {
         s.steps.unshift({ k: 'freeRoutes', seat, left: 2, source: 'dev' });
       } else if (a.card === 'plenty') {
@@ -732,6 +794,16 @@ function handle(s: GameState, seat: number, a: Action, rng: Rng) {
     case 'buyCoin':
       River.buyCoin(s, seat, a.give);
       return;
+    // ---- Mar Abierto: escenarios especiales ----
+    case 'assault': {
+      Bastions.assault(s, seat, rng);
+      // el ataque cierra el turno, salvo que con él gane
+      if (!wins(s, seat)) endTurn(s, seat);
+      return;
+    }
+    case 'wonder':
+      Works.build(s, seat, a.id);
+      return;
     default:
       throw new GameError('pendingOrBad');
   }
@@ -817,17 +889,21 @@ function handleStep(s: GameState, seat: number, a: Action, st: Step, rng: Rng) {
       }
       C.log(s, a.target === 'robber' ? 'robber.move' : 'pirate.move', { seat });
       s.steps.shift();
+      // aldeas tejedoras: con el pirata se elige entre una carta y una tela
+      const choose = !!s.looms && a.target === 'pirate';
       if (st.mode === 'stealAll') for (const v of victims) stealRandom(s, rng, seat, v);
-      else if (victims.length === 1) stealRandom(s, rng, seat, victims[0]);
-      else if (victims.length > 1) s.steps.unshift({ k: 'steal', seat, hex: a.hex, on: a.target, from: victims });
+      else if (victims.length === 1 && !choose) stealRandom(s, rng, seat, victims[0]);
+      else if (victims.length) s.steps.unshift({ k: 'steal', seat, hex: a.hex, on: a.target, from: victims });
       return;
     }
     case 'steal': {
       need(a.t === 'steal' && seat === st.seat, 'pending');
       if (a.t !== 'steal') return;
       need(st.from.includes(a.from), 'illegal');
+      if (a.cloth) need(!!s.looms && st.on === 'pirate' && s.looms.cloth[a.from] > 0, 'illegal');
       s.steps.shift();
-      stealRandom(s, rng, seat, a.from);
+      if (a.cloth) Looms.stealCloth(s, seat, a.from);
+      else stealRandom(s, rng, seat, a.from);
       return;
     }
     case 'pick': {
@@ -915,6 +991,14 @@ function handleStep(s: GameState, seat: number, a: Action, st: Step, rng: Rng) {
       if (a.t !== 'camel') return;
       Caravan.place(s, seat, a.at);
       s.steps.shift();
+      return;
+    }
+    case 'placeHarbor': {
+      need(a.t === 'placeHarbor' && seat === st.seat, 'pending');
+      if (a.t !== 'placeHarbor') return;
+      Tribe.placeHarbor(s, seat, st, a.edge);
+      s.steps.shift();
+      Tribe.offerHeld(s, seat);
       return;
     }
     default:

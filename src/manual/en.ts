@@ -207,8 +207,8 @@ const book: ManualBook = {
     sea: {
       id: 'sea',
       title: 'Open Sea',
-      summary: 'The island is no longer alone: there is open water, ships, islands to discover, gold fields and a pirate. Five scenarios with a fresh map every game.',
-      meta: ['3–6 players', '90–120 minutes', 'Goal: 12 or 13 points'],
+      summary: 'The island is no longer alone: there is open water, ships, islands to discover, gold fields and a pirate. Nine scenarios with a fresh map every game: five for exploring and four with special rules.',
+      meta: ['3–6 players', '90–120 minutes', 'Goal: 10 to 14 points by scenario'],
       sections: [
         {
           id: 'changes',
@@ -286,7 +286,7 @@ const book: ManualBook = {
           id: 'scenarios',
           title: 'Scenarios',
           blocks: [
-            { t: 'p', text: 'Maps are generated at the start, so no two games are alike. Each scenario sets what the sea looks like, where you start and how many points you need.' },
+            { t: 'p', text: 'Maps are generated at the start, so no two games are alike. Each scenario sets what the sea looks like, where you start and how many points you need. These five use the rules above as they are; the next four add rules of their own and can’t be combined with Guilds and Guardians.' },
             { t: 'h3', text: 'Outer Isles' },
             { t: 'p', text: 'A large island ringed by small ones. Everyone starts on the large island; each small island gives 2 extra points to whoever gets there. Goal: 13.' },
             { t: 'h3', text: 'Archipelago' },
@@ -297,6 +297,114 @@ const book: ManualBook = {
             { t: 'p', text: 'A strip of desert cuts the home area off from a far region; there are also small islands. Reaching the far region or a small island gives 2 points. Gold fields never carry a 6 or an 8. Goal: 12.' },
             { t: 'h3', text: 'Random Isles' },
             { t: 'p', text: 'Three to six islands of random size. Start wherever you like; islands where you did not start give 2 points. Goal: 12.' },
+          ],
+        },
+        {
+          id: 'tribe',
+          title: 'The island folk',
+          blocks: [
+            {
+              t: 'p',
+              text: 'One large island for everyone, and around it the islets of the island folk. They have no numbers and nobody builds there, but their shores hold **18 gifts**: 8 points, 4 development cards and 6 harbors (22 with 5–6 players).',
+            },
+            {
+              t: 'list',
+              items: [
+                'Everyone starts on the large island. There are no harbors at first: all of them are gifts.',
+                'Whoever builds or moves a ship onto the edge with a gift takes it.',
+                '**Point**: worth 1 point. **Card**: a face-down development card; like bought ones, it can be played from your next turn.',
+                '**Harbor**: goes onto the coast right away, on an edge next to one of your settlements or cities and not touching another harbor. If you have no spot yet, you keep it until you build on the coast.',
+                'A 7 or a soldier moves the robber or the pirate. The robber never enters the islets and, once it leaves the desert, never goes back.',
+                'Goal: 13 points.',
+              ],
+            },
+            { t: 'fig', id: 'tribe', caption: 'One more ship and the gift on that edge is yours: a point.' },
+          ],
+        },
+        {
+          id: 'looms',
+          title: 'Weaver villages',
+          blocks: [
+            {
+              t: 'p',
+              text: 'Two large islands and, between them, islets with two villages each (eight villages; ten with 5–6 players). Each village is an intersection with its own number and **five bolts of cloth**.',
+            },
+            {
+              t: 'list',
+              items: [
+                'Setup: three settlements each. After the usual two rounds comes a third in the order of the first, and the **third** settlement gives the starting resources.',
+                'Nobody builds on the islets. When your shipping route reaches a village, you take one bolt from it.',
+                'Each time a village’s number comes up, everyone who reached it gets one bolt. If the village runs short, the rest comes from the reserve; an empty village gives nothing more.',
+                'Two bolts are worth 1 point; a single bolt is worth nothing.',
+                'Routes that reach a village are closed: their ships no longer move.',
+                'Only someone who already reached a village may move the pirate, which takes a card **or a bolt** from a player with ships next to it. The robber never enters the islets.',
+                'There is no award for the longest trade route.',
+                'End: 14 points on your turn, or when 3 villages or fewer still have cloth. Then whoever has the most points wins; on a tie, the most cloth.',
+              ],
+            },
+            { t: 'fig', id: 'looms', caption: 'A 5 comes up: the village gives a bolt to whoever sailed up to it.' },
+          ],
+        },
+        {
+          id: 'bastions',
+          title: 'Corsair strongholds',
+          blocks: [
+            {
+              t: 'p',
+              text: 'Everyone starts on the eastern island. To the west lie the corsair isles, with an enemy stronghold for each player; in between, a corsair fleet circles a rock.',
+            },
+            {
+              t: 'list',
+              items: [
+                'Everyone starts with a settlement on the coast and a first ship, and places two more settlements with roads during setup (no ships).',
+                'You have **a single shipping route** with no branches: it leaves your home port, passes your landing (pennant) and ends at your stronghold. Each new ship goes at the tip, along the shortest way. Ships don’t move.',
+                'You may found a settlement on your landing: the only spot on the corsair isles where that is allowed.',
+                'On every roll, first of all, the fleet sails as many hexes as the **lower die**. If it stops next to your buildings, that die is compared with your warships: if it is higher, you lose a card plus one more for each of your cities there; if it is lower, you pick a resource; on a tie nothing happens.',
+                'A soldier card turns the ship of your route closest to your home port into a **warship**. There are no point cards: there are more soldiers instead.',
+                'There is no robber: on a 7, players discard as usual and the roller takes a card from anyone they like.',
+                'With your route at your stronghold you may **attack** it, and that ends your turn: roll one die. More warships than the roll removes a notch; fewer loses the two ships closest to the stronghold; a tie loses one. At the third notch the stronghold is yours and becomes a settlement (you need one in reserve).',
+                'No longest route, no largest army. Whoever has taken their stronghold and has 10 points wins.',
+              ],
+            },
+            { t: 'fig', id: 'bastions', caption: 'Two warships on the way. The fleet circles the rock; the stronghold has already lost a notch.' },
+          ],
+        },
+        {
+          id: 'works',
+          title: 'Great works',
+          blocks: [
+            {
+              t: 'p',
+              text: 'A large island with a **wasteland** of three deserts, islets around it and a **strait** between the large island and one of them. A settlement on an islet gives 1 point. During setup you can’t build at the strait or in the wasteland; afterwards you can.',
+            },
+            { t: 'fig', id: 'worksMap', caption: 'The wasteland between the three deserts and both shores of the strait.' },
+            {
+              t: 'p',
+              text: 'There are five works with four levels. Each player can raise **only one**: whoever first meets its requirement and pays for level 1 starts it, and from then on it is theirs. Every level costs the same, and you may build several in one turn.',
+            },
+            {
+              t: 'costs',
+              rows: [
+                {
+                  icon: 'w-tower',
+                  label: 'Signal tower',
+                  cost: { brick: 2, ore: 2, wool: 1 },
+                  note: 'Requirement: a city on a harbor and a trade route of 5 or more.',
+                },
+                { icon: 'w-library', label: 'Library', cost: { lumber: 2, wool: 2, grain: 1 }, note: 'Requirement: a city and 6 points.' },
+                { icon: 'w-lock', label: 'Sea lock', cost: { lumber: 2, brick: 2, ore: 1 }, note: 'Requirement: a settlement or city at the strait.' },
+                { icon: 'w-mills', label: 'Windmills', cost: { grain: 2, lumber: 2, wool: 1 }, note: 'Requirement: a settlement or city in the wasteland.' },
+                { icon: 'w-observatory', label: 'Observatory', cost: { ore: 2, grain: 2, brick: 1 }, note: 'Requirement: two cities.' },
+              ],
+            },
+            { t: 'fig', id: 'works', caption: 'Finished levels are drawn in full; missing ones, dashed.' },
+            {
+              t: 'list',
+              items: [
+                'The pirate is not used.',
+                'Whoever finishes level 4 of their work wins, or whoever has 10 points and a higher level than every other player.',
+              ],
+            },
           ],
         },
       ],

@@ -207,8 +207,8 @@ const book: ManualBook = {
     sea: {
       id: 'sea',
       title: 'Mar Abierto',
-      summary: 'La isla deja de estar sola: hay mar navegable, barcos, islas por descubrir, campos de oro y un pirata. Cinco escenarios con un mapa nuevo en cada partida.',
-      meta: ['3–6 jugadores', '90–120 minutos', 'Meta: 12 o 13 puntos'],
+      summary: 'La isla deja de estar sola: hay mar navegable, barcos, islas por descubrir, campos de oro y un pirata. Nueve escenarios con un mapa nuevo en cada partida: cinco para explorar y cuatro con reglas especiales.',
+      meta: ['3–6 jugadores', '90–120 minutos', 'Meta: 10 a 14 puntos según el escenario'],
       sections: [
         {
           id: 'changes',
@@ -286,7 +286,7 @@ const book: ManualBook = {
           id: 'scenarios',
           title: 'Escenarios',
           blocks: [
-            { t: 'p', text: 'Los mapas se generan al empezar, así que ninguna partida se repite. Cada escenario fija cómo es el mar, dónde se empieza y cuántos puntos se necesitan.' },
+            { t: 'p', text: 'Los mapas se generan al empezar, así que ninguna partida se repite. Cada escenario fija cómo es el mar, dónde se empieza y cuántos puntos se necesitan. Estos cinco usan las reglas de arriba tal cual; los cuatro siguientes agregan reglas propias y no se combinan con Gremios y Guardianes.' },
             { t: 'h3', text: 'Islas exteriores' },
             { t: 'p', text: 'Una isla grande y varias islitas alrededor. Todos empiezan en la isla grande; cada islita da 2 puntos extra a quien llega. Meta: 13.' },
             { t: 'h3', text: 'Archipiélago' },
@@ -297,6 +297,114 @@ const book: ManualBook = {
             { t: 'p', text: 'Una franja de desierto separa la zona de inicio de una zona lejana; también hay islitas. Llegar a la zona lejana o a una islita da 2 puntos. En los campos de oro nunca hay un 6 ni un 8. Meta: 12.' },
             { t: 'h3', text: 'Islas al azar' },
             { t: 'p', text: 'Entre 3 y 6 islas de tamaños al azar. Se empieza donde se quiera, y las islas donde no empezaste dan 2 puntos. Meta: 12.' },
+          ],
+        },
+        {
+          id: 'tribe',
+          title: 'Pueblo isleño',
+          blocks: [
+            {
+              t: 'p',
+              text: 'Una isla grande para todos y, alrededor, las islitas del pueblo isleño. En ellas no hay números ni se construye, pero en sus costas esperan **18 regalos**: 8 puntos, 4 cartas de desarrollo y 6 puertos (22 con 5-6 jugadores).',
+            },
+            {
+              t: 'list',
+              items: [
+                'Se empieza en la isla grande. Al principio no hay puertos: todos son regalos.',
+                'Quien construye o mueve un barco al lado donde está un regalo, se lo lleva.',
+                '**Punto**: vale 1 punto. **Carta**: es una carta de desarrollo boca abajo; como las compradas, se juega desde el turno siguiente.',
+                '**Puerto**: va enseguida en la costa, en un lado junto a un poblado o ciudad tuyo y sin tocar otro puerto. Si todavía no tienes dónde, lo guardas hasta fundar en la costa.',
+                'Con un 7 o un soldado se mueve el ladrón o el pirata. El ladrón no entra en las islitas y, cuando deja el desierto, no vuelve.',
+                'Meta: 13 puntos.',
+              ],
+            },
+            { t: 'fig', id: 'tribe', caption: 'Un barco más y el regalo de ese lado es tuyo: un punto.' },
+          ],
+        },
+        {
+          id: 'looms',
+          title: 'Aldeas tejedoras',
+          blocks: [
+            {
+              t: 'p',
+              text: 'Dos islas grandes y, entre ellas, islitas con dos aldeas cada una (ocho aldeas; diez con 5-6 jugadores). Cada aldea es un cruce con su número y **cinco telas**.',
+            },
+            {
+              t: 'list',
+              items: [
+                'Preparación: tres poblados por jugador. Después de las dos rondas de siempre viene una tercera en el orden de la primera, y los recursos iniciales los da el **tercer** poblado.',
+                'En las islitas no se construye. Cuando tu ruta de barcos llega a una aldea, recibes una tela de ella.',
+                'Cada vez que sale el número de una aldea, cada jugador que llegó a ella recibe una tela. Si a la aldea no le alcanzan, el resto sale de la reserva; una aldea vacía ya no da.',
+                'Dos telas valen 1 punto; una suelta no vale.',
+                'Las rutas que llegan a una aldea quedan cerradas: sus barcos ya no se mueven.',
+                'El pirata sólo lo mueve quien ya llegó a una aldea, y le quita una carta **o una tela** a alguien con barcos junto a él. El ladrón no entra en las islitas.',
+                'No hay premio por la ruta comercial más larga.',
+                'Fin: 14 puntos en tu turno, o cuando quedan 3 aldeas o menos con telas. En ese caso gana quien tiene más puntos y, si empatan, más telas.',
+              ],
+            },
+            { t: 'fig', id: 'looms', caption: 'Sale 5: la aldea le da una tela a quien llegó con su barco.' },
+          ],
+        },
+        {
+          id: 'bastions',
+          title: 'Bastiones corsarios',
+          blocks: [
+            {
+              t: 'p',
+              text: 'Todos empiezan en la isla del este. Al oeste están las islas corsarias, con un bastión enemigo para cada jugador; entre medio, una flota corsaria da vueltas a un peñón.',
+            },
+            {
+              t: 'list',
+              items: [
+                'Cada uno empieza con un poblado en la costa y su primer barco, y en la preparación pone dos poblados más con caminos (sin barcos).',
+                'Tienes **una sola ruta de barcos**, sin ramas: sale de tu puerto, pasa por tu punto de desembarco (banderín) y termina en tu bastión. Cada barco nuevo va en la punta y por el camino más corto. Los barcos no se mueven.',
+                'En tu desembarco puedes fundar un poblado: es el único lugar de las islas corsarias donde se puede.',
+                'En cada tirada, antes que nada, la flota avanza tantas casillas como el **dado menor**. Si se detiene junto a tus edificios, compara ese dado con tus barcos de guerra: si es mayor, pierdes una carta más una por cada ciudad tuya ahí; si es menor, eliges un recurso; si empatan, no pasa nada.',
+                'Una carta de soldado convierte en **barco de guerra** el barco de tu ruta más cercano a tu puerto. No hay cartas de punto: en su lugar hay más soldados.',
+                'No hay ladrón: con un 7 se descarta como siempre y quien tiró le roba una carta a quien quiera.',
+                'Con la ruta en tu bastión puedes **atacarlo**, y eso termina tu turno: tiras un dado. Con más barcos de guerra que el dado, le quitas una muesca; con menos, pierdes los dos barcos más cercanos al bastión; si empatan, uno. A la tercera muesca el bastión es tuyo y pasa a ser un poblado (hace falta tener uno en reserva).',
+                'No hay ruta más larga ni mayor ejército. Gana quien tomó su bastión y tiene 10 puntos.',
+              ],
+            },
+            { t: 'fig', id: 'bastions', caption: 'Dos barcos de guerra en camino. La flota da vueltas al peñón; el bastión ya perdió una muesca.' },
+          ],
+        },
+        {
+          id: 'works',
+          title: 'Grandes obras',
+          blocks: [
+            {
+              t: 'p',
+              text: 'Una isla grande con un **páramo** de tres desiertos, islitas alrededor y un **estrecho** entre la isla grande y una de ellas. Fundar en una islita da 1 punto. Al empezar no se puede fundar en el estrecho ni en el páramo; después sí.',
+            },
+            { t: 'fig', id: 'worksMap', caption: 'El páramo entre los tres desiertos y las dos orillas del estrecho.' },
+            {
+              t: 'p',
+              text: 'Hay cinco obras de cuatro niveles. Cada jugador puede levantar **una sola**: la empieza quien primero cumple su requisito y paga el primer nivel, y desde entonces es suya. Cada nivel cuesta lo mismo y se pueden construir varios en un turno.',
+            },
+            {
+              t: 'costs',
+              rows: [
+                {
+                  icon: 'w-tower',
+                  label: 'Torre de señales',
+                  cost: { brick: 2, ore: 2, wool: 1 },
+                  note: 'Requisito: una ciudad en un puerto y una ruta comercial de 5 o más.',
+                },
+                { icon: 'w-library', label: 'Biblioteca', cost: { lumber: 2, wool: 2, grain: 1 }, note: 'Requisito: una ciudad y 6 puntos.' },
+                { icon: 'w-lock', label: 'Esclusa', cost: { lumber: 2, brick: 2, ore: 1 }, note: 'Requisito: un poblado o una ciudad en el estrecho.' },
+                { icon: 'w-mills', label: 'Molinos', cost: { grain: 2, lumber: 2, wool: 1 }, note: 'Requisito: un poblado o una ciudad en el páramo.' },
+                { icon: 'w-observatory', label: 'Observatorio', cost: { ore: 2, grain: 2, brick: 1 }, note: 'Requisito: dos ciudades.' },
+              ],
+            },
+            { t: 'fig', id: 'works', caption: 'Cada nivel completo se dibuja entero; los que faltan, en línea punteada.' },
+            {
+              t: 'list',
+              items: [
+                'El pirata no se usa.',
+                'Gana quien termina el nivel 4 de su obra, o quien tiene 10 puntos y un nivel más alto que cada uno de los demás.',
+              ],
+            },
           ],
         },
       ],

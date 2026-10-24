@@ -43,8 +43,29 @@ export const PROGRESS_VP: readonly ProgressType[] = ['printer', 'constitution'];
 export type EventFace = 'ship' | Track;
 export const EVENT_FACES: readonly EventFace[] = ['ship', 'ship', 'ship', 'science', 'trade', 'politics'];
 
-export type SeaScenario = 'islands' | 'archipelago' | 'fog' | 'desert' | 'newWorld';
-export const SEA_SCENARIOS: readonly SeaScenario[] = ['islands', 'archipelago', 'fog', 'desert', 'newWorld'];
+export type SeaScenario = 'islands' | 'archipelago' | 'fog' | 'desert' | 'newWorld' | 'tribe' | 'looms' | 'bastions' | 'works';
+export const SEA_SCENARIOS: readonly SeaScenario[] = ['islands', 'archipelago', 'fog', 'desert', 'newWorld', 'tribe', 'looms', 'bastions', 'works'];
+/** Escenarios con reglas especiales (no se combinan con Gremios). */
+export const SEA_SPECIAL: readonly SeaScenario[] = ['tribe', 'looms', 'bastions', 'works'];
+
+/** Pueblo isleño: regalos en las costas de las islitas. */
+export interface TribeGift { edge: string; kind: 'vp' | 'dev' | 'harbor'; harbor?: Resource | 'any' }
+/** Aldeas tejedoras: cada aldea es un cruce con número y telas. */
+export interface Village { v: string; n: number; cloth: number; linked: number[] }
+/** Bastiones corsarios: el de cada jugador, su punto de desembarco y su puerto de salida. */
+export interface Fort { seat: number; v: string; landing: string; start: string; chips: number; taken: boolean }
+/** Grandes obras. */
+export type WonderId = 'tower' | 'library' | 'lock' | 'mills' | 'observatory';
+export const WONDERS: readonly WonderId[] = ['tower', 'library', 'lock', 'mills', 'observatory'];
+export const WONDER_COST: Record<WonderId, Partial<Hand>> = {
+  tower: { brick: 2, ore: 2, wool: 1 },
+  library: { lumber: 2, wool: 2, grain: 1 },
+  lock: { lumber: 2, brick: 2, ore: 1 },
+  mills: { grain: 2, lumber: 2, wool: 1 },
+  observatory: { ore: 2, grain: 2, brick: 1 },
+};
+export const WONDER_LEVELS = 4;
+export interface Wonder { id: WonderId; owner: number | null; level: number }
 
 /** Escenarios de la caja Comarcas (se juegan sobre la isla base). */
 export type Shire = 'fishers' | 'rivers' | 'caravans' | 'raid' | 'traders';
@@ -149,7 +170,7 @@ export type Step =
   | { k: 'discard'; reason: 'seven' | 'saboteur'; waiting: Record<number, number> }
   | { k: 'robber'; seat: number; robber: boolean; pirate: boolean; mode: 'steal1' | 'stealAll' }
   | { k: 'steal'; seat: number; hex: string; on: 'robber' | 'pirate' | 'event'; from: number[] }
-  | { k: 'pick'; reason: 'gold' | 'aqueduct' | 'plenty' | 'fog' | 'harvest' | 'joust' | 'calm' | 'fish' | 'coins'; waiting: Record<number, number> }
+  | { k: 'pick'; reason: 'gold' | 'aqueduct' | 'plenty' | 'fog' | 'harvest' | 'joust' | 'calm' | 'fish' | 'coins' | 'fleet'; waiting: Record<number, number> }
   | { k: 'monopoly'; seat: number }
   | { k: 'freeRoutes'; seat: number; left: number; source: 'dev' | 'progress' | 'diplomat' | 'fish' }
   | { k: 'pillage'; waiting: number[] }
@@ -170,6 +191,9 @@ export type Step =
   | { k: 'neutral'; seat: number; what: 'road' | 'settlement' }
   | { k: 'camelBid'; waiting: number[]; bids: Record<number, Partial<Hand>> }
   | { k: 'camelPlace'; seat: number }
+  // Mar Abierto: escenarios especiales
+  | { k: 'placeHarbor'; seat: number; kind: Resource | 'any' }
+  | { k: 'fleet' }
   | { k: 'produce' }
   | { k: 'duelRoll' };
 
@@ -244,10 +268,12 @@ export interface GameState {
     chronicle?: ChronicleCard[];
     /** pesca: fichas boca abajo (0 = bota vieja) */
     fishPile?: number[];
+    /** pueblo isleño: cartas de desarrollo boca abajo en las costas (en el orden de los regalos de carta) */
+    tribeDev?: DevType[];
   };
   buildings: Record<string, Building>;
   roads: Record<string, { owner: number; broken?: boolean; bridge?: boolean }>;
-  ships: Record<string, { owner: number }>;
+  ships: Record<string, { owner: number; war?: boolean }>;
   knights: Record<string, Knight>;
   players: PlayerState[];
   bank: Hand;
@@ -271,10 +297,21 @@ export interface GameState {
   river?: { rivers: string[][]; crossings: string[]; coins: number[] };
   /** camellos: oasis, inicio de cada caravana y sus tramos en orden */
   caravan?: { oasis: string; starts: string[]; routes: string[][]; left: number };
+  /** pueblo isleño: casillas de las islitas, regalos que quedan, puntos tomados y puertos guardados */
+  tribe?: { hexes: string[]; gifts: TribeGift[]; vp: number[]; held: (Resource | 'any')[][] };
+  /** aldeas tejedoras: islitas, aldeas, telas en reserva y telas de cada jugador */
+  looms?: { hexes: string[]; villages: Village[]; supply: number; cloth: number[] };
+  /** bastiones: peñón, circuito de la flota (sentido horario), dónde está y los bastiones */
+  bastions?: { rock: string[]; loop: string[]; fleet: number | null; forts: Fort[]; last: FleetResult | null };
+  /** grandes obras: las cinco obras y los lugares especiales */
+  works?: { wonders: Wonder[]; strait: string[]; waste: string[] };
   winner: number | null;
   redacted?: boolean; // vista para un asiento
   viewer?: number | null;
 }
+
+/** Último ataque de la flota corsaria. */
+export interface FleetResult { n: number; hex: string; strength: number; won: number[]; lost: number[]; tied: number[] }
 
 export interface BarbarianResult {
   strength: number;
@@ -299,7 +336,7 @@ export type Action =
   | { t: 'playDev'; card: 'monopoly' }
   | { t: 'discard'; cards: Partial<Hand> }
   | { t: 'robber'; hex: string; target: 'robber' | 'pirate' }
-  | { t: 'steal'; from: number }
+  | { t: 'steal'; from: number; cloth?: boolean }
   | { t: 'pick'; cards: Partial<Hand> }
   | { t: 'monopoly'; card: Card }
   | { t: 'freeRoute'; edge: string; ship?: boolean }
@@ -342,7 +379,11 @@ export type Action =
   | { t: 'coins'; use: 'trade' }
   | { t: 'buyCoin'; give: Resource }
   | { t: 'camelBid'; bid: Partial<Hand> }
-  | { t: 'camel'; at: string };
+  | { t: 'camel'; at: string }
+  // Mar Abierto: escenarios especiales
+  | { t: 'placeHarbor'; edge: string }
+  | { t: 'assault' }
+  | { t: 'wonder'; id: WonderId };
 
 export interface ProgressArg {
   dice?: [number, number];

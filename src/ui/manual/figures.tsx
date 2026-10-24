@@ -2,9 +2,9 @@
 import type { ReactNode } from 'react';
 import { useT } from '../../app/i18n';
 import { CORNERS, edgeId, graphOf, hexId, vertexId } from '../../engine/geometry';
-import type { Card, GameState, Harbor, HexTile, Resource, Terrain } from '../../engine/types';
+import { WONDERS, type Card, type GameState, type Harbor, type HexTile, type Resource, type Terrain, type TribeGift } from '../../engine/types';
 import { Board, type BoardPos } from '../Board';
-import { CardBack, CardIcon, ChronicleFace, CityShape, ShipShape } from '../art';
+import { CardBack, CardIcon, ChronicleFace, CityShape, ShipShape, WonderArt } from '../art';
 import { TileFace, type LandTerrain } from '../tiles';
 import type { FigureId, ManualId } from '../../manual/types';
 
@@ -32,7 +32,7 @@ interface Scene {
   open?: boolean;
   harbors?: [string, string, Resource | 'any'][];
   roads?: [string, number][];
-  ships?: [string, number][];
+  ships?: [string, number, boolean?][];
   buildings?: [string, 'settlement' | 'city', number, { wall?: boolean; metro?: 'science' | 'trade' | 'politics' }?][];
   knights?: [string, number, 1 | 2 | 3, boolean][];
   robber?: string;
@@ -42,6 +42,11 @@ interface Scene {
   fish?: { lakes: string[]; grounds: { hex: string; n: number }[] };
   river?: { rivers: string[][]; crossings: string[] };
   caravan?: { oasis: string; starts: string[]; routes: string[][] };
+  tribe?: { hexes: string[]; gifts: TribeGift[] };
+  looms?: { hexes: string[]; villages: { v: string; n: number; cloth: number; linked: number[] }[] };
+  /** bastiones: peñón (su anillo de mar es el recorrido de la flota) y bastiones */
+  bastions?: { rock: string; fleet: number; forts: { seat: number; v: string; landing: string; chips: number }[] };
+  works?: { strait: string[]; waste: string[] };
 }
 
 const FLOWER: [number, number][] = [[0, 0], [1, -1], [1, 0], [0, 1], [-1, 1], [-1, 0], [0, -1]];
@@ -73,8 +78,17 @@ function stateOf(sc: Scene): GameState {
     fish,
     river: sc.river && { ...sc.river, coins: [] },
     caravan: sc.caravan && { ...sc.caravan, left: 0 },
+    tribe: sc.tribe && { ...sc.tribe, vp: [], held: [] },
+    looms: sc.looms && { ...sc.looms, supply: 0, cloth: [] },
+    bastions: sc.bastions && (() => {
+      const [q, r] = sc.bastions.rock.slice(1).split(',').map(Number);
+      // el anillo alrededor del peñón, en sentido horario desde el noreste
+      const loop = [[1, -1], [1, 0], [0, 1], [-1, 1], [-1, 0], [0, -1]].map(([dq, dr]) => hexId(q + dq, r + dr));
+      return { rock: [sc.bastions.rock], loop, fleet: sc.bastions.fleet, forts: sc.bastions.forts.map((f) => ({ ...f, start: '', taken: false })), last: null };
+    })(),
+    works: sc.works && { ...sc.works, wonders: [] },
     roads: { ...own(sc.roads), ...Object.fromEntries((sc.bridges ?? []).map(([e, owner]) => [e, { owner, bridge: true }])) },
-    ships: own(sc.ships),
+    ships: Object.fromEntries((sc.ships ?? []).map(([e, owner, war]) => [e, war ? { owner, war } : { owner }])),
     buildings: Object.fromEntries((sc.buildings ?? []).map(([v, kind, owner, x]) => [v, { owner, kind, ...x }])),
     knights: Object.fromEntries((sc.knights ?? []).map(([v, owner, level, active]) => [v, { owner, level, active, activatedTurn: -1, promotedTurn: -1 }])),
     players: [0, 1, 2, 3, 4, 5].map((color) => ({ color })),
@@ -321,6 +335,87 @@ export function Figure({ id, caption }: { id: FigureId; caption: string }) {
         }} overlay={(at) => <Badge at={[at.v(corner(0, -1, 1))[0] - 30, at.v(corner(0, -1, 1))[1] - 12]} text="+1" />} />
       );
       break;
+    case 'tribe': {
+      // la isla grande a la izquierda; a la derecha, una islita del pueblo isleño con sus regalos
+      body = (
+        <Still label={caption} className="wide" scene={{
+          ...islesScene(),
+          ships: [['e3,-3', 0], ['e5,-3', 0], ['e7,-3', 0], ['e9,-3', 0]],
+          tribe: { hexes: ['h3,-1', 'h3,0'], gifts: [{ edge: side(3, 0, 4), kind: 'vp' }, { edge: side(3, -1, 4), kind: 'dev' }, { edge: side(3, 0, 2), kind: 'harbor', harbor: 'ore' }] },
+        }} overlay={(at) => {
+          const p = at.e(side(3, 0, 4));
+          return <path d={`M${p[0] - 30} ${p[1] - 26} Q${p[0] - 34} ${p[1] - 4} ${p[0] - 14} ${p[1] + 2}`} className="fig-arrow" />;
+        }} />
+      );
+      break;
+    }
+    case 'looms':
+      body = (
+        <Still label={caption} lit={5} className="wide" scene={{
+          ...islesScene(),
+          ships: [['e3,-3', 0], ['e5,-3', 0], ['e7,-3', 0], ['e9,-3', 0]],
+          looms: { hexes: ['h3,-1', 'h3,0'], villages: [{ v: corner(3, 0, 5), n: 5, cloth: 4, linked: [0] }, { v: corner(3, -1, 1), n: 9, cloth: 5, linked: [] }] },
+        }} overlay={(at) => <Badge at={[at.v(corner(3, 0, 5))[0] - 34, at.v(corner(3, 0, 5))[1] + 20]} text="+1" />} />
+      );
+      break;
+    case 'bastions': {
+      const sea: Hx[] = [];
+      const land: Hx[] = [[3, -1, 'fields', 6], [3, 0, 'hills', 9], [2, 1, 'forest', 4], [1, 0, 'desert'], [-1, 0, 'pasture', 5], [-1, 1, 'mountains', 10]];
+      const seen = new Set(land.map(([q, r]) => hexId(q, r)));
+      for (let r = -1; r <= 1; r++) for (let q = -2; q <= 4; q++) {
+        const X = 2 * q + r;
+        if (X < -4 || X > 8 || seen.has(hexId(q, r))) continue;
+        sea.push([q, r, 'sea']);
+      }
+      body = (
+        <Still label={caption} className="wide" scene={{
+          open: true,
+          hexes: [...land, ...sea],
+          buildings: [[corner(3, 0, 4), 'settlement', 0], [corner(3, -1, 0), 'settlement', 2]],
+          ships: [[side(2, 0, 2), 0, true], [side(2, 0, 3), 0, true], [side(1, 0, 2), 0]],
+          bastions: { rock: 'h1,0', fleet: 0, forts: [{ seat: 0, v: corner(-1, 1, 4), landing: corner(-1, 0, 2), chips: 2 }] },
+        }} />
+      );
+      break;
+    }
+    case 'works':
+      body = (
+        <ul className="fig-tiles fig-cards-row">
+          {WONDERS.map((id, i) => (
+            <li key={id} className="fig-tile">
+              <WonderArt id={id} level={4 - i} size={84} />
+              <span className="fig-tile-label">{t(`wonder.${id}`)}<span>{t('wonder.level', { n: 4 - i })}</span></span>
+            </li>
+          ))}
+        </ul>
+      );
+      break;
+    case 'worksMap': {
+      const land: Hx[] = [[0, 0, 'desert'], [1, 0, 'desert'], [0, 1, 'desert'], [1, -1, 'fields', 9], [0, -1, 'pasture', 4], [-1, 0, 'forest', 6], [2, -1, 'hills', 10], [1, 1, 'mountains', 3], [-2, 2, 'fields', 8]];
+      const seen = new Set(land.map(([q, r]) => hexId(q, r)));
+      const sea: Hx[] = [];
+      for (let r = -1; r <= 2; r++) for (let q = -3; q <= 3; q++) {
+        const X = 2 * q + r;
+        if (X < -4 || X > 5 || seen.has(hexId(q, r))) continue;
+        sea.push([q, r, 'sea']);
+      }
+      const all = new Set([...land, ...sea].map(([q, r]) => hexId(q, r)));
+      const g = graphOf(Object.fromEntries([...all].map((id) => { const [q, r] = id.slice(1).split(',').map(Number); return [id, { q, r }]; })));
+      const deserts = new Set(['h0,0', 'h1,0', 'h0,1']);
+      const isLand = (h: string) => land.some(([q, r]) => hexId(q, r) === h);
+      body = (
+        <Still label={caption} className="wide" scene={{
+          open: true,
+          hexes: [...land, ...sea],
+          robber: 'h0,0',
+          works: {
+            strait: g.hexes['h-1,1'].vertices.filter((v) => g.vertices[v].hexes.some(isLand)),
+            waste: Object.keys(g.vertices).filter((v) => g.vertices[v].hexes.filter((h) => deserts.has(h)).length >= 2),
+          },
+        }} />
+      );
+      break;
+    }
     case 'barbarians':
       body = (
         <div className="fig-board fig-track">
@@ -340,6 +435,19 @@ export function Figure({ id, caption }: { id: FigureId; caption: string }) {
       <figcaption>{caption}</figcaption>
     </figure>
   );
+}
+
+/** La isla de inicio a la izquierda y una islita de dos casillas a la derecha, con mar entre ambas. */
+function islesScene(): Scene {
+  const land: Hx[] = [[0, 0, 'fields', 8], [0, 1, 'hills', 5], [-1, 1, 'forest', 10], [3, -1, 'pasture'], [3, 0, 'forest']];
+  const seen = new Set(land.map(([q, r]) => hexId(q, r)));
+  const sea: Hx[] = [];
+  for (let r = -1; r <= 1; r++) for (let q = -2; q <= 4; q++) {
+    const X = 2 * q + r;
+    if (X < -3 || X > 8 || seen.has(hexId(q, r))) continue;
+    sea.push([q, r, 'sea']);
+  }
+  return { open: true, hexes: [...land, ...sea], buildings: [[corner(0, 0, 1), 'settlement', 0]], roads: [[side(0, 0, 1), 0]] };
 }
 
 function seaScene({ ships, settleB }: { ships: number[]; settleB?: boolean }): Scene {

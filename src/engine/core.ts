@@ -66,7 +66,66 @@ export function canRoad(s: GameState, seat: number, e: string): boolean {
 export function canShip(s: GameState, seat: number, e: string): boolean {
   if (!G(s).edges[e] || s.roads[e] || s.ships[e]) return false;
   if (!edgeShippable(s, e) || pirateTouches(s, e)) return false;
+  if (s.bastions) return bastionStep(s, seat, e);
   return routeConnects(s, seat, e, s.ships);
+}
+
+// ---------- bastiones: una sola ruta, sin ramas y por el camino más corto ----------
+
+export const fortOf = (s: GameState, seat: number) => s.bastions?.forts.find((f) => f.seat === seat) ?? null;
+
+/** Ruta de barcos de `seat` en orden desde su puerto de salida, y el cruce donde termina. */
+export function bastionRoute(s: GameState, seat: number): { edges: string[]; head: string; landed: boolean } {
+  const f = fortOf(s, seat);
+  if (!f) return { edges: [], head: '', landed: false };
+  const g = G(s);
+  const edges: string[] = [];
+  const seen = new Set<string>();
+  let v = f.start;
+  let landed = v === f.landing;
+  for (;;) {
+    const e = g.vertices[v].edges.find((x) => s.ships[x]?.owner === seat && !seen.has(x));
+    if (!e) break;
+    seen.add(e);
+    edges.push(e);
+    v = otherEnd(g, e, v);
+    if (v === f.landing) landed = true;
+  }
+  return { edges, head: v, landed };
+}
+
+/** Distancias en barcos hasta `target` por lados navegables libres, sin pasar por edificios ajenos ni bastiones sin tomar. */
+export function shipDistances(s: GameState, target: string, seat: number): Map<string, number> {
+  const g = G(s);
+  const forts = new Set((s.bastions?.forts ?? []).filter((f) => !f.taken).map((f) => f.v));
+  const dist = new Map<string, number>([[target, 0]]);
+  const queue = [target];
+  while (queue.length) {
+    const x = queue.shift()!;
+    const d = dist.get(x)!;
+    if (x !== target && (forts.has(x) || blocksFor(s, x, seat))) continue;
+    for (const e of g.vertices[x].edges) {
+      if (!edgeShippable(s, e) || (s.ships[e] && s.ships[e].owner !== seat) || s.roads[e]) continue;
+      const w = otherEnd(g, e, x);
+      if (dist.has(w)) continue;
+      dist.set(w, d + 1);
+      queue.push(w);
+    }
+  }
+  return dist;
+}
+
+function bastionStep(s: GameState, seat: number, e: string): boolean {
+  const f = fortOf(s, seat);
+  if (!f || f.taken) return false;
+  const r = bastionRoute(s, seat);
+  if (r.head === f.v) return false; // la ruta termina en el bastión
+  const ed = G(s).edges[e];
+  if (ed.a !== r.head && ed.b !== r.head) return false;
+  const dist = shipDistances(s, r.landed ? f.v : f.landing, seat);
+  const here = dist.get(r.head);
+  const next = dist.get(otherEnd(G(s), e, r.head));
+  return here !== undefined && next !== undefined && next === here - 1;
 }
 
 export function distanceOk(s: GameState, v: string): boolean {
@@ -76,8 +135,17 @@ export function distanceOk(s: GameState, v: string): boolean {
 export function canSettle(s: GameState, seat: number, v: string): boolean {
   const vx = G(s).vertices[v];
   if (!vx || s.buildings[v] || s.knights[v]) return false;
-  if (!vertexLand(s, v) || !distanceOk(s, v)) return false;
+  if (!vertexLand(s, v) || !distanceOk(s, v) || !scenarioSettleOk(s, seat, v)) return false;
   return vx.edges.some((e) => s.roads[e]?.owner === seat || s.ships[e]?.owner === seat);
+}
+
+/** Escenarios de Mar Abierto: islitas donde no se funda y, en los bastiones, sólo el punto de desembarco propio. */
+function scenarioSettleOk(s: GameState, seat: number, v: string): boolean {
+  const land = G(s).vertices[v].hexes.filter((h) => hexIsLand(s, h));
+  if (s.tribe && land.every((h) => s.tribe!.hexes.includes(h))) return false;
+  if (s.looms && land.every((h) => s.looms!.hexes.includes(h))) return false;
+  if (s.bastions && !land.some((h) => s.board.hexes[h].region === 0)) return fortOf(s, seat)?.landing === v;
+  return true;
 }
 
 export function canCity(s: GameState, seat: number, v: string): boolean {
@@ -88,6 +156,7 @@ export function canCity(s: GameState, seat: number, v: string): boolean {
 export function setupVertexOk(s: GameState, v: string): boolean {
   const vx = G(s).vertices[v];
   if (!vx || s.buildings[v] || !vertexLand(s, v) || !distanceOk(s, v)) return false;
+  if (s.works && (s.works.strait.includes(v) || s.works.waste.includes(v))) return false;
   const home = s.board.homeRegions;
   if (!home) return true;
   return vx.hexes.some((h) => hexIsLand(s, h) && home.includes(s.board.hexes[h].region ?? -1));
@@ -96,6 +165,7 @@ export function setupVertexOk(s: GameState, v: string): boolean {
 export function setupRouteOk(s: GameState, v: string, e: string, ship: boolean): boolean {
   const ed = G(s).edges[e];
   if (!ed || (ed.a !== v && ed.b !== v) || s.roads[e] || s.ships[e]) return false;
+  if (ship && s.bastions) return false; // la única ruta de barcos ya está puesta
   return ship ? edgeShippable(s, e) && !pirateTouches(s, e) : edgeRoadable(s, e) && !isCrossing(s, e);
 }
 
@@ -205,6 +275,7 @@ export function vpOf(s: GameState, seat: number, hidden = true): number {
   if (!s.settings.guilds && s.awards.army.owner === seat) vp += 2;
   if (s.awards.harbor?.owner === seat) vp += 2;
   vp += camelBonus(s, seat) + wealthBonus(s, seat);
+  vp += (s.tribe?.vp[seat] ?? 0) + clothPoints(s, seat);
   vp += p.vpCards.length + p.defender;
   if (s.board.merchant?.owner === seat) vp += 1;
   for (const b of p.bonus) vp += b.vp;
@@ -232,8 +303,13 @@ export function vpBreakdown(s: GameState, seat: number) {
     harbor: s.awards.harbor?.owner === seat ? 2 : 0,
     camels: camelBonus(s, seat),
     wealth: wealthBonus(s, seat),
+    gifts: s.tribe?.vp[seat] ?? 0,
+    cloth: clothPoints(s, seat),
   };
 }
+
+/** Aldeas tejedoras: dos telas, un punto. */
+export const clothPoints = (s: GameState, seat: number) => Math.floor((s.looms?.cloth[seat] ?? 0) / 2);
 
 // ---------- comercio con el banco ----------
 
@@ -332,6 +408,7 @@ export function longestRoute(s: GameState, seat: number): number {
 }
 
 export function updateRoadAward(s: GameState) {
+  if (s.looms || s.bastions) return; // sin premio por la ruta más larga en estos escenarios
   const n = s.players.length;
   const lens = Array.from({ length: n }, (_, i) => (isNeutral(s, i) ? 0 : longestRoute(s, i)));
   const max = Math.max(...lens);
@@ -353,7 +430,7 @@ export function updateRoadAward(s: GameState) {
 }
 
 export function updateArmyAward(s: GameState) {
-  if (s.settings.guilds) return;
+  if (s.settings.guilds || s.bastions) return;
   const holder = s.awards.army.owner;
   const best = holder === null ? 2 : s.players[holder].soldiers;
   let next = holder;
@@ -368,6 +445,9 @@ export const robberActive = (s: GameState) => !s.settings.guilds || s.barbarians
 
 export function robberHexOk(s: GameState, seat: number, hex: string, friendly = s.settings.friendlyRobber): boolean {
   if (!hexIsLand(s, hex) || hex === s.board.robber) return false;
+  // las islitas del pueblo isleño y de las aldeas no se tocan; en el pueblo isleño el ladrón no vuelve al desierto
+  if (s.tribe && (s.tribe.hexes.includes(hex) || terrainOf(s, hex) === 'desert')) return false;
+  if (s.looms?.hexes.includes(hex)) return false;
   if (friendly) {
     const hx = G(s).hexes[hex];
     if (hx.vertices.some((v) => {
@@ -402,7 +482,7 @@ export function pirateVictims(s: GameState, seat: number, hex: string): number[]
   const out = new Set<number>();
   for (const e of G(s).hexes[hex].edges) {
     const sh = s.ships[e];
-    if (sh && sh.owner !== seat && handTotal(s.players[sh.owner].hand) > 0) out.add(sh.owner);
+    if (sh && sh.owner !== seat && (handTotal(s.players[sh.owner].hand) > 0 || (s.looms?.cloth[sh.owner] ?? 0) > 0)) out.add(sh.owner);
   }
   return [...out].sort((a, b) => a - b);
 }
@@ -436,8 +516,9 @@ export function legalSetupRoutes(s: GameState, v: string): { roads: string[]; sh
 
 /** Barcos que `seat` puede mover este turno (extremo de una ruta abierta). */
 export function movableShips(s: GameState, seat: number): string[] {
-  if (!s.settings.openSea) return [];
+  if (!s.settings.openSea || s.bastions) return [];
   const g = G(s);
+  const villages = new Set(s.looms?.villages.map((x) => x.v) ?? []);
   return Object.entries(s.ships)
     .filter(([e, sh]) => {
       if (sh.owner !== seat || s.turn.builtShips.includes(e) || pirateTouches(s, e)) return false;
@@ -445,6 +526,7 @@ export function movableShips(s: GameState, seat: number): string[] {
       return [ed.a, ed.b].some((v) => {
         if (s.buildings[v]?.owner === seat) return false;
         if (s.knights[v]?.owner === seat) return false; // un caballero propio cierra la ruta
+        if (villages.has(v)) return false; // la ruta que llega a una aldea queda cerrada
         return !g.vertices[v].edges.some((x) => x !== e && s.ships[x]?.owner === seat);
       });
     })
@@ -485,6 +567,7 @@ export function waitingSeats(st: Step): number[] {
       return Object.keys(st.offers).map(Number);
     case 'produce':
     case 'duelRoll':
+    case 'fleet':
       return [];
     case 'deserterChoose':
       return [st.seat];

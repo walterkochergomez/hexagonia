@@ -259,21 +259,170 @@ export function RobberShape() {
   );
 }
 
-export function ShipShape({ color }: { color?: number }) {
+export function ShipShape({ color, war }: { color?: number; war?: boolean }) {
   const pirate = color === undefined;
   return (
-    <g className={pirate ? 'pirate' : `piece ship p${color}`}>
+    <g className={pirate ? 'pirate' : `piece ship p${color}${war ? ' warship' : ''}`}>
       <ellipse cx={1.5} cy={8.8} rx={12} ry={2.4} className="piece-shadow" />
       <path d="M-12 1.5 L12 1.5 L8.5 8 L-8.5 8 Z" className={pirate ? 'hull' : 'pfill'} />
       <path d="M-10.4 4.6 L10.4 4.6 L8.5 8 L-8.5 8 Z" className={pirate ? 'hull-d' : 'pfill-d'} />
+      {war && <g className="gunports">{[-6, -1.5, 3].map((x) => <rect key={x} x={x} y={2.6} width={2.6} height={1.7} rx={0.4} />)}</g>}
       <path d="M0 1.5 L0 -15" className="mast" />
       <path d="M0.9 -14 Q9.4 -8 8.6 -0.4 L0.9 -0.4 Z" className="sail" />
       <path d="M-0.9 -11.6 L-0.9 -0.4 L-8 -0.4 Z" className="jib" />
-      <path d="M0 -15 L5.4 -13.6 L0 -12.2 Z" className={pirate ? 'pennant' : 'pfill'} />
+      {war
+        ? <path d="M0 -15 L8.6 -14.4 L6.4 -12.9 L8.6 -11.4 L0 -11.4 Z" className="war-pennant" />
+        : <path d="M0 -15 L5.4 -13.6 L0 -12.2 Z" className={pirate ? 'pennant' : 'pfill'} />}
       {pirate && <path d="M3 -8.4 L6.4 -4.6 M6.4 -8.4 L3 -4.6" className="mark" />}
     </g>
   );
 }
+
+/** La flota corsaria: dos barcos oscuros juntos. */
+export function FleetShape() {
+  return (
+    <g className="fleet">
+      <g transform="translate(-8 4) scale(.82)"><ShipShape /></g>
+      <g transform="translate(5 -1)"><ShipShape /></g>
+    </g>
+  );
+}
+
+/** Bastión corsario: torre de piedra con el estandarte del jugador al que le toca y sus muescas. */
+export function FortShape({ color, chips, total = 3 }: { color: number; chips: number; total?: number }) {
+  return (
+    <g className="fort">
+      <ellipse cx={1.5} cy={9.4} rx={13} ry={3} className="piece-shadow" />
+      <path d="M-10 9 L-10 -4 L-10 -8 L-6.2 -8 L-6.2 -5.4 L-2 -5.4 L-2 -8 L2 -8 L2 -5.4 L6.2 -5.4 L6.2 -8 L10 -8 L10 9 Z" className="fort-wall" />
+      <path d="M10 9 L10 -8 L12.6 -10 L12.6 6.8 Z" className="fort-side" />
+      <path d="M-3 9 L-3 3.4 Q0 0.6 3 3.4 L3 9 Z" className="fort-gate" />
+      <path d="M0 -8 L0 -19" className="fort-pole" />
+      <g className={`p${color}`}><path d="M0 -19 L8.4 -16.6 L0 -14.2 Z" className="pfill fort-flag" /></g>
+      {Array.from({ length: total }, (_, i) => (
+        <rect key={i} x={-8 + i * 5.6} y={-2.4} width={4.4} height={3.2} rx={0.6} className={i < chips ? 'fort-chip' : 'fort-chip gone'} />
+      ))}
+    </g>
+  );
+}
+
+/** Banderín del punto de desembarco de un jugador. */
+export function LandingFlag({ color }: { color: number }) {
+  return (
+    <g className={`landing p${color}`}>
+      <ellipse cx={0.6} cy={6.6} rx={3.6} ry={1.3} className="piece-shadow" />
+      <path d="M0 6.4 L0 -10" className="landing-pole" />
+      <path d="M0 -10 L8 -7.4 L0 -4.8 Z" className="pfill" />
+    </g>
+  );
+}
+
+/** Aldea tejedora: choza con su número, las telas que le quedan y quiénes ya llegaron. */
+export function VillageShape({ n, cloth, max = 5, linked, lit }: { n: number; cloth: number; max?: number; linked: number[]; lit?: boolean }) {
+  return (
+    <g className={`village${cloth ? '' : ' empty'}${lit ? ' lit' : ''}`}>
+      <ellipse cx={1} cy={11.6} rx={12} ry={2.6} className="piece-shadow" />
+      <path d="M-8 11 L-8 3 L8 3 L8 11 Z" className="hut-wall" />
+      <path d="M-11 4 L0 -6.4 L11 4 Z" className="hut-roof" />
+      <path d="M-2.2 11 L-2.2 6.4 L2.2 6.4 L2.2 11 Z" className="hut-door" />
+      <g transform="translate(0 -14.6)">
+        <circle r={9.6} className="village-disc" />
+        <text y={3.6} textAnchor="middle" className={`village-n${n === 6 || n === 8 ? ' hot' : ''}`}>{n}</text>
+      </g>
+      <g transform="translate(13 -6)" className="bolts">
+        {Array.from({ length: max }, (_, i) => <rect key={i} x={-2.6} y={i * 3.4} width={5.2} height={2.6} rx={1.2} className={i < cloth ? 'bolt' : 'bolt gone'} />)}
+      </g>
+      {linked.map((c, i) => <g key={i} transform={`translate(${-13} ${-8 + i * 5})`}><circle r={2.3} className={`pfill p${c} village-link`} /></g>)}
+    </g>
+  );
+}
+
+/** Chozas del pueblo isleño (adorno de sus islitas). */
+export function Huts() {
+  return (
+    <g className="huts" aria-hidden="true">
+      {[[-11, 12, 0.62], [9, 15, 0.55], [-1, 20, 0.5]].map(([x, y, k], i) => (
+        <g key={i} transform={`translate(${x} ${y}) scale(${k})`}>
+          <ellipse cx={1} cy={11.4} rx={11} ry={2.4} className="piece-shadow" />
+          <path d="M-8 11 L-8 3 L8 3 L8 11 Z" className="hut-wall" />
+          <path d="M-11 4 L0 -6.4 L11 4 Z" className="hut-roof" />
+          <path d="M-2.2 11 L-2.2 6.4 L2.2 6.4 L2.2 11 Z" className="hut-door" />
+        </g>
+      ))}
+    </g>
+  );
+}
+
+/** Regalo del pueblo isleño en un lado de la costa. */
+export function GiftToken({ kind, harbor }: { kind: 'vp' | 'dev' | 'harbor'; harbor?: string }) {
+  if (kind === 'vp') {
+    return (
+      <g className="gift gift-vp">
+        <circle r={9} className="gift-disc" />
+        <path d="M0 -6.2 L1.7 -2.1 L6 -1.9 L2.7 0.9 L3.8 5.1 L0 2.8 L-3.8 5.1 L-2.7 0.9 L-6 -1.9 L-1.7 -2.1 Z" className="gift-star" />
+      </g>
+    );
+  }
+  if (kind === 'dev') {
+    return (
+      <g className="gift gift-dev" transform="rotate(-8)">
+        <rect x={-6.4} y={-8.6} width={12.8} height={17.2} rx={2} className="gift-card" />
+        <path d="M0 -5.2 L3.6 0 L0 5.2 L-3.6 0 Z" className="gift-card-mark" />
+      </g>
+    );
+  }
+  return (
+    <g className="gift gift-harbor">
+      <circle r={9.6} className="gift-port" />
+      {harbor === 'any' || !harbor
+        ? <text y={3.2} textAnchor="middle" className="gift-port-text">3:1</text>
+        : <><g transform="translate(-6 -10)"><CardIcon card={harbor as Card} size={12} /></g><text y={7.6} textAnchor="middle" className="gift-port-text small">2:1</text></>}
+    </g>
+  );
+}
+
+/** Dibujo de cada gran obra en cuatro niveles: los que faltan se ven en línea punteada. */
+export function WonderArt({ id, level, size = 56 }: { id: string; level: number; size?: number }) {
+  const tiers = WONDER_TIERS[id] ?? WONDER_TIERS.tower;
+  return (
+    <svg className={`wonder-art w-${id}`} width={size} height={size} viewBox="-24 -26 48 50" aria-hidden="true">
+      <ellipse cx={0} cy={21.4} rx={19} ry={2.8} className="piece-shadow" />
+      {tiers.map((d, i) => <path key={i} d={d} className={i < level ? 'tier built' : 'tier'} />)}
+    </svg>
+  );
+}
+
+const WONDER_TIERS: Record<string, string[]> = {
+  tower: [
+    'M-11 21 L-11 12 L11 12 L11 21 Z',
+    'M-9 12 L-9 2 L9 2 L9 12 Z',
+    'M-7 2 L-7 -8 L7 -8 L7 2 Z',
+    'M-9 -8 L9 -8 L6 -13 L-6 -13 Z M-4 -13 L-4 -19 L4 -19 L4 -13 Z M-6 -19 L0 -25 L6 -19 Z',
+  ],
+  library: [
+    'M-20 21 L-20 16 L20 16 L20 21 Z',
+    'M-16 16 L-16 1 L-12 1 L-12 16 Z M-6 16 L-6 1 L-2 1 L-2 16 Z M2 16 L2 1 L6 1 L6 16 Z M12 16 L12 1 L16 1 L16 16 Z',
+    'M-19 1 L-19 -4 L19 -4 L19 1 Z',
+    'M-20 -4 L0 -17 L20 -4 Z',
+  ],
+  lock: [
+    'M-21 21 L-21 15 L21 15 L21 21 Z',
+    'M-21 15 L-21 0 L-14 0 L-14 15 Z M14 15 L14 0 L21 0 L21 15 Z',
+    'M-14 15 L-14 2 L-1 4 L-1 15 Z M1 15 L1 4 L14 2 L14 15 Z',
+    'M-23 0 L-23 -7 L23 -7 L23 0 Z M-19 -7 L-19 -13 L-15 -13 L-15 -7 Z M15 -7 L15 -13 L19 -13 L19 -7 Z',
+  ],
+  mills: [
+    'M-12 21 L-12 14 L12 14 L12 21 Z',
+    'M-9 14 L-7 0 L7 0 L9 14 Z',
+    'M-9 0 L0 -9 L9 0 Z',
+    'M0 -5 L-14 -19 L-11 -21 L1 -7 Z M0 -5 L14 -19 L16 -16 L2 -3 Z M0 -5 L-15 8 L-17 5 L-2 -6 Z M0 -5 L13 9 L10 11 L-1 -3 Z',
+  ],
+  observatory: [
+    'M-18 21 L-18 15 L18 15 L18 21 Z',
+    'M-14 15 L-14 3 L14 3 L14 15 Z',
+    'M-14 3 Q-14 -13 0 -13 Q14 -13 14 3 Z',
+    'M3 -9 L16 -22 L19 -19 L6 -6 Z',
+  ],
+};
 
 export function MerchantShape({ color }: { color: number }) {
   return (

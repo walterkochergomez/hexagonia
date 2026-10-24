@@ -28,12 +28,14 @@ export function CardsSheet({ view, me, send, setMode, onClose }: { view: GameSta
         <ul className="card-list">
           {groups.map(({ type, cards }) => {
             const ready = cards.some((d) => d.turn !== turn.n);
-            const playable = type !== 'point' && myTurn && ready && p.devPlayedTurn !== turn.n && !view.steps.length;
+            // bastiones: el soldado arma un barco y hace falta uno sin armar en la ruta
+            const armable = type !== 'soldier' || !view.bastions || C.bastionRoute(view, me).edges.some((e) => !view.ships[e]?.war);
+            const playable = type !== 'point' && myTurn && ready && p.devPlayedTurn !== turn.n && !view.steps.length && armable;
             return (
               <li key={type} className={`dev-card d-${type}`}>
                 <div>
                   <h3>{t(`dev.${type}`)} {cards.length > 1 && <span className="muted">×{cards.length}</span>}</h3>
-                  <p>{t(`dev.${type}.d`)}</p>
+                  <p>{t(type === 'soldier' && view.bastions ? 'dev.soldier.dFort' : `dev.${type}.d`)}</p>
                   {!ready && <p className="muted small">{t('cards.new')}</p>}
                 </div>
                 {type !== 'point' && (

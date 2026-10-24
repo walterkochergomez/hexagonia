@@ -25,7 +25,27 @@ export function StepDialog({ view, me, st, send }: { view: GameState; me: number
         </Modal>
       );
     }
-    case 'steal':
+    case 'steal': {
+      // aldeas tejedoras: con el pirata se elige entre una carta y una tela
+      const cloth = !!view.looms && st.on === 'pirate';
+      if (cloth) {
+        return (
+          <Modal title={t('step.steal')}>
+            <p className="muted small">{t('step.stealHint')}</p>
+            <ul className="steal-list">
+              {st.from.map((s) => (
+                <li key={s}>
+                  <span><PlayerMark color={view.players[s].color} size={16} /> {name(s)}</span>
+                  <span className="row">
+                    <button type="button" className="btn secondary sm" disabled={!view.players[s].handCount} onClick={() => send({ t: 'steal', from: s })}>{t('step.stealCard')} · {view.players[s].handCount ?? 0}</button>
+                    <button type="button" className="btn secondary sm" disabled={!view.looms!.cloth[s]} onClick={() => send({ t: 'steal', from: s, cloth: true })}>{t('step.stealCloth')} · {view.looms!.cloth[s]}</button>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </Modal>
+        );
+      }
       return (
         <Modal title={t('step.steal')}>
           <div className="choice-list">
@@ -37,6 +57,7 @@ export function StepDialog({ view, me, st, send }: { view: GameState; me: number
           </div>
         </Modal>
       );
+    }
     case 'pick': {
       const avail = RESOURCES.reduce((a, r) => a + view.bank[r], 0);
       const n = Math.min(st.waiting[me], avail);

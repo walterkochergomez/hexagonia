@@ -5,7 +5,7 @@ import { go } from '../../app/router';
 import { PROGRESS_DECKS, type Card, type Track } from '../../engine/types';
 import { useManualBook } from '../../manual/load';
 import { MANUAL_ORDER, type Block, type CostIcon, type CostRow, type Manual, type ManualBook, type ManualId, type Section } from '../../manual/types';
-import { CardBack, CardIcon, CityShape, KnightShape, SettlementShape, ShipShape } from '../art';
+import { CardBack, CardIcon, CityShape, KnightShape, SettlementShape, ShipShape, WonderArt } from '../art';
 import { TileDefs } from '../tiles';
 import { TopBar } from '../TopBar';
 import { Cover, Figure } from './figures';
@@ -17,6 +17,7 @@ function inline(text: string): ReactNode {
 }
 
 function PieceIcon({ icon }: { icon: CostIcon }) {
+  if (icon.startsWith('w-')) return <WonderArt id={icon.slice(2)} level={4} size={40} />;
   const c = 0;
   const node = {
     road: <g className={`road p${c}`}><path d="M-12 7 L12 -7" className="road-outline" /><path d="M-12 7 L12 -7" className="road-fill" /><path d="M-12 5.7 L12 -8.3" className="road-shine" /></g>,
@@ -29,7 +30,7 @@ function PieceIcon({ icon }: { icon: CostIcon }) {
     promote: <KnightShape color={c} level={2} active />,
     dev: <g transform="translate(-16 -19)"><CardBack size={32} kind="dev" /></g>,
     progress: <g transform="translate(-16 -19)"><CardBack size={32} kind="dev" /></g>,
-  }[icon];
+  }[icon as Exclude<CostIcon, `w-${string}`>];
   return <svg width={40} height={40} viewBox="-20 -23 40 40" aria-hidden="true">{node}</svg>;
 }
 

@@ -8,7 +8,7 @@ import { ChronicleFace, DieFace, EventFace } from '../art';
 import { DiceOverlay, FxSprites, TurnBanner, useDiceRoll, useLogEffects, useTurnBanner } from './effects';
 import { Board } from '../Board';
 import { Toasts } from '../common';
-import { errorText } from '../format';
+import { errorText, portName } from '../format';
 import { TopBar } from '../TopBar';
 import { manualFor } from '../../manual/load';
 import { BuildMenu } from './BuildMenu';
@@ -24,9 +24,11 @@ import { DIALOG_STEPS, StepDialog } from './StepDialog';
 import { DuelSheet } from './Duel';
 import { CoinsSheet, FishSheet } from './Shires';
 import * as Duel from '../../engine/mods/duel';
+import * as Bastions from '../../engine/mods/bastions';
+import { AssaultSheet, WorksSheet } from './Works';
 import { IncomingTrade, TradeSheet } from './Trade';
 
-type Sheet = null | 'build' | 'trade' | 'cards' | 'guild' | 'log' | 'players' | 'duel' | 'fish' | 'coins';
+type Sheet = null | 'build' | 'trade' | 'cards' | 'guild' | 'log' | 'players' | 'duel' | 'fish' | 'coins' | 'works' | 'assault';
 
 function stepKey(n: number, st: { k: string; reason?: string; waiting?: unknown }, me: number): string {
   const w = st.waiting && !Array.isArray(st.waiting) ? (st.waiting as Record<number, number>)[me] : '';
@@ -95,7 +97,7 @@ export function Game({ session, snap, onHome }: { session: Session; snap: Snapsh
   const nameOf = (s: number | null) => (s === null ? '' : view.players[s]?.name ?? '?');
   const translateParams = (ps?: Record<string, string | number>) => {
     const out: Record<string, string | number> = {};
-    for (const [k, v] of Object.entries(ps ?? {})) out[k] = typeof v === 'string' && /^(track|res|terrain)\./.test(v) ? t(v) : v;
+    for (const [k, v] of Object.entries(ps ?? {})) out[k] = k === 'port' ? portName(String(v), t) : typeof v === 'string' && /^(track|res|terrain)\./.test(v) ? t(v) : v;
     return out;
   };
 
@@ -123,7 +125,7 @@ export function Game({ session, snap, onHome }: { session: Session; snap: Snapsh
   const guilds = view.settings.guilds;
   const sea = view.settings.openSea;
   const myCards = me === null ? 0 : guilds ? view.players[me].progress.length : view.players[me].dev.length;
-  const buttons: { id: string; label: string; onClick: () => void; primary?: boolean; disabled?: boolean; badge?: number }[] = [];
+  const buttons: { id: string; label: string; onClick: () => void; primary?: boolean; disabled?: boolean; badge?: number; title?: string }[] = [];
   if (myTurn && ph === 'preRoll') {
     buttons.push({ id: 'roll', label: t('act.roll'), primary: true, onClick: () => send({ t: 'roll' }) });
   }
@@ -132,11 +134,18 @@ export function Game({ session, snap, onHome }: { session: Session; snap: Snapsh
     if (ph !== 'specialBuild') buttons.push({ id: 'trade', label: t('act.trade'), onClick: () => setSheet('trade') });
     if (guilds) buttons.push({ id: 'guild', label: t('act.improve'), onClick: () => setSheet('guild') });
     if (guilds && ph !== 'specialBuild') buttons.push({ id: 'knight', label: t('act.useKnight'), onClick: () => setMode({ k: 'knight' }) });
-    if (sea && ph !== 'specialBuild') buttons.push({ id: 'ship', label: t('act.moveShip'), disabled: view.turn.shipMoved.includes(me!), onClick: () => setMode({ k: 'ship' }) });
+    if (sea && ph !== 'specialBuild' && !view.bastions) buttons.push({ id: 'ship', label: t('act.moveShip'), disabled: view.turn.shipMoved.includes(me!), onClick: () => setMode({ k: 'ship' }) });
     if (Duel.isDuel(view) && ph === 'main') buttons.push({ id: 'tokens', label: t('act.tokens'), badge: view.players[me!].tokens ?? 0, onClick: () => setSheet('duel') });
     if (view.fish && ph === 'main') buttons.push({ id: 'fish', label: t('act.fish'), badge: (view.players[me!].fish ?? []).reduce((a, b) => a + b, 0), onClick: () => setSheet('fish') });
     if (view.river && ph === 'main') buttons.push({ id: 'coins', label: t('act.coins'), badge: view.river.coins[me!] ?? 0, onClick: () => setSheet('coins') });
+    // bastiones: con la ruta en el bastión, el ataque (cierra el turno)
+    const fort = view.bastions?.forts.find((f) => f.seat === me);
+    if (fort && !fort.taken && ph === 'main' && C.bastionRoute(view, me!).head === fort.v) {
+      const ok = Bastions.canAssault(view, me!);
+      buttons.push({ id: 'assault', label: t('act.assault'), disabled: !ok, title: ok ? t('act.assaultHint') : t('act.assaultNoPiece'), onClick: () => setSheet('assault') });
+    }
   }
+  if (view.works) buttons.push({ id: 'works', label: t('act.wonders'), onClick: () => setSheet('works') });
   buttons.push({ id: 'cards', label: t('act.cards'), badge: myCards, onClick: () => setSheet('cards') });
   if (guilds && !buttons.some((b) => b.id === 'guild')) buttons.push({ id: 'guild', label: t('act.improve'), onClick: () => setSheet('guild') });
   if (myTurn && (ph === 'main' || ph === 'paired')) buttons.push({ id: 'end', label: t('act.end'), primary: true, onClick: () => send({ t: 'endTurn' }) });
@@ -217,7 +226,7 @@ export function Game({ session, snap, onHome }: { session: Session; snap: Snapsh
         <Hand view={view} me={me} onCards={() => setSheet('cards')} />
         <nav className="actions" aria-label={t('act.build')}>
           {buttons.map((b) => (
-            <button key={b.id} type="button" data-act={b.id} className={`btn ${b.primary ? 'primary' : 'secondary'}`} disabled={b.disabled} onClick={b.onClick}>
+            <button key={b.id} type="button" data-act={b.id} className={`btn ${b.primary ? 'primary' : 'secondary'}`} disabled={b.disabled} title={b.title} onClick={b.onClick}>
               {b.label}
               {b.badge ? <span className="btn-badge mobile-only">{b.badge}</span> : null}
             </button>
@@ -232,6 +241,8 @@ export function Game({ session, snap, onHome }: { session: Session; snap: Snapsh
       {sheet === 'duel' && me !== null && <DuelSheet view={view} me={me} send={send} onClose={() => setSheet(null)} />}
       {sheet === 'fish' && me !== null && <FishSheet view={view} me={me} send={send} onClose={() => setSheet(null)} />}
       {sheet === 'coins' && me !== null && <CoinsSheet view={view} me={me} send={send} onClose={() => setSheet(null)} />}
+      {sheet === 'works' && <WorksSheet view={view} me={me} send={send} onClose={() => setSheet(null)} />}
+      {sheet === 'assault' && me !== null && <AssaultSheet view={view} me={me} send={send} onClose={() => setSheet(null)} />}
       {sheet === 'log' && (
         <div className="overlay" onClick={(e) => e.target === e.currentTarget && setSheet(null)}>
           <div className="modal wide" role="dialog" aria-modal="true" aria-label={t('act.log')}>
