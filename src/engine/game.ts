@@ -1,13 +1,16 @@
 // Reductor principal: crea partidas y aplica acciones. El anfitrión es la única fuente de verdad.
 import { Rng, seedRng } from './rng';
-import { seaMap, standardMap } from './maps';
+import { seaMap, shireMap, standardMap } from './maps';
 import * as C from './core';
 import * as Guild from './guilds';
 import * as Harbor from './mods/harbor';
 import * as Chron from './mods/chronicle';
 import * as Duel from './mods/duel';
+import * as Fish from './mods/fish';
+import * as River from './mods/river';
+import * as Caravan from './mods/caravan';
 import {
-  CARDS, COST, EVENT_FACES, GameError, PROGRESS_DECKS, RESOURCES, TERRAIN_COMMODITY, TERRAIN_RESOURCE, TRACKS,
+  CARDS, COST, EVENT_FACES, GameError, PROGRESS_DECKS, RESOURCES, SHIRES, TERRAIN_COMMODITY, TERRAIN_RESOURCE, TRACKS,
   emptyHand, handTotal, isCard, isResource,
   type Action, type DevType, type GameState, type Hand, type PlayerState, type ProgressType, type SeaScenario,
   type Settings, type Step, type Track,
@@ -19,19 +22,22 @@ const need = (cond: unknown, code: string): void => {
   if (!cond) throw new GameError(code);
 };
 
+const SHIRE_VP: Record<string, number> = { fishers: 10, rivers: 10, caravans: 12, raid: 12, traders: 13 };
+
 export function defaultVp(o: Pick<Settings, 'openSea' | 'scenario' | 'guilds' | 'harbormaster' | 'shire'>): number {
   const sea: Record<SeaScenario, number> = { islands: 13, archipelago: 12, fog: 12, desert: 12, newWorld: 12 };
   let vp = 10;
   if (o.openSea && o.guilds) vp = sea[o.scenario] + 2;
   else if (o.openSea) vp = sea[o.scenario];
   else if (o.guilds) vp = 13;
+  if (o.shire) vp = SHIRE_VP[o.shire];
   if (o.harbormaster) vp += 1;
   return vp;
 }
 
 /** Deja sólo combinaciones válidas (la sala ya las ofrece así, pero el motor no confía). */
 export function normalizeSettings(st: Settings): Settings {
-  const s: Settings = { ...st, shire: st.shire ?? null, harbormaster: !!st.harbormaster, chronicle: !!st.chronicle, duel: !!st.duel };
+  const s: Settings = { ...st, shire: st.shire && SHIRES.includes(st.shire) ? st.shire : null, harbormaster: !!st.harbormaster, chronicle: !!st.chronicle, duel: !!st.duel };
   if (s.shire) {
     s.openSea = false;
     s.guilds = false;
@@ -47,7 +53,7 @@ export function createGame(input: Settings, seats: SeatInfo[]): GameState {
   const settings = normalizeSettings({ ...input, seats: n });
   const big = n > 4;
   const rng = new Rng(seedRng(settings.seed));
-  const map = settings.openSea ? seaMap(rng, settings.scenario, big) : standardMap(rng, big);
+  const map = settings.shire ? shireMap(rng, settings.shire, big) : settings.openSea ? seaMap(rng, settings.scenario, big) : standardMap(rng, big);
   const resN = big ? 24 : 19;
   const comN = settings.guilds ? (big ? 15 : 12) : 0;
   const bank: Hand = { lumber: resN, brick: resN, wool: resN, grain: resN, ore: resN, paper: comN, cloth: comN, coin: comN };
@@ -105,6 +111,9 @@ export function createGame(input: Settings, seats: SeatInfo[]): GameState {
     s.chronicle = { left: s.hidden.chronicle.length, last: null };
   }
   if (settings.duel) Duel.setup(s, rng);
+  if (settings.shire === 'fishers') Fish.setup(s, rng);
+  if (settings.shire === 'rivers') River.setup(s, rng);
+  if (settings.shire === 'caravans') Caravan.setup(s);
   s.hidden.rng = rng.s;
   s.decks = C.decksOf(s);
   C.log(s, 'game.start', { seat: first });
@@ -175,6 +184,10 @@ function stepDone(s: GameState, st: Step): boolean {
       return !Object.keys(st.waiting).length;
     case 'neutral':
       return !Duel.neutralSpots(s, st.what).length;
+    case 'camelBid':
+      return !st.waiting.length;
+    case 'camelPlace':
+      return !Caravan.legalCamels(s).length;
     case 'steal':
       return !st.from.length;
     case 'freeRoutes':
@@ -200,7 +213,7 @@ function checkVictory(s: GameState) {
   if (partner !== null) cands.push(partner);
   for (const c of cands) {
     const vp = C.vpOf(s, c);
-    if (vp >= s.settings.vpTarget) {
+    if (vp >= C.targetOf(s, c)) {
       s.winner = c;
       s.turn.phase = 'over';
       s.steps = [];
@@ -213,6 +226,7 @@ function checkVictory(s: GameState) {
 
 function nextTurn(s: GameState) {
   const t = s.turn;
+  const vote = !!s.caravan && !!t.built;
   do t.current = (t.current + 1) % s.players.length;
   while (s.players[t.current].neutral);
   t.n++;
@@ -224,6 +238,8 @@ function nextTurn(s: GameState) {
   t.cards = [];
   t.plague = false;
   t.tokenUsed = false;
+  t.coinTrades = 0;
+  t.built = false;
   t.shipMoved = [];
   t.builtShips = [];
   t.partner = null;
@@ -234,6 +250,7 @@ function nextTurn(s: GameState) {
   s.trade = null;
   s.stats.turns++;
   C.log(s, 'turn.start', { seat: t.current });
+  if (vote) Caravan.startVote(s);
 }
 
 function finishSetup(s: GameState) {
@@ -307,6 +324,7 @@ function produce(s: GameState, rng: Rng) {
     received[i] = got > 0 || (gold[i] ?? 0) > 0;
     if (got) C.log(s, 'produce', { seat: i, cards: C.handText(gains[i]) });
   }
+  Fish.produce(s, total);
   const steps: Step[] = [];
   if (Object.keys(gold).length) steps.push({ k: 'pick', reason: 'gold', waiting: gold });
   if (s.settings.guilds) {
@@ -428,7 +446,10 @@ function placeRoute(s: GameState, seat: number, e: string, ship: boolean, free: 
   C.log(s, ship ? 'build.ship' : 'build.road', { seat });
   revealAround(s, seat, e);
   C.updateRoadAward(s);
-  if (!ship) Duel.afterBuild(s, seat, 'road');
+  if (!ship) {
+    River.afterRoad(s, seat, e);
+    Duel.afterBuild(s, seat, 'road');
+  }
 }
 
 function build(s: GameState, seat: number, what: string, at: string) {
@@ -449,6 +470,8 @@ function build(s: GameState, seat: number, what: string, at: string) {
       C.updateRoadAward(s);
       Duel.earnForSettlement(s, seat, at);
       Duel.afterBuild(s, seat, 'settlement');
+      River.afterSettlement(s, seat, at);
+      s.turn.built = true;
       return;
     }
     case 'city': {
@@ -459,6 +482,7 @@ function build(s: GameState, seat: number, what: string, at: string) {
       b.kind = 'city';
       delete b.damaged;
       C.log(s, 'build.city', { seat });
+      s.turn.built = true;
       return;
     }
     case 'repair': {
@@ -510,7 +534,9 @@ function handle(s: GameState, seat: number, a: Action, rng: Rng) {
         }
         if (handTotal(got)) C.log(s, 'produce', { seat, cards: C.handText(got) });
         if (picks) s.steps.push({ k: 'pick', reason: 'gold', waiting: { [seat]: picks } });
+        Fish.setupBonus(s, seat, a.vertex);
       }
+      if (kind === 'settlement') River.afterSettlement(s, seat, a.vertex);
       t.setupVertex = a.vertex;
       t.setupAwait = 'route';
       return;
@@ -521,6 +547,7 @@ function handle(s: GameState, seat: number, a: Action, rng: Rng) {
       if (a.ship) s.ships[a.edge] = { owner: seat };
       else s.roads[a.edge] = { owner: seat };
       C.log(s, a.ship ? 'build.ship' : 'build.road', { seat });
+      if (!a.ship) River.afterRoad(s, seat, a.edge);
       revealAround(s, seat, a.edge);
       t.setupIndex++;
       t.setupAwait = 'building';
@@ -687,6 +714,23 @@ function handle(s: GameState, seat: number, a: Action, rng: Rng) {
       return;
     case 'cashSoldier':
       Duel.cashSoldier(s, seat);
+      return;
+    case 'fish':
+      Fish.spend(s, seat, a.use, rng);
+      return;
+    case 'passBoot':
+      Fish.passBoot(s, seat, a.to);
+      return;
+    case 'bridge':
+      need(BUILD_PHASES.includes(t.phase) && seat === actor, 'notYourTurn');
+      River.buildBridge(s, seat, a.at);
+      Duel.afterBuild(s, seat, 'road');
+      return;
+    case 'coins':
+      River.tradeCoins(s, seat);
+      return;
+    case 'buyCoin':
+      River.buyCoin(s, seat, a.give);
       return;
     default:
       throw new GameError('pendingOrBad');
@@ -858,6 +902,19 @@ function handleStep(s: GameState, seat: number, a: Action, st: Step, rng: Rng) {
       if (a.t !== 'neutral') return;
       s.steps.shift();
       Duel.placeNeutral(s, st, a.at);
+      return;
+    }
+    case 'camelBid': {
+      need(a.t === 'camelBid' && st.waiting.includes(seat), 'pending');
+      if (a.t !== 'camelBid') return;
+      Caravan.bid(s, st, seat, a.bid);
+      return;
+    }
+    case 'camelPlace': {
+      need(a.t === 'camel' && seat === st.seat, 'pending');
+      if (a.t !== 'camel') return;
+      Caravan.place(s, seat, a.at);
+      s.steps.shift();
       return;
     }
     default:

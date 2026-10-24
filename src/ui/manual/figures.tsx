@@ -1,7 +1,7 @@
 // Figuras de los manuales: escenas chicas dibujadas con el mismo tablero y las mismas piezas del juego.
 import type { ReactNode } from 'react';
 import { useT } from '../../app/i18n';
-import { CORNERS, hexId, vertexId, edgeId } from '../../engine/geometry';
+import { CORNERS, edgeId, graphOf, hexId, vertexId } from '../../engine/geometry';
 import type { Card, GameState, Harbor, HexTile, Resource, Terrain } from '../../engine/types';
 import { Board, type BoardPos } from '../Board';
 import { CardBack, CardIcon, ChronicleFace, CityShape, ShipShape } from '../art';
@@ -37,6 +37,11 @@ interface Scene {
   knights?: [string, number, 1 | 2 | 3, boolean][];
   robber?: string;
   pirate?: string;
+  /** puentes: caminos con `bridge` */
+  bridges?: [string, number][];
+  fish?: { lakes: string[]; grounds: { hex: string; n: number }[] };
+  river?: { rivers: string[][]; crossings: string[] };
+  caravan?: { oasis: string; starts: string[]; routes: string[][] };
 }
 
 const FLOWER: [number, number][] = [[0, 0], [1, -1], [1, 0], [0, 1], [-1, 1], [-1, 0], [0, -1]];
@@ -55,10 +60,20 @@ function stateOf(sc: Scene): GameState {
   }
   const harbors: Harbor[] = (sc.harbors ?? []).map(([edge, hex, kind]) => ({ edge, hex, kind }));
   const own = <T,>(xs: [string, number, ...T[]][] | undefined) => Object.fromEntries((xs ?? []).map(([id, owner]) => [id, { owner }]));
+  const g = graphOf(hexes);
+  const isLand = (h: string) => hexes[h] && hexes[h].terrain !== 'sea';
+  // los cruces de la costa de cada caladero se calculan como en el motor
+  const fish = sc.fish && {
+    lakes: sc.fish.lakes, pile: 0, boot: null,
+    grounds: sc.fish.grounds.map((gr) => ({ ...gr, vertices: g.hexes[gr.hex].vertices.filter((v) => g.vertices[v].hexes.some(isLand)) })),
+  };
   return {
     board: { hexes, harbors, robber: sc.robber ?? null, pirate: sc.pirate ?? null, merchant: null },
     settings: { openSea: !!sc.open },
-    roads: own(sc.roads),
+    fish,
+    river: sc.river && { ...sc.river, coins: [] },
+    caravan: sc.caravan && { ...sc.caravan, left: 0 },
+    roads: { ...own(sc.roads), ...Object.fromEntries((sc.bridges ?? []).map(([e, owner]) => [e, { owner, bridge: true }])) },
     ships: own(sc.ships),
     buildings: Object.fromEntries((sc.buildings ?? []).map(([v, kind, owner, x]) => [v, { owner, kind, ...x }])),
     knights: Object.fromEntries((sc.knights ?? []).map(([v, owner, level, active]) => [v, { owner, level, active, activatedTurn: -1, promotedTurn: -1 }])),
@@ -82,6 +97,20 @@ const Cross = ({ at }: { at: [number, number] }) => (
 const Num = ({ at, n }: { at: [number, number]; n: number | string }) => (
   <g transform={`translate(${at[0]} ${at[1]})`} className="fig-num"><circle r={8.5} /><text y={3.6} textAnchor="middle">{n}</text></g>
 );
+const Badge = ({ at, text }: { at: [number, number]; text: string }) => (
+  <g transform={`translate(${at[0]} ${at[1]})`} className="fig-badge"><rect x={-13} y={-10} width={26} height={20} rx={10} /><text y={4.4} textAnchor="middle">{text}</text></g>
+);
+const FishMark = ({ at, n }: { at: [number, number]; n: number }) => (
+  <g transform={`translate(${at[0]} ${at[1]})`} className="fig-fish">
+    {Array.from({ length: n }, (_, i) => (
+      <g key={i} transform={`translate(${(i - (n - 1) / 2) * 15} 0)`}>
+        <circle r={7.4} className="fish-token-disc" />
+        <path transform="scale(.5)" d="M-9 0 Q-2 -7 7 -1 Q-2 6 -9 0 Z M7 -1 L12 -5 L11.4 4 Z" className="fish-token-fish" />
+      </g>
+    ))}
+  </g>
+);
+
 /** Cartas en abanico, para mostrar lo que alguien recibe. */
 const Cards = ({ at, cards, size = 22 }: { at: [number, number]; cards: (Card | 'back')[]; size?: number }) => (
   <g transform={`translate(${at[0]} ${at[1]})`} className="fig-cards">
@@ -255,6 +284,43 @@ export function Figure({ id, caption }: { id: FigureId; caption: string }) {
         </ul>
       );
       break;
+    case 'fishers':
+      body = (
+        <Still label={caption} lit={9} scene={{
+          hexes: [[0, 0, 'lake'], [1, -1, 'forest', 5], [1, 0, 'pasture', 10], [0, 1, 'fields', 6], [-1, 1, 'hills', 4], [-1, 0, 'mountains', 8], [0, -1, 'pasture', 11]],
+          fish: { lakes: ['h0,0'], grounds: [{ hex: 'h2,-1', n: 9 }, { hex: 'h-1,2', n: 4 }] },
+          buildings: [[corner(1, -1, 2), 'settlement', 0], [corner(0, 0, 4), 'city', 2]],
+          roads: [[side(1, -1, 2), 0], [side(0, 0, 3), 2]],
+        }} overlay={(at) => <>
+          <FishMark at={[at.v(corner(1, -1, 2))[0] - 6, at.v(corner(1, -1, 2))[1] - 26]} n={1} />
+        </>} />
+      );
+      break;
+    case 'rivers':
+      body = (
+        <Still label={caption} scene={{
+          hexes: [[0, 0, 'fields', 9], [1, -1, 'forest', 5], [1, 0, 'pasture', 10], [0, 1, 'hills', 6], [-1, 1, 'swamp'], [-1, 0, 'mountains', 8], [0, -1, 'pasture', 4]],
+          river: { rivers: [['h0,-1', 'h0,0', 'h0,1']], crossings: [side(0, -1, 2), side(0, 0, 2), side(0, 1, 2)] },
+          bridges: [[side(0, 0, 2), 1]],
+          buildings: [[corner(0, 0, 1), 'settlement', 1], [corner(0, 0, 4), 'settlement', 3]],
+          roads: [[side(0, 0, 1), 1], [side(0, 0, 3), 3]],
+        }} overlay={(at) => <>
+          <Badge at={[at.e(side(0, 0, 2))[0] + 30, at.e(side(0, 0, 2))[1] + 14]} text="+3" />
+          <Badge at={[at.v(corner(0, 0, 4))[0] - 24, at.v(corner(0, 0, 4))[1] + 24]} text="+1" />
+        </>} />
+      );
+      break;
+    case 'caravans':
+      body = (
+        <Still label={caption} scene={{
+          hexes: [[0, 0, 'desert'], [1, -1, 'forest', 5], [1, 0, 'pasture', 10], [0, 1, 'hills', 6], [-1, 1, 'fields', 9], [-1, 0, 'mountains', 8], [0, -1, 'pasture', 4]],
+          caravan: { oasis: 'h0,0', starts: [corner(0, 0, 0), corner(0, 0, 2), corner(0, 0, 4)], routes: [[side(0, -1, 1), side(1, -1, 5)], [side(1, 0, 3)], []] },
+          buildings: [[corner(0, -1, 1), 'settlement', 2]],
+          roads: [[side(0, -1, 1), 2], [side(1, -1, 5), 2]],
+          robber: 'h0,0',
+        }} overlay={(at) => <Badge at={[at.v(corner(0, -1, 1))[0] - 30, at.v(corner(0, -1, 1))[1] - 12]} text="+1" />} />
+      );
+      break;
     case 'barbarians':
       body = (
         <div className="fig-board fig-track">
@@ -330,6 +396,8 @@ const COVERS: Partial<Record<ManualId, Scene>> = {
     harbors: [[side(1, -1, 0), hexId(2, -2), 'wool'], [side(0, 1, 2), hexId(0, 2), 'any']],
     buildings: [[corner(1, -1, 0), 'city', 0], [corner(0, 1, 2), 'settlement', 0], [corner(-1, 0, 4), 'settlement', 2], [corner(0, 0, 1), 'settlement', 5]],
     roads: [[side(1, -1, 5), 0], [side(0, 1, 1), 0], [side(-1, 0, 3), 2], [side(0, 0, 1), 5]],
+    river: { rivers: [['h0,0', 'h-1,1']], crossings: [side(0, 0, 3), side(-1, 1, 3)] },
+    bridges: [[side(0, 0, 3), 1]],
     robber: hexId(-1, 0),
   },
   combo: {

@@ -1,6 +1,7 @@
 import { useT } from '../../app/i18n';
 import * as C from '../../engine/core';
 import * as Guild from '../../engine/guilds';
+import * as River from '../../engine/mods/river';
 import { COST, type Action, type GameState, type Hand } from '../../engine/types';
 import { CardBack, CityShape, KnightShape, SettlementShape, ShipShape } from '../art';
 import { HandLine, Modal } from '../common';
@@ -37,6 +38,11 @@ export function BuildMenu({ view, me, send, setMode, onClose }: { view: GameStat
   if (broken) {
     items.push({ id: 'repair', label: t('act.repair'), cost: COST.road, ok: can(COST.road),
       icon: icon(<g className={`road p${color} broken`}><path d="M-12 7 L12 -7" className="road-outline" /><path d="M-12 7 L12 -7" className="road-fill" /><path d="M-1 -4 L1 1 L-2 3 L0 7" className="road-crack" /></g>), run: pick({ k: 'build', what: 'repair' }) });
+  }
+  if (view.river) {
+    const mine = Object.values(view.roads).filter((r) => r.owner === me && r.bridge).length;
+    items.push({ id: 'bridge', label: t('piece.bridge'), cost: River.BRIDGE_COST, left: River.BRIDGES_MAX - mine, ok: can(River.BRIDGE_COST) && River.legalBridges(view, me).length > 0,
+      icon: icon(<g className={`bridge p${color}`}><path d="M-12 7 L12 -7" className="bridge-deck" /><path d="M-12 7 L12 -7" className="bridge-planks" pathLength={1} /><path d="M-9.5 10.3 L14.5 -3.7 M-14.5 3.7 L9.5 -10.3" className="bridge-rail" /></g>), run: pick({ k: 'bridge' }) });
   }
   if (view.settings.openSea) {
     items.push({ id: 'ship', label: t('piece.ship'), cost: COST.ship, left: left.ship, ok: can(COST.ship) && left.ship > 0 && C.legalShips(view, me).length > 0,

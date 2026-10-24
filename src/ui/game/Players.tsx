@@ -33,6 +33,12 @@ export function Players({ view, me, lobby, compact }: { view: GameState; me: num
         if (view.awards.road.owner === seat) badges.push(t('player.longest'));
         if (!view.settings.guilds && view.awards.army.owner === seat) badges.push(t('player.army'));
         if (view.awards.harbor?.owner === seat) badges.push(t('player.harbor'));
+        if (view.fish?.boot === seat) badges.push(t('player.boot'));
+        const wealth = C.wealthBonus(view, seat);
+        if (wealth > 0) badges.push(t('player.richest'));
+        if (wealth < 0) badges.push(t('player.poorest'));
+        const camels = C.camelBonus(view, seat);
+        if (camels) badges.push(t('player.camels', { n: camels }));
         for (const tr of TRACKS) if (view.metropolis[tr]?.owner === seat) badges.push(t('guild.metro', { track: t(`track.${tr}`) }));
         if (p.defender) badges.push(`${t('player.defender')} ×${p.defender}`);
         const bonus = p.bonus.reduce((a, b) => a + b.vp, 0);
@@ -64,6 +70,8 @@ export function Players({ view, me, lobby, compact }: { view: GameState; me: num
               {view.settings.guilds && <span>{t('player.knights', { n: `${strength}/${knights.reduce((a, k) => a + k.level, 0)}` })}</span>}
               <span>{t('player.route', { n: route })}</span>
               {p.tokens !== undefined && <span>{t('player.tokens', { n: p.tokens })}</span>}
+              {view.fish && <span>{t('player.fish', { n: p.fish?.length || p.fishCount || 0 })}</span>}
+              {view.river && <span>{t('player.coins', { n: view.river.coins[seat] ?? 0 })}</span>}
               {view.settings.guilds && (
                 <span className="tracks" aria-label={t('guild.title')}>
                   {TRACKS.map((tr) => <span key={tr} className={`lvl tr-${tr}`} title={`${t(`track.${tr}`)} ${p.improvements[tr]}`}>{p.improvements[tr]}</span>)}

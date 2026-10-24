@@ -8,8 +8,10 @@ export const COMMODITIES: readonly Commodity[] = ['paper', 'cloth', 'coin'];
 export const CARDS: readonly Card[] = [...RESOURCES, ...COMMODITIES];
 export type Hand = Record<Card, number>;
 
-export type Terrain = 'forest' | 'hills' | 'pasture' | 'fields' | 'mountains' | 'desert' | 'gold' | 'sea';
-export const LAND: readonly Terrain[] = ['forest', 'hills', 'pasture', 'fields', 'mountains', 'desert', 'gold'];
+export type Terrain = 'forest' | 'hills' | 'pasture' | 'fields' | 'mountains' | 'desert' | 'gold' | 'sea' | 'lake' | 'swamp';
+export const LAND: readonly Terrain[] = ['forest', 'hills', 'pasture', 'fields', 'mountains', 'desert', 'gold', 'lake', 'swamp'];
+/** Terrenos sin ficha de número. */
+export const BARREN: readonly Terrain[] = ['desert', 'lake', 'swamp'];
 export const TERRAIN_RESOURCE: Partial<Record<Terrain, Resource>> = {
   forest: 'lumber', hills: 'brick', pasture: 'wool', fields: 'grain', mountains: 'ore',
 };
@@ -46,7 +48,7 @@ export const SEA_SCENARIOS: readonly SeaScenario[] = ['islands', 'archipelago', 
 
 /** Escenarios de la caja Comarcas (se juegan sobre la isla base). */
 export type Shire = 'fishers' | 'rivers' | 'caravans' | 'raid' | 'traders';
-export const SHIRES: readonly Shire[] = ['fishers', 'rivers', 'caravans', 'raid', 'traders'];
+export const SHIRES: readonly Shire[] = ['fishers', 'rivers', 'caravans'];
 
 export interface Settings {
   seats: number; // 2..6
@@ -63,6 +65,10 @@ export interface Settings {
   chronicle?: boolean; // mazo de sucesos en vez de dados
   duel?: boolean; // reglas para 2 con jugadores neutrales
 }
+
+export interface FishGround { hex: string; n: number; vertices: string[] }
+export type FishUse = 'robber' | 'steal' | 'bank' | 'road' | 'dev';
+export const FISH_COST: Record<FishUse, number> = { robber: 2, steal: 3, bank: 4, road: 5, dev: 7 };
 
 /** Sucesos del mazo de crónica. */
 export type ChronicleEvent = 'harvest' | 'feud' | 'flee' | 'joust' | 'tradeWind' | 'quake' | 'neighbors' | 'plague' | 'raid' | 'calm' | 'aid';
@@ -130,6 +136,9 @@ export interface PlayerState {
   neutral?: boolean;
   /** duelo: fichas de comercio */
   tokens?: number;
+  /** pesca: valores de las fichas de pescado (1-3); en las vistas ajenas va vacío y se ve fishCount */
+  fish?: number[];
+  fishCount?: number;
   // sólo en vistas: totales visibles para los demás
   handCount?: number;
   devCount?: number;
@@ -140,9 +149,9 @@ export type Step =
   | { k: 'discard'; reason: 'seven' | 'saboteur'; waiting: Record<number, number> }
   | { k: 'robber'; seat: number; robber: boolean; pirate: boolean; mode: 'steal1' | 'stealAll' }
   | { k: 'steal'; seat: number; hex: string; on: 'robber' | 'pirate' | 'event'; from: number[] }
-  | { k: 'pick'; reason: 'gold' | 'aqueduct' | 'plenty' | 'fog' | 'harvest' | 'joust' | 'calm'; waiting: Record<number, number> }
+  | { k: 'pick'; reason: 'gold' | 'aqueduct' | 'plenty' | 'fog' | 'harvest' | 'joust' | 'calm' | 'fish' | 'coins'; waiting: Record<number, number> }
   | { k: 'monopoly'; seat: number }
-  | { k: 'freeRoutes'; seat: number; left: number; source: 'dev' | 'progress' | 'diplomat' }
+  | { k: 'freeRoutes'; seat: number; left: number; source: 'dev' | 'progress' | 'diplomat' | 'fish' }
   | { k: 'pillage'; waiting: number[] }
   | { k: 'defenderPick'; waiting: number[] }
   | { k: 'progressLimit'; waiting: Record<number, number> }
@@ -159,6 +168,8 @@ export type Step =
   | { k: 'quake'; waiting: number[] }
   | { k: 'gift'; reason: 'neighbors' | 'aid' | 'force'; waiting: Record<number, number>; to: Record<number, number[]> }
   | { k: 'neutral'; seat: number; what: 'road' | 'settlement' }
+  | { k: 'camelBid'; waiting: number[]; bids: Record<number, Partial<Hand>> }
+  | { k: 'camelPlace'; seat: number }
   | { k: 'produce' }
   | { k: 'duelRoll' };
 
@@ -197,6 +208,10 @@ export interface TurnState {
   plague?: boolean;
   /** duelo: ya usó una ficha de comercio este turno */
   tokenUsed?: boolean;
+  /** ríos: monedas cambiadas por recursos este turno */
+  coinTrades?: number;
+  /** camellos: alguien construyó poblado o ciudad este turno (al empezar el siguiente se vota) */
+  built?: boolean;
 }
 
 export interface LogEntry {
@@ -227,9 +242,11 @@ export interface GameState {
     progress: Record<Track, ProgressType[]>;
     rng: [number, number, number, number];
     chronicle?: ChronicleCard[];
+    /** pesca: fichas boca abajo (0 = bota vieja) */
+    fishPile?: number[];
   };
   buildings: Record<string, Building>;
-  roads: Record<string, { owner: number; broken?: boolean }>;
+  roads: Record<string, { owner: number; broken?: boolean; bridge?: boolean }>;
   ships: Record<string, { owner: number }>;
   knights: Record<string, Knight>;
   players: PlayerState[];
@@ -248,6 +265,12 @@ export interface GameState {
   chronicle?: { left: number; last: ChronicleCard | null };
   /** duelo: fichas de comercio en reserva */
   duel?: { supply: number };
+  /** pesca: lago, caladeros, fichas en la pila y quién tiene la bota vieja */
+  fish?: { lakes: string[]; grounds: FishGround[]; pile: number; boot: number | null };
+  /** ríos: casillas de cada río, lados que cruzan el agua y monedas de cada jugador */
+  river?: { rivers: string[][]; crossings: string[]; coins: number[] };
+  /** camellos: oasis, inicio de cada caravana y sus tramos en orden */
+  caravan?: { oasis: string; starts: string[]; routes: string[][]; left: number };
   winner: number | null;
   redacted?: boolean; // vista para un asiento
   viewer?: number | null;
@@ -312,7 +335,14 @@ export type Action =
   | { t: 'gift'; to: number; cards: Partial<Hand> }
   | { t: 'neutral'; at: string }
   | { t: 'token'; use: 'force' | 'robber' }
-  | { t: 'cashSoldier' };
+  | { t: 'cashSoldier' }
+  | { t: 'fish'; use: FishUse }
+  | { t: 'passBoot'; to: number }
+  | { t: 'bridge'; at: string }
+  | { t: 'coins'; use: 'trade' }
+  | { t: 'buyCoin'; give: Resource }
+  | { t: 'camelBid'; bid: Partial<Hand> }
+  | { t: 'camel'; at: string };
 
 export interface ProgressArg {
   dice?: [number, number];

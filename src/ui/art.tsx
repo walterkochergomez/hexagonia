@@ -362,3 +362,16 @@ export function ChronicleFace({ card, size = 34 }: { card: ChronicleCard; size?:
 export function EventGlyph({ ev, size = 18 }: { ev: string; size?: number }) {
   return <svg className="ev-glyph" width={size} height={size} viewBox="-9 -9 18 18" aria-hidden="true"><g className="chron-glyph">{EV_GLYPH[ev]}</g></svg>;
 }
+
+/** Camello de la caravana, de perfil, parado sobre el tramo. */
+export function CamelShape() {
+  return (
+    <g className="camel-shape">
+      <ellipse cx={1} cy={7.6} rx={9.6} ry={2.2} className="piece-shadow" />
+      <path d="M-6 7 L-5.4 1.4 M-2.6 7 L-2.4 1.6 M3 7 L3.2 1.6 M5.8 7 L6 1.2" className="camel-leg" />
+      <path d="M-7.4 1.8 C-8.4 -2.2 -5.8 -4.4 -4 -4.6 C-3 -8.4 0.2 -8.6 1.2 -5 C2.2 -6.6 4.4 -6.4 5.4 -3.6 C6.4 -3 7.2 -1.6 7.4 0 L9.2 -5.4 L12.2 -6.8 L12.8 -4.8 L10.6 -3.6 L8.6 2.2 L-6.6 2.6 Z" className="camel-body" />
+      <path d="M-3.6 -4.2 L4.8 -3.4 L4.4 -1 L-3.4 -1.6 Z" className="camel-blanket" />
+      <circle cx={11.2} cy={-5.6} r={0.55} className="camel-eye" />
+    </g>
+  );
+}

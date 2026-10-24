@@ -472,14 +472,14 @@ const book: ManualBook = {
     shires: {
       id: 'shires',
       title: 'Comarcas',
-      summary: 'Variantes para la isla base que se suman a cualquier partida: puertos que dan prestigio, un mazo de sucesos en vez de dados y reglas para jugar de a dos.',
-      meta: ['2–6 jugadores', '60–90 minutos', 'Meta: 10, o 11 con el señor de los muelles'],
+      summary: 'Variantes y escenarios para la isla base: puertos que dan prestigio, un mazo de sucesos en vez de dados, reglas para dos, y escenarios con pesca, ríos y caravanas.',
+      meta: ['2–6 jugadores', '60–120 minutos', 'Meta: 10 a 12 según el escenario'],
       sections: [
         {
           id: 'about',
           title: 'Qué trae',
           blocks: [
-            { t: 'p', text: 'Comarcas reúne reglas que se agregan al juego base. Se activan en la sala, en **Variantes**, y se combinan entre sí. El señor de los muelles funciona también con Mar Abierto y con Gremios.' },
+            { t: 'p', text: 'Comarcas reúne reglas que se agregan al juego base. Las **variantes** (señor de los muelles, mazo de sucesos, duelo) se combinan entre sí; el señor de los muelles funciona también con Mar Abierto y con Gremios. Los **escenarios** cambian la isla y se juegan de a uno, también con el señor de los muelles y el mazo de sucesos.' },
           ],
         },
         {
@@ -530,6 +530,49 @@ const book: ManualBook = {
               '**Dos tiradas**: en cada turno se tira dos veces y las dos producen. La segunda tiene que dar un número distinto de la primera.',
               '**Fichas de comercio**: cada uno empieza con 5 (hay 20 en total). Una vez por turno puedes usarlas para un **cambio forzado** (tomas 2 cartas al azar del rival y le devuelves 2 a elección) o para mandar el **ladrón al desierto**. Cuesta 1 ficha si vas igual o atrás en puntos y 2 si vas adelante.',
               'Las fichas se ganan fundando poblados: 1 en la costa, 2 junto al desierto, 3 si cumple ambas. También puedes devolver un soldado jugado a cambio de 2 fichas.',
+            ] },
+          ],
+        },
+        {
+          id: 'fishers',
+          title: 'Escenario: aguas de pesca',
+          blocks: [
+            { t: 'p', text: 'El desierto se vuelve un lago en el centro de la isla, y en la costa hay seis caladeros con números del 4 al 10 (ocho con 5 o 6 jugadores). El ladrón empieza en el lago. Meta: 10 puntos.' },
+            { t: 'fig', id: 'fishers', caption: 'Sale 9: el poblado junto al caladero saca una ficha. La ciudad junto al lago pesca con 2, 3, 11 y 12.' },
+            { t: 'list', items: [
+              '**Pescar**: cuando sale el número de un caladero, cada poblado en sus tres cruces saca una ficha de la pila; cada ciudad, dos. El lago pesca con 2, 3, 11 y 12 para los edificios a su alrededor, salvo que el ladrón esté encima.',
+              'Las fichas valen 1, 2 o 3 peces y se guardan boca abajo: los demás sólo ven cuántas tienes. No son cartas, así que no cuentan para el 7 ni se roban. Se puede tener hasta 7.',
+              'En la preparación, el segundo poblado junto a un caladero o al lago saca una ficha.',
+              '**Gastar**, en tu turno y sin vuelto: 2 peces sacan el ladrón del tablero hasta el próximo 7; 3 roban un recurso al azar a quien elijas; 4 dan un recurso del banco; 5, un camino gratis; 7, una carta de desarrollo. Las fichas gastadas vuelven a la pila.',
+              '**La bota vieja** está escondida en la pila. Quien la saca necesita un punto más para ganar; en su turno puede pasársela a alguien con tantos puntos visibles como él o más.',
+            ] },
+          ],
+        },
+        {
+          id: 'rivers',
+          title: 'Escenario: ríos de oro',
+          blocks: [
+            { t: 'p', text: 'Dos ríos (tres con 5 o 6 jugadores) bajan desde el interior hasta el mar. Dos pantanos (tres con 5 o 6 jugadores) reemplazan al desierto y a unos pastos: no producen, y el ladrón empieza en uno. Meta: 10 puntos.' },
+            { t: 'fig', id: 'rivers', caption: 'El puente cruza el río y da 3 monedas; el poblado de la orilla dio 1.' },
+            { t: 'list', items: [
+              'Un río no se cruza con un camino: en los lados donde pasa el agua sólo va un **puente** (2 ladrillos y 1 madera). El puente cuenta como camino y da **3 monedas**. Cada jugador puede construir 3.',
+              'Un camino a la orilla de un río, o un poblado junto a él, da **1 moneda**.',
+              'En tu turno puedes cambiar **2 monedas por un recurso** a elección, hasta dos veces. También puedes comprar una moneda con cartas, a tu tasa del banco o de tus puertos.',
+              'Las monedas no son cartas. Quien tiene más, sin empate, gana **1 punto**; los que tienen menos pierden **2**. Si todos tienen lo mismo, nadie gana ni pierde.',
+            ] },
+          ],
+        },
+        {
+          id: 'caravans',
+          title: 'Escenario: ruta de camellos',
+          blocks: [
+            { t: 'p', text: 'En el centro hay un oasis del que salen tres caravanas. Meta: 12 puntos.' },
+            { t: 'fig', id: 'caravans', caption: 'El poblado entre dos camellos vale un punto más.' },
+            { t: 'list', items: [
+              'Después de un turno en que alguien fundó un poblado o hizo una ciudad, al empezar el siguiente se **vota**: todos ofrecen en secreto cartas de lana y trigo (cada carta, un voto). Gana la oferta más alta; en empate, el primero desde el jugador del turno. Todos pagan lo que ofrecieron.',
+              'Quien gana pone un **camello** al final de una caravana, en un lado de tierra, sin volver al oasis ni cruzarse con otra caravana. Hay 22 camellos (28 con 5 o 6 jugadores).',
+              'Cada edificio en un cruce entre **dos camellos** vale **1 punto más**.',
+              'Un camino bajo un camello cuenta **doble** para la ruta comercial más larga.',
             ] },
           ],
         },

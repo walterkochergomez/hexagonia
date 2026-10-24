@@ -19,6 +19,10 @@ const configs: [string, Partial<Settings>, number[]][] = [
   ['sucesos + mar', { chronicle: true, openSea: true, scenario: 'islands' }, [4]],
   ['duelo', { duel: true }, [2]],
   ['duelo + sucesos + muelles', { duel: true, chronicle: true, harbormaster: true }, [2]],
+  ['aguas de pesca', { shire: 'fishers' }, [3, 4, 6]],
+  ['ríos de oro', { shire: 'rivers' }, [3, 4, 5]],
+  ['ruta de camellos', { shire: 'caravans' }, [3, 4, 6]],
+  ['pesca + sucesos + muelles', { shire: 'fishers', chronicle: true, harbormaster: true }, [4]],
 ];
 
 const GAMES = Number(process.env.SIM_GAMES ?? 6);

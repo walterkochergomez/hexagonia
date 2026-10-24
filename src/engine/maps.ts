@@ -1,7 +1,7 @@
 // Generadores de mapas propios (no se usan mapas fijos de ninguna edición oficial).
 import { Rng } from './rng';
 import { buildGraph, hexId, hexNeighbors, parseHex } from './geometry';
-import type { Harbor, HexTile, Resource, SeaScenario, Terrain } from './types';
+import { BARREN, type Harbor, type HexTile, type Resource, type SeaScenario, type Terrain } from './types';
 
 type Cell = string;
 type Kind = Resource | 'any';
@@ -28,6 +28,8 @@ function neighbors(c: Cell): Cell[] {
   const [q, r] = parseHex(c);
   return hexNeighbors(q, r).map(([a, b]) => hexId(a, b));
 }
+
+export const NUMBERS = { small: NUMBERS_34, big: NUMBERS_56 };
 
 export function numberPool(n: number): number[] {
   const out: number[] = [];
@@ -106,21 +108,40 @@ function angleOf(c: Cell, cx: number, cy: number): number {
 
 // ---------- mapa estándar (3-4 y 5-6) ----------
 
-export function standardMap(rng: Rng, big: boolean): MapResult {
+export interface StandardOpts {
+  /** terrenos a repartir (por defecto, los del juego base) */
+  terrains?: Terrain[];
+  /** terreno fijo en la casilla más central (lago, oasis, castillo) */
+  center?: Terrain;
+  /** fichas de número a repartir (por defecto, las del juego base) */
+  numbers?: number[];
+}
+
+export function standardMap(rng: Rng, big: boolean, opts: StandardOpts = {}): MapResult {
   const coords = big ? rowsLayout([3, 4, 5, 6, 5, 4, 3], -1) : rowsLayout([3, 4, 5, 4, 3], 0);
   const land = coords.map(([q, r]) => hexId(q, r));
   const landSet = new Set(land);
-  const terrains: Terrain[] = big
+  const terrains: Terrain[] = opts.terrains ? [...opts.terrains] : big
     ? [...rep<Terrain>('forest', 6), ...rep<Terrain>('pasture', 6), ...rep<Terrain>('fields', 6), ...rep<Terrain>('hills', 5), ...rep<Terrain>('mountains', 5), ...rep<Terrain>('desert', 2)]
     : [...rep<Terrain>('forest', 4), ...rep<Terrain>('pasture', 4), ...rep<Terrain>('fields', 4), ...rep<Terrain>('hills', 3), ...rep<Terrain>('mountains', 3), 'desert'];
   rng.shuffle(terrains);
   const hexes: Record<string, HexTile> = {};
-  land.forEach((id, i) => {
+  // la casilla más central (en el tablero grande hay dos empatadas: se elige una)
+  const cx0 = big ? -Math.sqrt(3) / 2 : 0;
+  const dist = (id: string) => { const [q, r] = parseHex(id); return Math.hypot(Math.sqrt(3) * (q + r / 2) - cx0, 1.5 * r); };
+  const center = [...land].sort((a, b) => dist(a) - dist(b))[0];
+  if (opts.center) {
+    const i = terrains.indexOf(opts.center);
+    if (i >= 0) terrains.splice(i, 1);
+  }
+  let k = 0;
+  for (const id of land) {
     const [q, r] = parseHex(id);
-    hexes[id] = { id, q, r, terrain: terrains[i], number: null, region: 0 };
-  });
-  const producing = land.filter((id) => hexes[id].terrain !== 'desert');
-  const nums = assignNumbers(rng, producing, big ? NUMBERS_56 : NUMBERS_34);
+    const terrain = opts.center && id === center ? opts.center : terrains[k++];
+    hexes[id] = { id, q, r, terrain, number: null, region: 0 };
+  }
+  const producing = land.filter((id) => !(BARREN as readonly string[]).includes(hexes[id].terrain));
+  const nums = assignNumbers(rng, producing, opts.numbers ?? (big ? NUMBERS_56 : NUMBERS_34));
   for (const [c, n] of nums) hexes[c].number = n;
   const ring = ringAround(landSet);
   for (const id of ring) {
@@ -151,9 +172,10 @@ export function standardMap(rng: Rng, big: boolean): MapResult {
     used.add(g.edges[pick].b);
     harbors.push({ edge: pick, hex: sea.id, kind: kinds[harbors.length] });
   }
-  const deserts = land.filter((id) => hexes[id].terrain === 'desert');
+  const barren = land.filter((id) => (BARREN as readonly string[]).includes(hexes[id].terrain));
+  const robber = (opts.center && hexes[center].terrain === opts.center ? center : null) ?? barren.find((id) => hexes[id].terrain === 'desert') ?? barren[0] ?? null;
   return {
-    hexes, fog: {}, harbors, robber: deserts[0] ?? null,
+    hexes, fog: {}, harbors, robber,
     homeRegions: null, regionBonus: 0, regionNames: { 0: 'main' }, vpTarget: 10,
   };
 }
@@ -466,4 +488,34 @@ function trySea(rng: Rng, scenario: SeaScenario, big: boolean): MapResult | null
   setTerrain(cells, terrainPool(cells.length, 2, 1));
   const hp = kindsFor(big ? 10 : 8).map((kind) => ({ region: null, kind }));
   return finishSea(g, { vp: 12, bonus: 2, home: null, names, terrain, fogCells, harborPlan: hp });
+}
+
+// ---------- mapas de Comarcas (sobre la isla base) ----------
+
+export function shireMap(rng: Rng, shire: string, big: boolean): MapResult {
+  const base: Terrain[] = big
+    ? [...rep<Terrain>('forest', 6), ...rep<Terrain>('pasture', 6), ...rep<Terrain>('fields', 6), ...rep<Terrain>('hills', 5), ...rep<Terrain>('mountains', 5)]
+    : [...rep<Terrain>('forest', 4), ...rep<Terrain>('pasture', 4), ...rep<Terrain>('fields', 4), ...rep<Terrain>('hills', 3), ...rep<Terrain>('mountains', 3)];
+  const nums = big ? NUMBERS_56 : NUMBERS_34;
+  switch (shire) {
+    case 'fishers':
+      // el lago reemplaza al desierto, en el centro; con 5-6 queda además un desierto
+      return standardMap(rng, big, { terrains: big ? [...base, 'lake', 'desert'] : [...base, 'lake'], center: 'lake' });
+    case 'rivers': {
+      // dos pantanos (tres con 5-6) en vez del desierto y de unos pastos; una ficha de número menos
+      const terrains = [...base];
+      terrains.splice(terrains.indexOf('pasture'), 1);
+      if (big) terrains.splice(terrains.indexOf('pasture'), 1);
+      terrains.push(...rep<Terrain>('swamp', big ? 3 : 2));
+      while (terrains.length < (big ? 30 : 19)) terrains.push('forest');
+      const numbers = [...nums];
+      numbers.splice(numbers.lastIndexOf(12), 1);
+      return standardMap(rng, big, { terrains, numbers });
+    }
+    case 'caravans':
+      // el oasis (desierto) en el centro: de él salen las caravanas
+      return standardMap(rng, big, { terrains: big ? [...base, 'desert', 'desert'] : [...base, 'desert'], center: 'desert' });
+    default:
+      return standardMap(rng, big);
+  }
 }

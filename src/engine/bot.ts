@@ -3,6 +3,9 @@ import type { Rng } from './rng';
 import * as C from './core';
 import * as Guild from './guilds';
 import * as Duel from './mods/duel';
+import * as Fish from './mods/fish';
+import * as River from './mods/river';
+import * as Caravan from './mods/caravan';
 import {
   CARDS, COMMODITIES, COST, RESOURCES, TRACKS, TRACK_COMMODITY, emptyHand, handTotal,
   type Action, type Card, type GameState, type Hand, type Resource,
@@ -137,6 +140,18 @@ export function botAction(s: GameState, seat: number, rng: Rng): Action | null {
         return { t: 'gift', to: rng.pick(st.to[seat]), cards: randomCards(rng, h, st.waiting[seat], only) };
       }
       case 'neutral': return { t: 'neutral', at: rng.pick(Duel.neutralSpots(s, st.what)) };
+      case 'camelBid': {
+        const opts = (['wool', 'grain'] as const).filter((c) => h[c] > 0);
+        if (!opts.length || rng.float() < 0.55) return { t: 'camelBid', bid: {} };
+        const c = rng.pick(opts);
+        return { t: 'camelBid', bid: { [c]: Math.min(h[c], 1 + rng.int(2)) } };
+      }
+      case 'camelPlace': {
+        const opts = Caravan.legalCamels(s);
+        const g = C.G(s);
+        const mine = (e: string) => [g.edges[e].a, g.edges[e].b].some((v) => s.buildings[v]?.owner === seat || g.vertices[v].neighbors.some((w) => s.buildings[w]?.owner === seat));
+        return { t: 'camel', at: best(rng, opts, (e) => (mine(e) ? 2 : 0)) };
+      }
       default: return null;
     }
   }
@@ -189,6 +204,21 @@ export function botAction(s: GameState, seat: number, rng: Rng): Action | null {
   if (C.hasBrokenRoad(s, seat) && can(COST.road)) {
     const broken = Object.keys(s.roads).find((e) => s.roads[e].owner === seat && s.roads[e].broken)!;
     return { t: 'build', what: 'repair', at: broken };
+  }
+  // pesca: gastar fichas
+  if (s.fish && t.phase === 'main') {
+    if (Fish.bootTargets(s, seat).length && rng.float() < 0.8) return { t: 'passBoot', to: rng.pick(Fish.bootTargets(s, seat)) };
+    const robbedMe = s.board.robber && C.G(s).hexes[s.board.robber].vertices.some((v) => s.buildings[v]?.owner === seat);
+    if (robbedMe && Fish.canFish(s, seat, 'robber') && rng.float() < 0.6) return { t: 'fish', use: 'robber' };
+    for (const use of ['dev', 'road', 'bank', 'steal'] as const) {
+      if (Fish.canFish(s, seat, use) && rng.float() < 0.45) return { t: 'fish', use };
+    }
+  }
+  // ríos: puentes y monedas
+  if (s.river && (t.phase === 'main' || sbp)) {
+    const bridges = River.legalBridges(s, seat);
+    if (bridges.length && can(River.BRIDGE_COST) && rng.float() < 0.6) return { t: 'bridge', at: rng.pick(bridges) };
+    if (t.phase === 'main' && River.canTradeCoins(s, seat) && rng.float() < 0.5) return { t: 'coins', use: 'trade' };
   }
   // duelo: fichas de comercio
   if (Duel.isDuel(s) && t.phase === 'main') {

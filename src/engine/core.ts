@@ -38,7 +38,7 @@ export function blocksFor(s: GameState, v: string, seat: number): boolean {
   return !!k && k.owner !== seat;
 }
 
-function routeConnects(s: GameState, seat: number, e: string, layer: Record<string, { owner: number }>): boolean {
+export function routeConnects(s: GameState, seat: number, e: string, layer: Record<string, { owner: number }>): boolean {
   const g = G(s);
   const ed = g.edges[e];
   for (const v of [ed.a, ed.b]) {
@@ -55,8 +55,11 @@ export const isNeutral = (s: GameState, seat: number) => !!s.players[seat]?.neut
 /** Temblor: con un camino dañado no se construyen caminos nuevos hasta repararlo. */
 export const hasBrokenRoad = (s: GameState, seat: number) => Object.values(s.roads).some((r) => r.owner === seat && r.broken);
 
+/** Ríos: lados donde el agua cruza; sólo se pasa con un puente. */
+export const isCrossing = (s: GameState, e: string) => !!s.river?.crossings.includes(e);
+
 export function canRoad(s: GameState, seat: number, e: string): boolean {
-  if (!G(s).edges[e] || s.roads[e] || s.ships[e]) return false;
+  if (!G(s).edges[e] || s.roads[e] || s.ships[e] || isCrossing(s, e)) return false;
   return edgeRoadable(s, e) && routeConnects(s, seat, e, s.roads) && !hasBrokenRoad(s, seat);
 }
 
@@ -93,7 +96,7 @@ export function setupVertexOk(s: GameState, v: string): boolean {
 export function setupRouteOk(s: GameState, v: string, e: string, ship: boolean): boolean {
   const ed = G(s).edges[e];
   if (!ed || (ed.a !== v && ed.b !== v) || s.roads[e] || s.ships[e]) return false;
-  return ship ? edgeShippable(s, e) && !pirateTouches(s, e) : edgeRoadable(s, e);
+  return ship ? edgeShippable(s, e) && !pirateTouches(s, e) : edgeRoadable(s, e) && !isCrossing(s, e);
 }
 
 export function piecesUsed(s: GameState, seat: number) {
@@ -201,6 +204,7 @@ export function vpOf(s: GameState, seat: number, hidden = true): number {
   if (s.awards.road.owner === seat) vp += 2;
   if (!s.settings.guilds && s.awards.army.owner === seat) vp += 2;
   if (s.awards.harbor?.owner === seat) vp += 2;
+  vp += camelBonus(s, seat) + wealthBonus(s, seat);
   vp += p.vpCards.length + p.defender;
   if (s.board.merchant?.owner === seat) vp += 1;
   for (const b of p.bonus) vp += b.vp;
@@ -226,6 +230,8 @@ export function vpBreakdown(s: GameState, seat: number) {
     merchant: s.board.merchant?.owner === seat ? 1 : 0,
     bonus: p.bonus.reduce((a, b) => a + b.vp, 0),
     harbor: s.awards.harbor?.owner === seat ? 2 : 0,
+    camels: camelBonus(s, seat),
+    wealth: wealthBonus(s, seat),
   };
 }
 
@@ -261,8 +267,43 @@ export function handLimit(s: GameState, seat: number): number {
 
 // ---------- ruta comercial más larga ----------
 
+/** Camellos: tramos con camello y cuántos camellos toca cada cruce. */
+export function camelEdges(s: GameState): Set<string> {
+  return new Set(s.caravan?.routes.flat() ?? []);
+}
+
+/** +1 PV por cada edificio en un cruce entre dos camellos. */
+export function camelBonus(s: GameState, seat: number): number {
+  if (!s.caravan) return 0;
+  const camels = camelEdges(s);
+  const g = G(s);
+  let n = 0;
+  for (const [v, b] of Object.entries(s.buildings)) {
+    if (b.owner === seat && g.vertices[v].edges.filter((e) => camels.has(e)).length >= 2) n++;
+  }
+  return n;
+}
+
+/** Ríos: +1 PV para quien tiene más monedas (sin empate); −2 para los que menos tienen (si no están todos iguales). */
+export function wealthBonus(s: GameState, seat: number): number {
+  const r = s.river;
+  if (!r || s.players[seat].neutral) return 0;
+  const coins = s.players.filter((p) => !p.neutral).map((p) => r.coins[p.seat] ?? 0);
+  const max = Math.max(...coins);
+  const min = Math.min(...coins);
+  const mine = r.coins[seat] ?? 0;
+  if (max === min) return 0;
+  if (mine === max && coins.filter((c) => c === max).length === 1) return 1;
+  if (mine === min) return -2;
+  return 0;
+}
+
+/** Puntos que necesita cada uno (la bota vieja pide uno más). */
+export const targetOf = (s: GameState, seat: number) => s.settings.vpTarget + (s.fish?.boot === seat ? 1 : 0);
+
 export function longestRoute(s: GameState, seat: number): number {
   const g = G(s);
+  const camels = camelEdges(s);
   const own = new Map<string, 'road' | 'ship'>();
   for (const [e, r] of Object.entries(s.roads)) if (r.owner === seat && !r.broken) own.set(e, 'road');
   for (const [e, r] of Object.entries(s.ships)) if (r.owner === seat) own.set(e, 'ship');
@@ -278,7 +319,7 @@ export function longestRoute(s: GameState, seat: number): number {
       if (!kind || used.has(e)) continue;
       if (last && kind !== last && !mine) continue;
       used.add(e);
-      dfs(otherEnd(g, e, v), len + 1, kind);
+      dfs(otherEnd(g, e, v), len + (kind === 'road' && camels.has(e) ? 2 : 1), kind);
       used.delete(e);
     }
   };
@@ -438,6 +479,7 @@ export function waitingSeats(st: Step): number[] {
     case 'pillage':
     case 'defenderPick':
     case 'quake':
+    case 'camelBid':
       return st.waiting;
     case 'harborReply':
       return Object.keys(st.offers).map(Number);

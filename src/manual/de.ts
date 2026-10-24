@@ -472,14 +472,14 @@ const book: ManualBook = {
     shires: {
       id: 'shires',
       title: 'Landstriche',
-      summary: 'Varianten für die Grundinsel, die sich zu jeder Partie dazunehmen lassen: Häfen, die Ansehen bringen, Chronik-Karten statt Würfeln und Regeln für zwei.',
-      meta: ['2–6 Personen', '60–90 Minuten', 'Ziel: 10, oder 11 mit dem Herrn der Kais'],
+      summary: 'Varianten und Szenarien für die Grundinsel: Häfen, die Ansehen bringen, Chronik-Karten statt Würfeln, Regeln für zwei und Szenarien mit Fischfang, Flüssen und Karawanen.',
+      meta: ['2–6 Personen', '60–120 Minuten', 'Ziel: 10 bis 12 je nach Szenario'],
       sections: [
         {
           id: 'about',
           title: 'Was drin ist',
           blocks: [
-            { t: 'p', text: 'Landstriche sammelt Regeln, die zum Grundspiel dazukommen. Sie werden im Raum unter **Varianten** eingeschaltet und lassen sich kombinieren. Der Herr der Kais funktioniert auch mit Offene See und mit Gilden.' },
+            { t: 'p', text: 'Landstriche sammelt Regeln, die zum Grundspiel dazukommen. Die **Varianten** (Herr der Kais, Chronik-Karten, Duell) lassen sich kombinieren; der Herr der Kais funktioniert auch mit Offene See und mit Gilden. Die **Szenarien** verändern die Insel und werden einzeln gespielt, auch mit dem Herrn der Kais und den Chronik-Karten.' },
           ],
         },
         {
@@ -530,6 +530,49 @@ const book: ManualBook = {
               '**Zwei Würfe**: In jedem Zug wird zweimal gewürfelt, und beide Würfe bringen Erträge. Der zweite muss eine andere Zahl ergeben als der erste.',
               '**Handelsmarken**: Jede:r beginnt mit 5 (insgesamt gibt es 20). Einmal pro Zug kannst du sie für einen **Zwangstausch** einsetzen (du ziehst 2 zufällige Karten der anderen Person und gibst 2 deiner Wahl zurück) oder um den **Räuber in die Wüste** zu schicken. Das kostet 1 Marke, wenn du gleichauf oder hinten liegst, und 2, wenn du vorne liegst.',
               'Marken bekommst du für neue Siedlungen: 1 an der Küste, 2 an der Wüste, 3 für beides. Außerdem kannst du einen gespielten Soldaten gegen 2 Marken abgeben.',
+            ] },
+          ],
+        },
+        {
+          id: 'fishers',
+          title: 'Szenario: Fischgewässer',
+          blocks: [
+            { t: 'p', text: 'Die Wüste wird zu einem See in der Inselmitte, und an der Küste liegen sechs Fanggründe mit Zahlen von 4 bis 10 (acht bei 5 oder 6 Personen). Der Räuber beginnt auf dem See. Ziel: 10 Punkte.' },
+            { t: 'fig', id: 'fishers', caption: 'Es fällt eine 9: Die Siedlung am Fanggrund zieht eine Marke. Die Stadt am See fischt bei 2, 3, 11 und 12.' },
+            { t: 'list', items: [
+              '**Fischen**: Fällt die Zahl eines Fanggrunds, zieht jede Siedlung an seinen drei Kreuzungen eine Marke vom Stapel, jede Stadt zwei. Der See fischt bei 2, 3, 11 und 12 für die Gebäude um ihn herum, außer der Räuber steht darauf.',
+              'Marken sind 1, 2 oder 3 Fische wert und liegen verdeckt: Die anderen sehen nur, wie viele du hast. Sie sind keine Karten, zählen also nicht bei der 7 und können nicht gezogen werden. Man darf bis zu 7 haben.',
+              'Beim Aufbau zieht die zweite Siedlung an einem Fanggrund oder am See eine Marke.',
+              '**Ausgeben**, im eigenen Zug und ohne Wechselgeld: 2 Fische vertreiben den Räuber bis zur nächsten 7 vom Spielfeld; 3 ziehen einen zufälligen Rohstoff bei einer Person deiner Wahl; 4 bringen einen Rohstoff aus der Bank; 5 eine kostenlose Straße; 7 eine Entwicklungskarte. Ausgegebene Marken gehen zurück in den Stapel.',
+              '**Der alte Stiefel** steckt im Stapel. Wer ihn zieht, braucht einen Punkt mehr zum Sieg; im eigenen Zug darf man ihn jemandem mit gleich vielen oder mehr sichtbaren Punkten geben.',
+            ] },
+          ],
+        },
+        {
+          id: 'rivers',
+          title: 'Szenario: Goldflüsse',
+          blocks: [
+            { t: 'p', text: 'Zwei Flüsse (drei bei 5 oder 6 Personen) fließen vom Inselinneren ins Meer. Zwei Sümpfe (drei bei 5 oder 6 Personen) ersetzen die Wüste und eine Weide: Sie liefern nichts, und der Räuber beginnt in einem davon. Ziel: 10 Punkte.' },
+            { t: 'fig', id: 'rivers', caption: 'Die Brücke führt über den Fluss und bringt 3 Münzen; die Siedlung am Ufer brachte 1.' },
+            { t: 'list', items: [
+              'Über einen Fluss führt keine Straße: An den Kanten, wo das Wasser durchfließt, steht nur eine **Brücke** (2 Lehm und 1 Holz). Die Brücke zählt als Straße und bringt **3 Münzen**. Jede Person kann 3 bauen.',
+              'Eine Straße am Flussufer oder eine Siedlung am Fluss bringt **1 Münze**.',
+              'Im eigenen Zug kannst du **2 Münzen gegen einen Rohstoff** deiner Wahl tauschen, bis zu zweimal. Du kannst auch eine Münze mit Karten kaufen, zu deinem Bank- oder Hafenkurs.',
+              'Münzen sind keine Karten. Wer die meisten hat, ohne Gleichstand, bekommt **1 Punkt**; wer die wenigsten hat, verliert **2**. Haben alle gleich viele, gewinnt und verliert niemand.',
+            ] },
+          ],
+        },
+        {
+          id: 'caravans',
+          title: 'Szenario: Kamelpfad',
+          blocks: [
+            { t: 'p', text: 'In der Mitte liegt eine Oase, von der drei Karawanen ausgehen. Ziel: 12 Punkte.' },
+            { t: 'fig', id: 'caravans', caption: 'Die Siedlung zwischen zwei Kamelen zählt einen Punkt mehr.' },
+            { t: 'list', items: [
+              'Nach einem Zug, in dem jemand eine Siedlung gegründet oder eine Stadt gebaut hat, wird zu Beginn des nächsten **abgestimmt**: Alle bieten verdeckt Woll- und Getreidekarten (jede Karte eine Stimme). Das höchste Gebot gewinnt; bei Gleichstand die erste Person ab der, die am Zug ist. Alle zahlen ihr Gebot.',
+              'Wer gewinnt, setzt ein **Kamel** ans Ende einer Karawane, auf eine Landkante, ohne zur Oase zurückzukehren oder eine andere Karawane zu kreuzen. Es gibt 22 Kamele (28 bei 5 oder 6 Personen).',
+              'Jedes Gebäude an einer Kreuzung zwischen **zwei Kamelen** zählt **1 Punkt mehr**.',
+              'Eine Straße unter einem Kamel zählt **doppelt** für die längste Handelsstraße.',
             ] },
           ],
         },

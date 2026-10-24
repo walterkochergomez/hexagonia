@@ -2,12 +2,15 @@
 import * as C from '../../engine/core';
 import * as Guild from '../../engine/guilds';
 import * as Duel from '../../engine/mods/duel';
+import * as River from '../../engine/mods/river';
+import * as Caravan from '../../engine/mods/caravan';
 import type { Action, GameState, ProgressType } from '../../engine/types';
 import type { Targets } from '../Board';
 
 export type Mode =
   | null
   | { k: 'build'; what: 'road' | 'ship' | 'settlement' | 'city' | 'wall' | 'repair' }
+  | { k: 'bridge' }
   | { k: 'recruit' }
   | { k: 'activate' }
   | { k: 'promote' }
@@ -75,6 +78,8 @@ export function plan(v: GameState, me: number | null, mode: Mode, routeKind: 'ro
         return { targets: { vertices: C.recruitSpots(v, me) }, hint: 'step.deserterPlace', hintParams: { n: st.level }, pick: (_k, id) => ({ act: { t: 'deserterPlace', vertex: id } }), skip: { t: 'deserterPlace', vertex: null } };
       case 'quake':
         return { targets: { edges: Object.keys(v.roads).filter((e) => v.roads[e].owner === me && !v.roads[e].broken) }, hint: 'step.quake', pick: (_k, id) => ({ act: { t: 'quake', edge: id } }) };
+      case 'camelPlace':
+        return { targets: { edges: Caravan.legalCamels(v) }, hint: 'step.camelPlace', pick: (_k, id) => ({ act: { t: 'camel', at: id } }) };
       case 'neutral': {
         const ids = Duel.neutralSpots(v, st.what);
         return { targets: st.what === 'road' ? { edges: ids } : { vertices: ids }, hint: `step.neutral.${st.what}`, pick: (_k, id) => ({ act: { t: 'neutral', at: id } }) };
@@ -125,6 +130,10 @@ export function plan(v: GameState, me: number | null, mode: Mode, routeKind: 'ro
         cancel: true,
         pick: (_k, id) => ({ act: { t: 'build', what: mode.what, at: id }, ...done }),
       };
+    }
+    case 'bridge': {
+      const ids = River.legalBridges(v, me);
+      return { targets: { edges: ids }, hint: ids.length ? 'pick.bridge' : 'pick.none', cancel: true, pick: (_k, id) => ({ act: { t: 'bridge', at: id }, ...done }) };
     }
     case 'recruit': {
       const ids = C.recruitSpots(v, me);

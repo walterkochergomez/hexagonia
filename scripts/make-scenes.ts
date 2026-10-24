@@ -55,4 +55,24 @@ out('over', s);
 // 7. dos personas: pantalla de pase
 s = base();
 out('pass', s, names.map((name, i) => ({ name, color: i, bot: i > 1 })));
+// 8. Comarcas: pesca con fichas en la mano
+s = base({ shire: 'fishers' });
+s.players[0].fish = [3, 2, 2];
+out('fishers', s);
+// 9. Comarcas: ríos, con un puente posible
+s = base({ shire: 'rivers' });
+{
+  const g = C.G(s);
+  const e = s.river!.crossings.find((x) => [g.edges[x].a, g.edges[x].b].some((v) => C.distanceOk(s, v) && C.vertexLand(s, v)))!;
+  const v = [g.edges[e].a, g.edges[e].b].find((x) => C.distanceOk(s, x) && C.vertexLand(s, x))!;
+  s.buildings[v] = { owner: 0, kind: 'settlement' };
+  s.players[0].hand = { lumber: 1, brick: 2, wool: 0, grain: 0, ore: 0, paper: 0, cloth: 0, coin: 0 };
+}
+out('rivers', s);
+// 10. Comarcas: votación de camellos al empezar el turno
+s = base({ shire: 'caravans' });
+s.players[0].hand = { lumber: 0, brick: 0, wool: 2, grain: 1, ore: 0, paper: 0, cloth: 0, coin: 0 };
+s.turn.phase = 'preRoll';
+s.steps = [{ k: 'camelBid', waiting: [0, 1, 2, 3], bids: {} }];
+out('caravans', s);
 console.log('ok', C.vpOf(s, 0));

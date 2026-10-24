@@ -22,10 +22,11 @@ import { plan, stepForMe, type Mode } from './plan';
 import { Players } from './Players';
 import { DIALOG_STEPS, StepDialog } from './StepDialog';
 import { DuelSheet } from './Duel';
+import { CoinsSheet, FishSheet } from './Shires';
 import * as Duel from '../../engine/mods/duel';
 import { IncomingTrade, TradeSheet } from './Trade';
 
-type Sheet = null | 'build' | 'trade' | 'cards' | 'guild' | 'log' | 'players' | 'duel';
+type Sheet = null | 'build' | 'trade' | 'cards' | 'guild' | 'log' | 'players' | 'duel' | 'fish' | 'coins';
 
 function stepKey(n: number, st: { k: string; reason?: string; waiting?: unknown }, me: number): string {
   const w = st.waiting && !Array.isArray(st.waiting) ? (st.waiting as Record<number, number>)[me] : '';
@@ -133,6 +134,8 @@ export function Game({ session, snap, onHome }: { session: Session; snap: Snapsh
     if (guilds && ph !== 'specialBuild') buttons.push({ id: 'knight', label: t('act.useKnight'), onClick: () => setMode({ k: 'knight' }) });
     if (sea && ph !== 'specialBuild') buttons.push({ id: 'ship', label: t('act.moveShip'), disabled: view.turn.shipMoved.includes(me!), onClick: () => setMode({ k: 'ship' }) });
     if (Duel.isDuel(view) && ph === 'main') buttons.push({ id: 'tokens', label: t('act.tokens'), badge: view.players[me!].tokens ?? 0, onClick: () => setSheet('duel') });
+    if (view.fish && ph === 'main') buttons.push({ id: 'fish', label: t('act.fish'), badge: (view.players[me!].fish ?? []).reduce((a, b) => a + b, 0), onClick: () => setSheet('fish') });
+    if (view.river && ph === 'main') buttons.push({ id: 'coins', label: t('act.coins'), badge: view.river.coins[me!] ?? 0, onClick: () => setSheet('coins') });
   }
   buttons.push({ id: 'cards', label: t('act.cards'), badge: myCards, onClick: () => setSheet('cards') });
   if (guilds && !buttons.some((b) => b.id === 'guild')) buttons.push({ id: 'guild', label: t('act.improve'), onClick: () => setSheet('guild') });
@@ -227,6 +230,8 @@ export function Game({ session, snap, onHome }: { session: Session; snap: Snapsh
       {sheet === 'cards' && me !== null && <CardsSheet view={view} me={me} send={send} setMode={setMode} onClose={() => setSheet(null)} />}
       {sheet === 'guild' && me !== null && <GuildSheet view={view} me={me} send={send} onClose={() => setSheet(null)} />}
       {sheet === 'duel' && me !== null && <DuelSheet view={view} me={me} send={send} onClose={() => setSheet(null)} />}
+      {sheet === 'fish' && me !== null && <FishSheet view={view} me={me} send={send} onClose={() => setSheet(null)} />}
+      {sheet === 'coins' && me !== null && <CoinsSheet view={view} me={me} send={send} onClose={() => setSheet(null)} />}
       {sheet === 'log' && (
         <div className="overlay" onClick={(e) => e.target === e.currentTarget && setSheet(null)}>
           <div className="modal wide" role="dialog" aria-modal="true" aria-label={t('act.log')}>

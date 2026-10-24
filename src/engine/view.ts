@@ -13,14 +13,18 @@ export function viewFor(s: GameState, seat: number | null): GameState {
     p.handCount = handTotal(p.hand);
     p.devCount = p.dev.length;
     p.progressCount = p.progress.length;
+    if (p.fish) p.fishCount = p.fish.length;
     if (p.seat === seat) continue;
     p.hand = emptyHand();
     if (!over) p.dev = [];
     p.progress = [];
+    if (p.fish && !over) p.fish = [];
   }
   v.steps = v.steps.map((st) => {
     if (st.k === 'spy' && st.seat !== seat) return { ...st, cards: [] };
     if (st.k === 'masterMerchant' && st.seat !== seat) return { ...st, hand: emptyHand() };
+    // las pujas por el camello son secretas hasta que todos pujan
+    if (st.k === 'camelBid') return { ...st, bids: Object.fromEntries(Object.keys(st.bids).map((k) => [k, Number(k) === seat ? st.bids[Number(k)] : {}])) };
     return st;
   });
   v.log = s.log.flatMap((e) => {

@@ -21,7 +21,7 @@ const BEVEL_DARK = (() => {
   return [[1, -1], [1, 1], [0, 2], [-1, 1]].map(([x, y]) => `${(x * SX * k).toFixed(2)},${(y * SY * k).toFixed(2)}`).join(' ');
 })();
 
-export type LandTerrain = 'forest' | 'hills' | 'pasture' | 'fields' | 'mountains' | 'desert' | 'gold' | 'fog';
+export type LandTerrain = 'forest' | 'hills' | 'pasture' | 'fields' | 'mountains' | 'desert' | 'gold' | 'fog' | 'lake' | 'swamp';
 
 export const PALETTE: Record<LandTerrain, { base: string; side: string; clearing?: string }> = {
   forest: { base: '#3d7a54', side: '#22482f', clearing: '#4c8c60' },
@@ -32,6 +32,8 @@ export const PALETTE: Record<LandTerrain, { base: string; side: string; clearing
   desert: { base: '#e7d4a2', side: '#a99257' },
   gold: { base: '#e0b13a', side: '#94711a', clearing: '#edc65c' },
   fog: { base: '#c2cdd1', side: '#86959b' },
+  lake: { base: '#a2cf8b', side: '#5f8a4c' },
+  swamp: { base: '#7f9160', side: '#4a5634', clearing: '#8d9f6c' },
 };
 
 /** Variante estable por casilla, para que no se repita el mismo dibujo. */
@@ -242,6 +244,53 @@ function Fence({ x, y, len = 18, angle = -22 }: { x: number; y: number; len?: nu
   );
 }
 
+function Reeds({ x, y, s = 1 }: { x: number; y: number; s?: number }) {
+  return (
+    <g transform={`translate(${x} ${y}) scale(${s})`}>
+      <path d="M-3 0 Q-3.6 -7 -5.6 -11 M0 0 L0 -13 M3 0 Q3.8 -6 6 -10" stroke="#4d6b33" strokeWidth={1.2} fill="none" strokeLinecap="round" />
+      <rect x={-6.4} y={-14} width={1.8} height={4.4} rx={0.9} fill="#7a4f2c" transform="rotate(-18 -5.5 -12)" />
+      <rect x={-0.9} y={-16.4} width={1.8} height={4.6} rx={0.9} fill="#7a4f2c" />
+      <rect x={4.8} y={-13} width={1.8} height={4.2} rx={0.9} fill="#7a4f2c" transform="rotate(16 5.7 -11)" />
+    </g>
+  );
+}
+
+function FishJump({ x, y, s = 1, flip = false }: { x: number; y: number; s?: number; flip?: boolean }) {
+  return (
+    <g transform={`translate(${x} ${y}) scale(${flip ? -s : s} ${s})`}>
+      <path d="M-6 2 Q-1 -6 6 -2" stroke="#d7f1f4" strokeWidth={1} fill="none" strokeDasharray="1.5 2" />
+      <path d="M-4 -1 Q0 -5 4.4 -1.6 Q0 1.6 -4 -1 Z" fill="#e88d4a" />
+      <path d="M-4 -1 L-7 -3.4 L-6.6 1.2 Z" fill="#cc6f31" />
+      <circle cx={2.4} cy={-2.2} r={0.55} fill="#26343a" />
+    </g>
+  );
+}
+
+function Stump({ x, y, s = 1 }: { x: number; y: number; s?: number }) {
+  return (
+    <g transform={`translate(${x} ${y}) scale(${s})`}>
+      <Shadow x={2} y={0.4} rx={6} ry={1.6} c="#2e3820" o={0.45} />
+      <path d="M-3.4 0 L-2.6 -9 L-5.6 -13 M-2.6 -9 L2.4 -9 L4.6 -15 M2.4 -9 L3.4 0 Z" fill="#6b5a40" stroke="#4a3d2a" strokeWidth={1.2} strokeLinejoin="round" />
+    </g>
+  );
+}
+
+/** Palmera del oasis (también la usa el tablero para la ruta de camellos). */
+export function Palm({ x, y, s = 1 }: { x: number; y: number; s?: number }) {
+  return (
+    <g transform={`translate(${x} ${y}) scale(${s})`}>
+      <Shadow x={4} y={0.4} rx={7} ry={1.8} c="#7d6a3a" o={0.4} />
+      <path d="M-1 0 Q1 -9 -1 -18" stroke="#8a6a3f" strokeWidth={2.4} fill="none" strokeLinecap="round" />
+      <g fill="#3f8a4a">
+        <path d="M-1 -18 Q-9 -21 -13 -14 Q-7 -18 -1 -17 Z" />
+        <path d="M-1 -18 Q7 -22 12 -15 Q6 -18 -1 -17 Z" />
+        <path d="M-1 -18 Q-6 -26 -12 -25 Q-5 -23 -1 -17 Z" fill="#4f9d58" />
+        <path d="M-1 -18 Q4 -27 10 -25 Q3 -23 -1 -17 Z" fill="#4f9d58" />
+      </g>
+    </g>
+  );
+}
+
 // ---------- composición por terreno (3 variantes) ----------
 
 const pick = <T,>(v: number, xs: T[]): T => xs[v % xs.length];
@@ -370,7 +419,39 @@ function fog(v: number): ReactNode {
   );
 }
 
-const ART: Record<LandTerrain, (v: number) => ReactNode> = { forest, hills, pasture, fields, mountains, desert, gold, fog };
+function lake(v: number): ReactNode {
+  const shape = pick(v, ['M-34 -10 C-30 -30 6 -36 26 -24 C42 -14 40 14 24 26 C6 38 -28 34 -36 14 C-40 4 -36 -4 -34 -10 Z', 'M-30 -18 C-18 -36 22 -34 34 -16 C44 0 34 26 12 32 C-12 38 -36 24 -38 4 C-39 -6 -36 -12 -30 -18 Z', 'M-36 -4 C-34 -26 -4 -36 20 -30 C40 -24 42 4 30 22 C16 38 -20 38 -32 22 C-38 14 -37 4 -36 -4 Z']);
+  return (
+    <>
+      <polygon points={TOP_POINTS} fill="url(#pat-grass)" />
+      <path d={shape} fill="#e8dcb4" transform="scale(1.08)" />
+      <path d={shape} fill="#3b8ea6" />
+      <path d={shape} fill="#5db0c4" transform="translate(-3 -3) scale(.86)" />
+      <path d="M-18 -16 q4 -3 8 0 t8 0 M6 18 q4 -3 8 0 t8 0 M-22 14 q3 -2.4 6 0" stroke="#bfe8ee" strokeWidth={1.3} fill="none" strokeLinecap="round" />
+      {pick(v, [
+        <><Reeds x={-32} y={-12} s={1.1} /><Reeds x={30} y={24} s={1} /><FishJump x={16} y={-16} s={1.3} /></>,
+        <><Reeds x={30} y={-14} s={1.1} /><Reeds x={-30} y={22} s={1} /><FishJump x={-14} y={-20} s={1.3} flip /></>,
+        <><Reeds x={-28} y={26} s={1.1} /><Reeds x={32} y={-4} s={0.95} /><FishJump x={14} y={-20} s={1.25} /></>,
+      ])}
+    </>
+  );
+}
+
+function swamp(v: number): ReactNode {
+  return (
+    <>
+      <polygon points={TOP_POINTS} fill="url(#pat-forest)" opacity={0.5} />
+      <ellipse cx={0} cy={9} rx={18} ry={14} fill={PALETTE.swamp.clearing} />
+      {pick(v, [
+        <><ellipse cx={-20} cy={-18} rx={14} ry={7} fill="#5f7d70" /><ellipse cx={22} cy={22} rx={13} ry={6} fill="#5f7d70" /><ellipse cx={-24} cy={26} rx={8} ry={4} fill="#6b8a7c" /><Stump x={20} y={-14} s={1.2} /><Reeds x={-30} y={4} s={1} /><Reeds x={8} y={40} s={0.9} /></>,
+        <><ellipse cx={18} cy={-20} rx={14} ry={7} fill="#5f7d70" /><ellipse cx={-22} cy={20} rx={14} ry={6.4} fill="#5f7d70" /><Stump x={-20} y={-12} s={1.15} /><Stump x={26} y={28} s={0.9} /><Reeds x={30} y={2} s={1} /></>,
+        <><ellipse cx={0} cy={-26} rx={16} ry={6.6} fill="#5f7d70" /><ellipse cx={24} cy={16} rx={10} ry={5} fill="#6b8a7c" /><ellipse cx={-26} cy={14} rx={11} ry={5.4} fill="#5f7d70" /><Stump x={-8} y={38} s={1.05} /><Reeds x={28} y={-10} s={1} /><Reeds x={-30} y={-6} s={0.9} /></>,
+      ])}
+    </>
+  );
+}
+
+const ART: Record<LandTerrain, (v: number) => ReactNode> = { forest, hills, pasture, fields, mountains, desert, gold, fog, lake, swamp };
 
 /** Definiciones compartidas (una vez por SVG): texturas, recorte y luz. Los dibujos van en <symbol> para reutilizarlos. */
 export const TileDefs = memo(function TileDefs() {

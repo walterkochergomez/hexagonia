@@ -126,6 +126,21 @@ export function StepDialog({ view, me, st, send }: { view: GameState; me: number
         </Modal>
       );
     }
+    case 'camelBid': {
+      const limit = { wool: hand.wool, grain: hand.grain };
+      return (
+        <Modal title={t('step.camelBid')}
+          actions={
+            <>
+              <button type="button" className="btn ghost" onClick={() => send({ t: 'camelBid', bid: {} })}>{t('step.camelPass')}</button>
+              <button type="button" className="btn primary" disabled={handTotal(sel) === 0} onClick={() => send({ t: 'camelBid', bid: sel })}>{t('step.camelDo', { n: handTotal(sel) })}</button>
+            </>
+          }>
+          <p className="muted small">{t('step.camelHint')}</p>
+          <CardPicker cards={['wool', 'grain']} limit={limit} value={sel} onChange={setSel} />
+        </Modal>
+      );
+    }
     case 'harborOffer': {
       const used: Partial<Hand> = {};
       for (const r of Object.values(offers)) if (r) used[r] = (used[r] ?? 0) + 1;
@@ -171,4 +186,4 @@ function ResourceButtons({ cards, onPick }: { cards: readonly Card[]; onPick: (c
   );
 }
 
-export const DIALOG_STEPS = ['discard', 'steal', 'pick', 'monopoly', 'defenderPick', 'progressLimit', 'spy', 'masterMerchant', 'give', 'harborOffer', 'harborReply', 'gift'];
+export const DIALOG_STEPS = ['discard', 'steal', 'pick', 'monopoly', 'defenderPick', 'progressLimit', 'spy', 'masterMerchant', 'give', 'harborOffer', 'harborReply', 'gift', 'camelBid'];

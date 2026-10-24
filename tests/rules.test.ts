@@ -8,6 +8,9 @@ import { buildGraph, parseHex, sharedVertex } from '../src/engine/geometry';
 import { harborPoints } from '../src/engine/mods/harbor';
 import { CHRONICLE_CARDS, newDeck } from '../src/engine/mods/chronicle';
 import * as Duel from '../src/engine/mods/duel';
+import * as Fish from '../src/engine/mods/fish';
+import * as River from '../src/engine/mods/river';
+import * as Caravan from '../src/engine/mods/caravan';
 import { settings, seats, totals } from './helpers';
 import {
   CARDS, RESOURCES, handTotal, type Action, type Card, type GameState, type Hand, type SeaScenario, type Settings,
@@ -853,6 +856,204 @@ describe('Comarcas: duelo', () => {
     s = act(s, 0, { t: 'build', what: 'settlement', at: v });
     const coast = g.vertices[v].hexes.some((h) => s.board.hexes[h].terrain === 'sea');
     expect(s.players[0].tokens! - before).toBe(2 + (coast ? 1 : 0));
+  });
+});
+
+describe('Comarcas: aguas de pesca', () => {
+  it('lago al centro con el ladrón, seis caladeros 4-10 y 30 fichas', () => {
+    const s = game({ seed: 70, shire: 'fishers' });
+    expect(s.settings.vpTarget).toBe(10);
+    expect(s.fish!.lakes).toEqual(['h0,0']);
+    expect(s.board.hexes['h0,0'].terrain).toBe('lake');
+    expect(s.board.robber).toBe('h0,0');
+    expect(s.fish!.grounds.map((g) => g.n).sort((a, b) => a - b)).toEqual([4, 5, 6, 8, 9, 10]);
+    for (const g of s.fish!.grounds) {
+      expect(s.board.hexes[g.hex].terrain).toBe('sea');
+      expect(g.vertices.length).toBe(3);
+    }
+    expect(s.hidden.fishPile!.length).toBe(30);
+    expect(s.hidden.fishPile!.filter((x) => x === 0).length).toBe(1);
+  });
+
+  it('un caladero da fichas a los edificios de su costa (ciudad 2) y el lago con 2, 3, 11 y 12', () => {
+    let s = main(game({ seed: 71, shire: 'fishers' }));
+    const gr = s.fish!.grounds[0];
+    s.buildings[gr.vertices[0]] = { owner: 1, kind: 'city' };
+    s.hidden.fishPile = [1, 2, 3, 1, 1, 1];
+    s.turn.phase = 'preRoll';
+    s.turn.alchemist = [Math.min(6, gr.n - 1), gr.n - Math.min(6, gr.n - 1)];
+    s = act(s, 0, { t: 'roll' });
+    expect(s.players[1].fish).toEqual([1, 2]);
+    // lago: con el ladrón encima no pesca; sin ladrón sí
+    const lakeV = C.G(s).hexes['h0,0'].vertices[0];
+    s.buildings[lakeV] = { owner: 2, kind: 'settlement' };
+    s = main(s, 0);
+    s.turn.phase = 'preRoll';
+    s.turn.alchemist = [1, 1];
+    s = act(s, 0, { t: 'roll' });
+    expect(s.players[2].fish).toEqual([]);
+    s = main(s, 0);
+    s.board.robber = null;
+    s.turn.phase = 'preRoll';
+    s.turn.alchemist = [1, 2];
+    s = act(s, 0, { t: 'roll' });
+    expect(s.players[2].fish!.length).toBe(1);
+  });
+
+  it('se paga con lo justo o lo mínimo por encima; las fichas vuelven a la pila', () => {
+    expect(Fish.payment([3, 1, 2], 4)!.length).toBe(2);
+    expect(Fish.payment([3, 3], 4)).toEqual([0, 1]);
+    expect(Fish.payment([1, 1], 3)).toBe(null);
+    let s = main(game({ seed: 72, shire: 'fishers' }));
+    s.players[0].fish = [3, 2, 2];
+    const pile = s.hidden.fishPile!.length;
+    s = act(s, 0, { t: 'fish', use: 'bank' });
+    expect(s.players[0].fish!.reduce((a, b) => a + b, 0)).toBe(3);
+    expect(s.hidden.fishPile!.length).toBe(pile + 2);
+    expect(s.steps[0]).toMatchObject({ k: 'pick', reason: 'fish', waiting: { 0: 1 } });
+    s = act(s, 0, { t: 'pick', cards: { ore: 1 } });
+    expect(s.players[0].hand.ore).toBe(1);
+    // sacar el ladrón del tablero
+    s.players[0].fish = [2];
+    s = act(s, 0, { t: 'fish', use: 'robber' });
+    expect(s.board.robber).toBe(null);
+  });
+
+  it('máximo 7 fichas; la bota vieja pide un punto más y se pasa a quien tenga tantos o más', () => {
+    let s = main(game({ seed: 73, shire: 'fishers' }));
+    s.players[1].fish = [1, 1, 1, 1, 1, 1, 1];
+    s.hidden.fishPile = [3, 3];
+    expect(Fish.draw(s, 1)).toBe(false);
+    s.hidden.fishPile = [0, 2];
+    expect(Fish.draw(s, 0)).toBe(true);
+    expect(s.fish!.boot).toBe(0);
+    expect(C.targetOf(s, 0)).toBe(11);
+    const spots = C.legalSetupVertices(s);
+    s.buildings[spots[0]] = { owner: 0, kind: 'settlement' };
+    s.buildings[C.legalSetupVertices(s)[0]] = { owner: 1, kind: 'settlement' };
+    expect(Fish.bootTargets(s, 0)).toEqual([1]);
+    s = act(s, 0, { t: 'passBoot', to: 1 });
+    expect(s.fish!.boot).toBe(1);
+    expect(C.targetOf(s, 1)).toBe(11);
+  });
+
+  it('las fichas ajenas no se ven, sólo cuántas son', () => {
+    const s = main(game({ seed: 74, shire: 'fishers' }));
+    s.players[1].fish = [3, 1];
+    const v = viewFor(s, 0);
+    expect(v.players[1].fish).toEqual([]);
+    expect(v.players[1].fishCount).toBe(2);
+    expect(viewFor(s, 1).players[1].fish).toEqual([3, 1]);
+    expect(v.hidden.fishPile).toBeUndefined();
+  });
+});
+
+describe('Comarcas: ríos de oro', () => {
+  it('dos ríos de tres casillas, puentes en sus cruces y pantanos sin número', () => {
+    const s = game({ seed: 80, shire: 'rivers' });
+    expect(s.river!.rivers.length).toBe(2);
+    expect(s.river!.rivers.every((r) => r.length === 3)).toBe(true);
+    expect(s.river!.crossings.length).toBe(6);
+    const swamps = Object.values(s.board.hexes).filter((h) => h.terrain === 'swamp');
+    expect(swamps.length).toBe(2);
+    expect(swamps.every((h) => h.number === null)).toBe(true);
+    expect(swamps.map((h) => h.id)).toContain(s.board.robber);
+  });
+
+  it('el río sólo se cruza con puente: cuesta 2 ladrillos y 1 madera, da 3 monedas y hay 3 por jugador', () => {
+    let s = main(game({ seed: 81, shire: 'rivers' }));
+    const e = s.river!.crossings[0];
+    const g = C.G(s);
+    const v = g.edges[e].a;
+    s.buildings[v] = { owner: 0, kind: 'settlement' };
+    expect(C.canRoad(s, 0, e)).toBe(false);
+    give(s, 0, { brick: 2, lumber: 1 });
+    s = act(s, 0, { t: 'bridge', at: e });
+    expect(s.roads[e]).toEqual({ owner: 0, bridge: true });
+    expect(s.river!.coins[0]).toBe(3);
+    expect(C.longestRoute(s, 0)).toBe(1);
+    s.roads['x1'] = { owner: 0, bridge: true };
+    s.roads['x2'] = { owner: 0, bridge: true };
+    expect(River.legalBridges(s, 0)).toEqual([]);
+  });
+
+  it('caminos y poblados junto al río dan una moneda; más rico +1, más pobres -2', () => {
+    let s = main(game({ seed: 82, shire: 'rivers' }));
+    const g = C.G(s);
+    const rh = new Set(s.river!.rivers.flat());
+    const e = Object.keys(g.edges).find((x) => !C.isCrossing(s, x) && g.edges[x].hexes.some((h) => rh.has(h)) && C.edgeRoadable(s, x))!;
+    s.buildings[g.edges[e].a] = { owner: 0, kind: 'settlement' };
+    give(s, 0, { lumber: 1, brick: 1 });
+    s = act(s, 0, { t: 'build', what: 'road', at: e });
+    expect(s.river!.coins[0]).toBe(1);
+    expect(C.wealthBonus(s, 0)).toBe(1);
+    expect(C.wealthBonus(s, 1)).toBe(-2);
+    s.river!.coins = [2, 2, 2, 2];
+    expect(C.wealthBonus(s, 0)).toBe(0);
+    s.river!.coins = [3, 3, 1, 2];
+    expect([0, 1, 2, 3].map((x) => C.wealthBonus(s, x))).toEqual([0, 0, -2, 0]);
+  });
+
+  it('2 monedas por un recurso, hasta 2 veces por turno', () => {
+    let s = main(game({ seed: 83, shire: 'rivers' }));
+    s.river!.coins[0] = 6;
+    for (let i = 0; i < 2; i++) {
+      s = act(s, 0, { t: 'coins', use: 'trade' });
+      s = act(s, 0, { t: 'pick', cards: { grain: 1 } });
+    }
+    expect(s.players[0].hand.grain).toBe(2);
+    expect(s.river!.coins[0]).toBe(2);
+    expect(() => act(s, 0, { t: 'coins', use: 'trade' })).toThrow();
+  });
+});
+
+describe('Comarcas: ruta de camellos', () => {
+  it('oasis al centro con tres salidas; tras construir se vota al empezar el turno siguiente', () => {
+    let s = main(game({ seed: 90, shire: 'caravans' }));
+    expect(s.settings.vpTarget).toBe(12);
+    expect(s.caravan!.oasis).toBe('h0,0');
+    expect(s.caravan!.starts.length).toBe(3);
+    const v = C.legalSetupVertices(s).find((x) => !C.G(s).hexes['h0,0'].vertices.includes(x))!;
+    const e = C.G(s).vertices[v].edges.find((x) => C.edgeRoadable(s, x))!;
+    s.roads[e] = { owner: 0 };
+    give(s, 0, { lumber: 1, brick: 1, wool: 3, grain: 1 });
+    give(s, 1, { grain: 2 });
+    const w = C.G(s).edges[e].a === v ? C.G(s).edges[e].b : C.G(s).edges[e].a;
+    s = act(s, 0, { t: 'build', what: 'settlement', at: w });
+    s = act(s, 0, { t: 'endTurn' });
+    expect(s.steps[0]).toMatchObject({ k: 'camelBid', waiting: [0, 1, 2, 3] });
+    s = act(s, 0, { t: 'camelBid', bid: { wool: 2 } });
+    expect(viewFor(s, 1).steps[0]).toMatchObject({ k: 'camelBid', bids: { 0: {} } });
+    expect(() => act(s, 1, { t: 'camelBid', bid: { ore: 1 } })).toThrow();
+    s = act(s, 1, { t: 'camelBid', bid: { grain: 2 } });
+    s = act(s, 2, { t: 'camelBid', bid: {} });
+    s = act(s, 3, { t: 'camelBid', bid: {} });
+    // empate 2-2: gana el primero desde el jugador del turno (1)
+    expect(s.steps[0]).toEqual({ k: 'camelPlace', seat: 1 });
+    expect(s.players[0].hand.wool).toBe(0);
+    expect(s.players[1].hand.grain).toBe(0);
+    const camel = Caravan.legalCamels(s)[0];
+    s = act(s, 1, { t: 'camel', at: camel });
+    expect(s.caravan!.routes.flat()).toEqual([camel]);
+    expect(s.caravan!.left).toBe(21);
+  });
+
+  it('edificio entre dos camellos +1 PV; camino bajo camello cuenta doble', () => {
+    const s = main(game({ seed: 91, shire: 'caravans' }));
+    const c = s.caravan!;
+    const g = C.G(s);
+    const start = c.starts[0];
+    const e1 = g.vertices[start].edges.find((e) => !g.hexes[c.oasis].edges.includes(e))!;
+    const mid = g.edges[e1].a === start ? g.edges[e1].b : g.edges[e1].a;
+    c.routes[0].push(e1);
+    const e2 = Caravan.legalCamels(s).find((e) => g.edges[e].a === mid || g.edges[e].b === mid)!;
+    c.routes[0].push(e2);
+    s.buildings[mid] = { owner: 2, kind: 'settlement' };
+    expect(C.camelBonus(s, 2)).toBe(1);
+    expect(C.vpOf(s, 2)).toBe(2);
+    s.roads[e1] = { owner: 2 };
+    s.roads[e2] = { owner: 2 };
+    expect(C.longestRoute(s, 2)).toBe(4);
   });
 });
 

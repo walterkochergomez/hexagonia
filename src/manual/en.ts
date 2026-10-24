@@ -472,14 +472,14 @@ const book: ManualBook = {
     shires: {
       id: 'shires',
       title: 'Hinterlands',
-      summary: 'Variants for the base island that add to any game: harbors that bring prestige, a chronicle deck instead of dice and rules for two players.',
-      meta: ['2–6 players', '60–90 minutes', 'Goal: 10, or 11 with the Wharf Lord'],
+      summary: 'Variants and scenarios for the base island: harbors that bring prestige, a chronicle deck instead of dice, rules for two, and scenarios with fishing, rivers and caravans.',
+      meta: ['2–6 players', '60–120 minutes', 'Goal: 10 to 12 by scenario'],
       sections: [
         {
           id: 'about',
           title: 'What it adds',
           blocks: [
-            { t: 'p', text: 'Hinterlands gathers rules that add to the base game. Switch them on in the room under **Variants**; they combine freely. The Wharf Lord also works with Open Sea and with Guilds.' },
+            { t: 'p', text: 'Hinterlands gathers rules that add to the base game. The **variants** (Wharf Lord, chronicle deck, duel) combine freely; the Wharf Lord also works with Open Sea and with Guilds. The **scenarios** change the island and are played one at a time, also with the Wharf Lord and the chronicle deck.' },
           ],
         },
         {
@@ -530,6 +530,49 @@ const book: ManualBook = {
               '**Two rolls**: each turn the dice are rolled twice and both rolls produce. The second must give a different number from the first.',
               '**Trade tokens**: each player starts with 5 (there are 20 in all). Once per turn you can spend them on a **forced trade** (take 2 random cards from your rival and give back 2 of your choice) or to send the **robber to the desert**. It costs 1 token if you are level or behind on points and 2 if you are ahead.',
               'You earn tokens by founding settlements: 1 on the coast, 2 next to the desert, 3 for both. You can also return a played soldier for 2 tokens.',
+            ] },
+          ],
+        },
+        {
+          id: 'fishers',
+          title: 'Scenario: Fishing Waters',
+          blocks: [
+            { t: 'p', text: 'The desert becomes a lake in the middle of the island, and six fishing grounds numbered 4 to 10 line the coast (eight with 5 or 6 players). The robber starts on the lake. Goal: 10 points.' },
+            { t: 'fig', id: 'fishers', caption: 'A 9 is rolled: the settlement by the fishing ground draws a token. The city by the lake fishes on 2, 3, 11 and 12.' },
+            { t: 'list', items: [
+              '**Fishing**: when a fishing ground’s number comes up, each settlement on its three intersections draws a token from the pile; each city draws two. The lake fishes on 2, 3, 11 and 12 for the buildings around it, unless the robber is on it.',
+              'Tokens are worth 1, 2 or 3 fish and stay face down: the others only see how many you hold. They are not cards, so they do not count on a 7 and cannot be stolen. You may hold up to 7.',
+              'During setup, the second settlement next to a fishing ground or the lake draws a token.',
+              '**Spending**, on your turn and with no change given: 2 fish take the robber off the board until the next 7; 3 steal a random resource from anyone you choose; 4 bring a resource from the bank; 5 a free road; 7 a development card. Spent tokens go back into the pile.',
+              '**The old boot** hides in the pile. Whoever draws it needs one more point to win; on their turn they may pass it to someone with as many visible points or more.',
+            ] },
+          ],
+        },
+        {
+          id: 'rivers',
+          title: 'Scenario: Golden Rivers',
+          blocks: [
+            { t: 'p', text: 'Two rivers (three with 5 or 6 players) run from the interior to the sea. Two swamps (three with 5 or 6 players) replace the desert and a pasture: they produce nothing, and the robber starts in one. Goal: 10 points.' },
+            { t: 'fig', id: 'rivers', caption: 'The bridge crosses the river and earns 3 coins; the riverside settlement earned 1.' },
+            { t: 'list', items: [
+              'No road crosses a river: on the edges where the water runs only a **bridge** fits (2 brick and 1 lumber). A bridge counts as a road and earns **3 coins**. Each player can build 3.',
+              'A road along a riverbank, or a settlement next to a river, earns **1 coin**.',
+              'On your turn you may trade **2 coins for a resource** of your choice, up to twice. You can also buy a coin with cards, at your bank or harbor rate.',
+              'Coins are not cards. Whoever has the most, with no tie, gains **1 point**; those with the fewest lose **2**. If everyone has the same, nobody gains or loses.',
+            ] },
+          ],
+        },
+        {
+          id: 'caravans',
+          title: 'Scenario: Camel Road',
+          blocks: [
+            { t: 'p', text: 'An oasis sits in the middle, and three caravans set out from it. Goal: 12 points.' },
+            { t: 'fig', id: 'caravans', caption: 'The settlement between two camels is worth a point more.' },
+            { t: 'list', items: [
+              'After a turn in which someone founded a settlement or built a city, there is a **vote** at the start of the next one: everyone secretly offers wool and grain cards (each card is one vote). The highest offer wins; on a tie, the first from the active player on. Everyone pays what they offered.',
+              'The winner places a **camel** at the end of a caravan, on a land edge, without turning back to the oasis or crossing another caravan. There are 22 camels (28 with 5 or 6 players).',
+              'Each building on an intersection between **two camels** is worth **1 point more**.',
+              'A road under a camel counts **double** toward the longest trade route.',
             ] },
           ],
         },

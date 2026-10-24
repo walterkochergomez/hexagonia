@@ -3,8 +3,9 @@ import { graphOf } from '../engine/geometry';
 import type { GameState } from '../engine/types';
 import { useT } from '../app/i18n';
 import { prefs, usePrefs } from '../app/prefs';
-import { CardIcon, CityShape, KnightShape, MerchantShape, RobberShape, SettlementShape, ShipShape } from './art';
-import { Coast, NumberToken, R, SX, SY, SeaFace, TOP_POINTS, TileDefs, TileFace, hexPoints, turn, type LandTerrain } from './tiles';
+import { CamelShape, CardIcon, CityShape, KnightShape, MerchantShape, RobberShape, SettlementShape, ShipShape } from './art';
+import { Coast, NumberToken, Palm, R, SX, SY, SeaFace, TOP_POINTS, TileDefs, TileFace, hexPoints, turn, type LandTerrain } from './tiles';
+import type { FishGround } from '../engine/types';
 import { reducedMotion } from './fx';
 
 const px = (X: number, Y: number): [number, number] => [X * SX, Y * SY];
@@ -116,6 +117,38 @@ export function Board({ view, targets, onPick, flash, children, still = false, l
   const at = (X: number, Y: number): [number, number] => turn(px(X, Y), rot);
   const vpos = (v: string) => at(g.vertices[v].X, g.vertices[v].Y);
   const hpos = (h: string) => at(g.hexes[h].X, g.hexes[h].Y);
+  /** Marca del caladero: en el mar, frente a los tres cruces de la costa. */
+  const groundPos = (gr: FishGround): [number, number] => {
+    const c = hpos(gr.hex);
+    const vs = gr.vertices.map(vpos);
+    const k: [number, number] = [(vs[0][0] + vs[1][0] + vs[2][0]) / 3, (vs[0][1] + vs[1][1] + vs[2][1]) / 3];
+    return [k[0] + (c[0] - k[0]) * 0.62, k[1] + (c[1] - k[1]) * 0.62];
+  };
+  /** Río: curva suave por el centro de sus casillas y los lados que cruza, hasta la desembocadura. */
+  const riverPath = (r: string[], i: number): string => {
+    const cr = view.river!.crossings;
+    const mids: string[] = [];
+    // los cruces se guardaron río por río: (largo - 1) internos y la desembocadura
+    let k = 0;
+    for (let j = 0; j < i; j++) k += view.river!.rivers[j].length;
+    for (let j = 0; j < r.length; j++) mids.push(cr[k + j]);
+    const pts: [number, number][] = [];
+    const c0 = hpos(r[0]);
+    pts.push([c0[0], c0[1] - 14]);
+    for (let j = 0; j < r.length; j++) {
+      if (j > 0) pts.push(hpos(r[j]));
+      const m = mids[j];
+      if (m) pts.push(at(g.edges[m].X, g.edges[m].Y));
+    }
+    let d = `M${pts[0][0]} ${pts[0][1]}`;
+    for (let j = 0; j + 1 < pts.length; j++) {
+      const p0 = pts[Math.max(0, j - 1)], p1 = pts[j], p2 = pts[j + 1], p3 = pts[Math.min(pts.length - 1, j + 2)];
+      const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
+      const c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+      d += ` C${c1[0].toFixed(1)} ${c1[1].toFixed(1)} ${c2[0].toFixed(1)} ${c2[1].toFixed(1)} ${p2[0].toFixed(1)} ${p2[1].toFixed(1)}`;
+    }
+    return d;
+  };
   // con la vista inclinada, las piezas se estiran hacia arriba para que parezcan de pie
   const stand = boardTilt ? `translate(0 8) scale(1 ${(1 / TILT_COS).toFixed(3)}) translate(0 -8)` : undefined;
 
@@ -141,11 +174,15 @@ export function Board({ view, targets, onPick, flash, children, still = false, l
         const qy = (ay + by) / 2 + (sy - (ay + by) / 2) * 0.62;
         grow(qx - 17, qy - 17, qx + 17, qy + 19);
       }
+      for (const gr of view.fish?.grounds ?? []) {
+        const [x, y] = groundPos(gr);
+        grow(x - 19, y - 19, x + 19, y + 19);
+      }
     }
     const m = still ? 26 : openSea ? 10 : 14;
     const [pt, pr, pb, pl] = still && pad ? pad : [0, 0, 0, 0];
     return { x: x0 - m - pl, y: y0 - m - pt, w: x1 - x0 + 2 * m + pl + pr, h: y1 - y0 + 2 * m + pt + pb };
-  }, [g, openSea, view.board.harbors, rot, still, pad?.join()]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [g, openSea, view.board.harbors, view.fish?.grounds, rot, still, pad?.join()]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // al girar o inclinar se vuelve al encuadre completo
   useEffect(() => setTf({ x: 0, y: 0, k: 1 }), [rot, boardTilt]);
@@ -231,6 +268,7 @@ export function Board({ view, targets, onPick, flash, children, still = false, l
     ...Object.keys(view.roads).map((e) => `r:${e}`),
     ...Object.keys(view.ships).map((e) => `s:${e}`),
     ...Object.entries(view.knights).map(([v, k]) => `k:${v}:${k.level}:${k.active ? 1 : 0}`),
+    ...(view.caravan?.routes.flat() ?? []).map((e) => `c:${e}`),
   ];
   const fresh = useFresh(pieceKeys);
 
@@ -278,6 +316,84 @@ export function Board({ view, targets, onPick, flash, children, still = false, l
             );
           })}
         </g>
+        {view.river && (
+          <g className="layer-rivers" aria-hidden="true">
+            {view.river.rivers.map((r, i) => {
+              const d = riverPath(r, i);
+              return (
+                <g key={i} className="river">
+                  <path d={d} className="river-bank" />
+                  <path d={d} className="river-water" />
+                  <path d={d} className="river-shine" />
+                  <circle cx={hpos(r[0])[0]} cy={hpos(r[0])[1] - 14} r={6} className="river-spring" />
+                </g>
+              );
+            })}
+            {/* las fichas de número quedan sobre el agua */}
+            {view.river.rivers.flat().map((h) => {
+              const hx = view.board.hexes[h];
+              if (!hx.number) return null;
+              const [cx, cy] = hpos(h);
+              const on = !!lit && lit.numbers.includes(hx.number) && h !== view.board.robber;
+              return <g key={h} transform={`translate(${cx} ${cy + 8})`}>{on && <circle r={16} className="lit-ring" />}<NumberToken n={hx.number} /></g>;
+            })}
+          </g>
+        )}
+        {view.fish && (
+          <g className="layer-fish">
+            {view.fish.lakes.map((l) => {
+              const [cx, cy] = hpos(l);
+              const blocked = view.board.robber === l;
+              return (
+                <g key={l} transform={`translate(${cx} ${cy})`} className={`lake-numbers${blocked ? ' robbed' : ''}`}>
+                  <title>{t('fish.lakeTitle')}</title>
+                  {[2, 3, 11, 12].map((n, i) => {
+                    const on = !!lit && lit.numbers.includes(n) && !blocked;
+                    return (
+                      <g key={n} transform={`translate(${i % 2 ? 12 : -12} ${i < 2 ? -6 : 16})`} className={`mini-token${on ? ' lit' : ''}`}>
+                        <circle r={9.6} className="mini-disc" />
+                        <text y={3.6} textAnchor="middle">{n}</text>
+                      </g>
+                    );
+                  })}
+                </g>
+              );
+            })}
+            {view.fish.grounds.map((gr) => {
+              const [x, y] = groundPos(gr);
+              const on = !!lit && lit.numbers.includes(gr.n);
+              const [cx, cy] = hpos(gr.hex);
+              const coast = gr.vertices.map(vpos);
+              return (
+                <g key={gr.hex} className={`ground${on ? ' lit' : ''}`}>
+                  <title>{t('fish.groundTitle', { n: gr.n })}</title>
+                  <path d={`M${coast[0][0]} ${coast[0][1]} Q${(cx + x) / 2} ${(cy + y) / 2} ${coast[2][0]} ${coast[2][1]}`} className="ground-net" />
+                  <g transform={`translate(${x} ${y})`}>
+                    <circle r={16.5} className="ground-disc" />
+                    <path d="M-7 4 Q-2 -1 4 3.2 Q-2 7 -7 4 Z M4 3.2 L8 0.4 L7.6 6 Z" className="ground-fish" />
+                    <text y={-1.6} textAnchor="middle" className={`ground-n${gr.n === 6 || gr.n === 8 ? ' hot' : ''}`}>{gr.n}</text>
+                  </g>
+                </g>
+              );
+            })}
+          </g>
+        )}
+        {view.caravan && (() => {
+          const [cx, cy] = hpos(view.caravan.oasis);
+          return (
+            <g className="layer-oasis" aria-hidden="true">
+              <g transform={`translate(${cx} ${cy})`}>
+                <ellipse cx={0} cy={10} rx={15} ry={8} className="oasis-pool" />
+                <Palm x={-14} y={6} s={1.05} />
+                <Palm x={16} y={2} s={0.9} />
+              </g>
+              {view.caravan.starts.map((v) => {
+                const [x, y] = vpos(v);
+                return <g key={v} transform={`translate(${x} ${y})`} className="caravan-start"><path d="M-6 3 L0 -7 L6 3 Z" /></g>;
+              })}
+            </g>
+          );
+        })()}
         <g className="layer-harbors">
           {view.board.harbors.map((hb) => {
             const e = g.edges[hb.edge];
@@ -314,7 +430,7 @@ export function Board({ view, targets, onPick, flash, children, still = false, l
         </g>
       </>
     );
-  }, [view.board, lit?.key, lit?.numbers.join(), t, rot]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [view.board, view.river?.rivers, view.fish?.grounds, view.fish?.lakes, view.caravan?.oasis, lit?.key, lit?.numbers.join(), t, rot]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const routes = () => (
     <>
@@ -322,6 +438,20 @@ export function Board({ view, targets, onPick, flash, children, still = false, l
         const ed = g.edges[e];
         const [ax, ay] = vpos(ed.a);
         const [bx, by] = vpos(ed.b);
+        if (r.bridge) {
+          const k = 0.1;
+          const x0 = ax + (bx - ax) * k, y0 = ay + (by - ay) * k, x1 = bx - (bx - ax) * k, y1 = by - (by - ay) * k;
+          const len = Math.hypot(x1 - x0, y1 - y0) || 1;
+          const nx = (-(y1 - y0) / len) * 5, ny = ((x1 - x0) / len) * 5;
+          return (
+            <g key={e} className={`bridge p${colorOf(r.owner)}${fresh.has(`r:${e}`) ? ' fresh-road' : ''}`}>
+              <path d={`M${x0 + 1.5} ${y0 + 3} L${x1 + 1.5} ${y1 + 3}`} className="road-shadow" pathLength={1} />
+              <path d={`M${x0} ${y0} L${x1} ${y1}`} className="bridge-deck" pathLength={1} />
+              <path d={`M${x0} ${y0} L${x1} ${y1}`} className="bridge-planks" pathLength={1} />
+              <path d={`M${x0 + nx} ${y0 + ny} L${x1 + nx} ${y1 + ny} M${x0 - nx} ${y0 - ny} L${x1 - nx} ${y1 - ny}`} className="bridge-rail" />
+            </g>
+          );
+        }
         const k = 0.15;
         const x0 = ax + (bx - ax) * k, y0 = ay + (by - ay) * k, x1 = bx - (bx - ax) * k, y1 = by - (by - ay) * k;
         const d = `M${x0} ${y0} L${x1} ${y1}`;
@@ -334,6 +464,10 @@ export function Board({ view, targets, onPick, flash, children, still = false, l
             <path d={`M${x0} ${y0 - 1.3} L${x1} ${y1 - 1.3}`} className="road-shine" pathLength={1} />
           </g>
         );
+      })}
+      {view.caravan?.routes.flat().map((e) => {
+        const [x, y] = at(g.edges[e].X, g.edges[e].Y);
+        return <g key={`c${e}`} transform={`translate(${x} ${y - 3})`} className={fresh.has(`c:${e}`) ? 'camel fresh-drop' : 'camel'}><g transform={stand}><CamelShape /></g></g>;
       })}
       {Object.entries(view.ships).map(([e, r]) => {
         const ed = g.edges[e];

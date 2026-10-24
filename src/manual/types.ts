@@ -8,7 +8,7 @@ export type FigureId =
   | 'terrains' | 'setup' | 'production' | 'robber' | 'harbors' | 'distance' | 'longest'
   | 'ships' | 'shipMove' | 'pirate' | 'gold' | 'fog'
   | 'commodities' | 'knights' | 'barbarians'
-  | 'chronicle';
+  | 'chronicle' | 'fishers' | 'rivers' | 'caravans';
 
 export type CostIcon = 'road' | 'ship' | 'settlement' | 'city' | 'dev' | 'wall' | 'knight' | 'activate' | 'promote' | 'progress';
 

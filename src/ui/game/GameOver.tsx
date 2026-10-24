@@ -4,7 +4,7 @@ import type { GameState } from '../../engine/types';
 import { PlayerMark } from '../art';
 import { Modal } from '../common';
 
-const PARTS = ['settlements', 'cities', 'metropolis', 'road', 'army', 'harbor', 'cards', 'defender', 'merchant', 'bonus'] as const;
+const PARTS = ['settlements', 'cities', 'metropolis', 'road', 'army', 'harbor', 'camels', 'wealth', 'cards', 'defender', 'merchant', 'bonus'] as const;
 
 export function GameOver({ view, me, onHome, onRematch, onClose }: { view: GameState; me: number | null; onHome: () => void; onRematch?: () => void; onClose: () => void }) {
   const t = useT();
@@ -14,7 +14,7 @@ export function GameOver({ view, me, onHome, onRematch, onClose }: { view: GameS
     .filter((p) => !p.neutral)
     .map((p) => ({ p, vp: C.vpOf(view, p.seat), parts: C.vpBreakdown(view, p.seat) }))
     .sort((a, b) => b.vp - a.vp);
-  const used = PARTS.filter((k) => rows.some((r) => r.parts[k] > 0));
+  const used = PARTS.filter((k) => rows.some((r) => r.parts[k] !== 0));
   const rolls = view.stats.rolls.slice(2);
   const max = Math.max(1, ...rolls);
   return (

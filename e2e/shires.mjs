@@ -1,9 +1,10 @@
 // Comarcas en la interfaz: variantes (muelles, sucesos, duelo) en una partida local contra un bot.
-// Requiere `npm run build`.
+// Requiere `npm run build` y `npx tsx scripts/make-scenes.ts`.
 import chromium from '@sparticuz/chromium';
 import { chromium as pw } from 'playwright-core';
 import { spawn } from 'node:child_process';
 import { setTimeout as sleep } from 'node:timers/promises';
+import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 
 const PORT = 4195;
@@ -123,6 +124,86 @@ try {
   log('al construir un camino se construye otro para un neutral');
   if (shots) await page.screenshot({ path: 'e2e/out/shires-duel.png' });
   await ctx.close();
+
+  // ---- escenarios (escenas armadas con el motor: npx tsx scripts/make-scenes.ts) ----
+  const scene = async (name) => {
+    const c = await browser.newContext({ viewport: { width: 1280, height: 860 } });
+    const save = readFileSync(`e2e/out/scene-${name}.json`, 'utf8');
+    await c.addInitScript((sv) => {
+      localStorage.setItem('hexagonia.prefs', JSON.stringify({ name: 'Walter', lang: 'es', clientId: 'w', sound: false }));
+      localStorage.setItem('hexagonia.local', sv);
+    }, save);
+    const pg = await c.newPage();
+    pg.on('pageerror', (e) => errors.push(e.message));
+    pg.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+    await pg.goto(`http://localhost:${PORT}/?botDelay=150#/local/juego`);
+    await pg.locator('svg.board').waitFor();
+    await pg.waitForTimeout(500);
+    return { c, pg };
+  };
+  const handCount = (pg) => pg.evaluate(() => [...document.querySelectorAll('.dock .hand-cards .n, .dock .card-count')].length);
+  void handCount;
+
+  // pesca: gastar 4 peces en un recurso del banco
+  {
+    const { c, pg } = await scene('fishers');
+    assert.equal(await pg.locator('.layer-fish .ground').count(), 6, 'seis caladeros');
+    assert.equal(await pg.locator('.layer-fish .lake-numbers').count(), 1, 'el lago');
+    const before = await pg.evaluate(() => JSON.parse(localStorage.getItem('hexagonia.local')).game.players[0].hand);
+    await pg.locator('[data-act="fish"]').click();
+    const sheet = pg.locator('.modal', { hasText: 'Fichas de pescado' });
+    await sheet.getByRole('button', { name: /Recurso del banco/ }).click();
+    const dlg = pg.locator('.modal', { hasText: 'Pesca: elige un recurso.' });
+    await dlg.locator('.step-btn', { hasText: '+' }).first().click();
+    await dlg.getByRole('button', { name: 'Confirmar' }).click();
+    await pg.waitForTimeout(400);
+    const after = await pg.evaluate(() => JSON.parse(localStorage.getItem('hexagonia.local')).game.players[0]);
+    const sum = (h) => Object.values(h).reduce((a, b) => a + b, 0);
+    assert.equal(sum(after.hand), sum(before) + 1, 'un recurso más');
+    assert.equal(after.fish.reduce((a, b) => a + b, 0), 3, 'quedan 3 peces');
+    if (shots) await pg.screenshot({ path: 'e2e/out/shires-fishers.png' });
+    await c.close();
+    log('pesca: caladeros, lago y gasto de fichas');
+  }
+
+  // ríos: construir un puente da 3 monedas
+  {
+    const { c, pg } = await scene('rivers');
+    assert.equal(await pg.locator('.layer-rivers .river').count(), 2, 'dos ríos');
+    await pg.locator('[data-act="build"]').click();
+    await pg.getByRole('button', { name: /Puente/ }).click();
+    await pg.locator('.layer-targets .target-edge').first().click({ force: true });
+    await pg.locator('.layer-routes .bridge').first().waitFor({ timeout: 3000 });
+    const coins = await pg.evaluate(() => JSON.parse(localStorage.getItem('hexagonia.local')).game.river.coins[0]);
+    assert.ok(coins >= 3, `monedas ${coins}`);
+    await pg.locator('[data-act="coins"]').click();
+    await pg.locator('.modal', { hasText: 'Monedas' }).waitFor();
+    if (shots) await pg.screenshot({ path: 'e2e/out/shires-rivers.png' });
+    await c.close();
+    log('ríos: puente y monedas');
+  }
+
+  // camellos: votación al empezar el turno y camello nuevo
+  {
+    const { c, pg } = await scene('caravans');
+    const camelsBefore = await pg.locator('.layer-routes .camel').count();
+    const dlg = pg.locator('.modal', { hasText: 'Votación de camellos' });
+    await dlg.waitFor({ timeout: 3000 });
+    await dlg.locator('.step-btn', { hasText: '+' }).first().click();
+    await dlg.getByRole('button', { name: 'Pujar 1' }).click();
+    // si ganamos, toca elegir dónde va; si no, lo pone un bot
+    for (let i = 0; i < 40 && (await pg.locator('.layer-routes .camel').count()) === camelsBefore; i++) {
+      const t = pg.locator('.layer-targets .target-edge').first();
+      if (await t.count()) await t.click({ force: true });
+      await pg.waitForTimeout(200);
+    }
+    assert.equal(await pg.locator('.layer-routes .camel').count(), camelsBefore + 1, 'un camello más');
+    const left = await pg.evaluate(() => JSON.parse(localStorage.getItem('hexagonia.local')).game.steps.length);
+    assert.equal(left, 0, 'la votación terminó');
+    if (shots) await pg.screenshot({ path: 'e2e/out/shires-caravans.png' });
+    await c.close();
+    log('camellos: votación y camello nuevo');
+  }
 
   // celular: la partida de duelo entra en pantalla
   const phone = await browser.newContext({ viewport: { width: 360, height: 740 }, isMobile: true, hasTouch: true });
