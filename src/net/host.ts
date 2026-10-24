@@ -339,7 +339,7 @@ export class HostSession extends BaseSession implements Session {
     if (this.lobby.status !== 'lobby' || this.lobby.seats.length < 2) return;
     const st = this.lobby.settings;
     const game = createGame(
-      { seats: this.lobby.seats.length, openSea: st.openSea, scenario: st.scenario, guilds: st.guilds, vpTarget: st.vpTarget, turnMode: st.turnMode, friendlyRobber: st.friendlyRobber, seed: randomSeed() },
+      { ...st, seats: this.lobby.seats.length, seed: randomSeed() },
       this.lobby.seats.map((s) => ({ name: s.name, color: s.color })),
     );
     this.lobby.status = 'playing';

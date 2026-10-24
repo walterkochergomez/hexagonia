@@ -50,9 +50,14 @@ function routeConnects(s: GameState, seat: number, e: string, layer: Record<stri
   return false;
 }
 
+export const isNeutral = (s: GameState, seat: number) => !!s.players[seat]?.neutral;
+
+/** Temblor: con un camino dañado no se construyen caminos nuevos hasta repararlo. */
+export const hasBrokenRoad = (s: GameState, seat: number) => Object.values(s.roads).some((r) => r.owner === seat && r.broken);
+
 export function canRoad(s: GameState, seat: number, e: string): boolean {
   if (!G(s).edges[e] || s.roads[e] || s.ships[e]) return false;
-  return edgeRoadable(s, e) && routeConnects(s, seat, e, s.roads);
+  return edgeRoadable(s, e) && routeConnects(s, seat, e, s.roads) && !hasBrokenRoad(s, seat);
 }
 
 export function canShip(s: GameState, seat: number, e: string): boolean {
@@ -195,6 +200,7 @@ export function vpOf(s: GameState, seat: number, hidden = true): number {
   }
   if (s.awards.road.owner === seat) vp += 2;
   if (!s.settings.guilds && s.awards.army.owner === seat) vp += 2;
+  if (s.awards.harbor?.owner === seat) vp += 2;
   vp += p.vpCards.length + p.defender;
   if (s.board.merchant?.owner === seat) vp += 1;
   for (const b of p.bonus) vp += b.vp;
@@ -219,6 +225,7 @@ export function vpBreakdown(s: GameState, seat: number) {
     defender: p.defender,
     merchant: s.board.merchant?.owner === seat ? 1 : 0,
     bonus: p.bonus.reduce((a, b) => a + b.vp, 0),
+    harbor: s.awards.harbor?.owner === seat ? 2 : 0,
   };
 }
 
@@ -257,7 +264,7 @@ export function handLimit(s: GameState, seat: number): number {
 export function longestRoute(s: GameState, seat: number): number {
   const g = G(s);
   const own = new Map<string, 'road' | 'ship'>();
-  for (const [e, r] of Object.entries(s.roads)) if (r.owner === seat) own.set(e, 'road');
+  for (const [e, r] of Object.entries(s.roads)) if (r.owner === seat && !r.broken) own.set(e, 'road');
   for (const [e, r] of Object.entries(s.ships)) if (r.owner === seat) own.set(e, 'ship');
   if (!own.size) return 0;
   let best = 0;
@@ -285,7 +292,7 @@ export function longestRoute(s: GameState, seat: number): number {
 
 export function updateRoadAward(s: GameState) {
   const n = s.players.length;
-  const lens = Array.from({ length: n }, (_, i) => longestRoute(s, i));
+  const lens = Array.from({ length: n }, (_, i) => (isNeutral(s, i) ? 0 : longestRoute(s, i)));
   const max = Math.max(...lens);
   const holder = s.awards.road.owner;
   let next: number | null = holder;
@@ -324,7 +331,7 @@ export function robberHexOk(s: GameState, seat: number, hex: string, friendly = 
     const hx = G(s).hexes[hex];
     if (hx.vertices.some((v) => {
       const b = s.buildings[v];
-      return b && b.owner !== seat && vpOf(s, b.owner, false) <= 2;
+      return b && b.owner !== seat && !isNeutral(s, b.owner) && vpOf(s, b.owner, false) <= 2;
     })) return false;
   }
   return true;
@@ -426,13 +433,16 @@ export function waitingSeats(st: Step): number[] {
     case 'pick':
     case 'progressLimit':
     case 'give':
+    case 'gift':
       return Object.keys(st.waiting).map(Number);
     case 'pillage':
     case 'defenderPick':
+    case 'quake':
       return st.waiting;
     case 'harborReply':
       return Object.keys(st.offers).map(Number);
     case 'produce':
+    case 'duelRoll':
       return [];
     case 'deserterChoose':
       return [st.seat];

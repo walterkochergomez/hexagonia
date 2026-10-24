@@ -11,7 +11,7 @@ export function SettingsForm({ value, onChange, readOnly, seats }: { value: Lobb
     <div className="settings">
       <fieldset disabled={readOnly}>
         <legend>{t('set.modules')}</legend>
-        <Toggle checked={value.openSea} onChange={(v) => onChange({ openSea: v })} label={t('set.openSea')} hint={t('set.openSeaHint')} disabled={readOnly} />
+        <Toggle checked={value.openSea} onChange={(v) => onChange(v ? { openSea: v, duel: false } : { openSea: v })} label={t('set.openSea')} hint={t('set.openSeaHint')} disabled={readOnly} />
         {value.openSea && (
           <div className="scenarios" role="radiogroup" aria-label={t('set.scenario')}>
             {SEA_SCENARIOS.map((sc: SeaScenario) => (
@@ -23,7 +23,15 @@ export function SettingsForm({ value, onChange, readOnly, seats }: { value: Lobb
             ))}
           </div>
         )}
-        <Toggle checked={value.guilds} onChange={(v) => onChange({ guilds: v })} label={t('set.guilds')} hint={t('set.guildsHint')} disabled={readOnly} />
+        <Toggle checked={value.guilds} onChange={(v) => onChange(v ? { guilds: v, chronicle: false, duel: false } : { guilds: v })} label={t('set.guilds')} hint={t('set.guildsHint')} disabled={readOnly} />
+      </fieldset>
+      <fieldset disabled={readOnly}>
+        <legend>{t('set.variants')}</legend>
+        <Toggle checked={!!value.harbormaster} onChange={(v) => onChange({ harbormaster: v })} label={t('set.harbormaster')} hint={t('set.harbormasterHint')} disabled={readOnly} />
+        <Toggle checked={!!value.chronicle && !value.guilds} onChange={(v) => onChange({ chronicle: v })} label={t('set.chronicle')} hint={value.guilds ? t('set.notWithGuilds') : t('set.chronicleHint')} disabled={readOnly || value.guilds} />
+        {seats === 2 && (
+          <Toggle checked={!!value.duel && !value.openSea && !value.guilds} onChange={(v) => onChange({ duel: v })} label={t('set.duel')} hint={value.openSea || value.guilds ? t('set.duelBaseOnly') : t('set.duelHint')} disabled={readOnly || value.openSea || value.guilds} />
+        )}
       </fieldset>
       <fieldset disabled={readOnly}>
         <legend>{t('set.options')}</legend>

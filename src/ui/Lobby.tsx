@@ -5,6 +5,7 @@ import type { Session, Snapshot } from '../net/session';
 import { PlayerMark } from './art';
 import { SettingsForm } from './SettingsForm';
 import { TopBar } from './TopBar';
+import { manualFor } from '../manual/load';
 
 export function Lobby({ session, snap, clientId, onHome }: { session: Session; snap: Snapshot; clientId: string; onHome: () => void }) {
   const t = useT();
@@ -25,7 +26,7 @@ export function Lobby({ session, snap, clientId, onHome }: { session: Session; s
   const used = new Set(lobby.seats.map((s) => s.color));
   return (
     <div className="page">
-      <TopBar code={lobby.code} status={snap.status} error={snap.error} onHome={onHome} />
+      <TopBar manual={manualFor({ ...lobby.settings, seats: lobby.seats.length })} code={lobby.code} status={snap.status} error={snap.error} onHome={onHome} />
       <main className="lobby">
         <section className="panel share">
           <h1>{t('lobby.title', { code: lobby.code })}</h1>

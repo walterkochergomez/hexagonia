@@ -3,8 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useT } from '../../app/i18n';
 import { diceSound } from '../../app/sound';
 import { graphOf, type Graph } from '../../engine/geometry';
-import { CARDS, TERRAIN_COMMODITY, TERRAIN_RESOURCE, type Card, type GameState, type LogEntry } from '../../engine/types';
-import { CardBack, CardIcon, DieFace, EventFace, PlayerMark } from '../art';
+import { CARDS, TERRAIN_COMMODITY, TERRAIN_RESOURCE, type Card, type ChronicleCard, type GameState, type LogEntry } from '../../engine/types';
+import { CardBack, CardIcon, ChronicleFace, DieFace, EventFace, PlayerMark } from '../art';
 import { confetti, firstVisible, fly, reducedMotion, visible, type Flight, type Spot } from '../fx';
 
 const PLAYER_HEX = ['#cf3f2c', '#2b5faa', '#e2a72e', '#7a4fb0', '#d85c95', '#3b4148'];
@@ -22,30 +22,43 @@ export function FxSprites() {
 
 const rnd = () => 1 + Math.floor(Math.random() * 6);
 
-export interface RollState { key: string; faces: [number, number]; settled: boolean }
+export interface RollState {
+  key: string;
+  /** tiradas que se muestran (en el duelo pueden ser dos) */
+  faces: [number, number][];
+  settled: boolean;
+  /** con mazo de sucesos: las cartas en vez de dados */
+  cards: ChronicleCard[] | null;
+}
 
-/** Dados que ruedan en el centro del tablero cada vez que alguien tira. */
+/** Dados (o cartas de sucesos) que aparecen en el centro del tablero cada vez que alguien tira. */
 export function useDiceRoll(view: GameState): RollState | null {
-  const dice = view.turn.dice;
-  const key = dice ? `${view.turn.n}:${dice[0]}-${dice[1]}:${view.turn.event ?? ''}` : null;
+  const t = view.turn;
+  const rolls = t.rolls?.length ? t.rolls : t.dice ? [t.dice] : [];
+  const allCards = view.settings.chronicle ? (t.cards?.length ? t.cards : t.card ? [t.card] : []) : null;
+  const key = rolls.length ? `${t.n}:${rolls.map((r) => r.join('-')).join('|')}:${t.event ?? ''}` : null;
   const [roll, setRoll] = useState<RollState | null>(null);
-  const prev = useRef(key);
+  const prev = useRef<{ key: string | null; n: number; count: number }>({ key, n: t.n, count: rolls.length });
   useEffect(() => {
     const before = prev.current;
-    prev.current = key;
-    if (key === before) return;
-    if (!key || !dice || reducedMotion()) {
+    prev.current = { key, n: t.n, count: rolls.length };
+    if (key === before.key) return;
+    if (!key || !rolls.length || reducedMotion()) {
       setRoll(null);
       return;
     }
+    // si ya se vio la primera tirada del turno (por ejemplo, un 7), sólo se anima la nueva
+    const from = before.n === t.n && before.count > 0 && before.count < rolls.length ? before.count : 0;
+    const shown = rolls.slice(from);
+    const cards = allCards ? allCards.slice(from) : null;
     diceSound();
-    setRoll({ key, faces: [rnd(), rnd()], settled: false });
-    const spin = setInterval(() => setRoll((r) => (r && r.key === key && !r.settled ? { ...r, faces: [rnd(), rnd()] } : r)), 80);
+    setRoll({ key, faces: shown.map(() => [rnd(), rnd()]), settled: false, cards });
+    const spin = cards ? 0 : setInterval(() => setRoll((r) => (r && r.key === key && !r.settled ? { ...r, faces: r.faces.map(() => [rnd(), rnd()]) } : r)), 80);
     const land = setTimeout(() => {
       clearInterval(spin);
-      setRoll((r) => (r && r.key === key ? { key, faces: [dice[0], dice[1]], settled: true } : r));
+      setRoll((r) => (r && r.key === key ? { key, faces: shown, settled: true, cards } : r));
     }, 600);
-    const done = setTimeout(() => setRoll((r) => (r && r.key === key ? null : r)), 1850);
+    const done = setTimeout(() => setRoll((r) => (r && r.key === key ? null : r)), shown.length > 1 ? 2400 : 1850);
     return () => {
       clearInterval(spin);
       clearTimeout(land);
@@ -57,15 +70,37 @@ export function useDiceRoll(view: GameState): RollState | null {
 }
 
 export function DiceOverlay({ roll, red, event }: { roll: RollState; red: boolean; event: string | null }) {
-  const sum = roll.faces[0] + roll.faces[1];
-  return (
-    <div className={`dice-roll${roll.settled ? ' settled' : ''}`} aria-hidden="true">
-      <div className="dice-roll-dice">
-        <span className="roll-die d1"><DieFace value={roll.faces[0]} tone={red ? 'red' : 'light'} size={66} /></span>
-        <span className="roll-die d2"><DieFace value={roll.faces[1]} tone="light" size={66} /></span>
-        {event && roll.settled && <span className="roll-die d3"><EventFace face={event} size={66} /></span>}
+  const t = useT();
+  if (roll.cards) {
+    return (
+      <div className={`dice-roll cards${roll.settled ? ' settled' : ''}${roll.cards.length > 1 ? ' many' : ''}`} aria-hidden="true">
+        <div className="dice-roll-dice">
+          {roll.cards.map((c, i) => (
+            <span key={i} className="roll-card" style={{ animationDelay: `${i * 140}ms` }}>
+              <ChronicleFace card={c} size={roll.cards!.length > 1 ? 104 : 128} />
+              {roll.settled && c.ev && c.ev !== 'raid' && <span className="roll-ev">{t(`chronicle.ev.${c.ev}`)}</span>}
+            </span>
+          ))}
+        </div>
       </div>
-      {roll.settled && <div className={`roll-sum${sum === 7 ? ' seven' : ''}`}>{sum}</div>}
+    );
+  }
+  const many = roll.faces.length > 1;
+  return (
+    <div className={`dice-roll${roll.settled ? ' settled' : ''}${many ? ' many' : ''}`} aria-hidden="true">
+      {roll.faces.map((f, i) => {
+        const sum = f[0] + f[1];
+        return (
+          <div key={i} className="roll-pair">
+            <div className="dice-roll-dice">
+              <span className="roll-die d1"><DieFace value={f[0]} tone={red ? 'red' : 'light'} size={many ? 52 : 66} /></span>
+              <span className="roll-die d2"><DieFace value={f[1]} tone="light" size={many ? 52 : 66} /></span>
+              {event && roll.settled && <span className="roll-die d3"><EventFace face={event} size={66} /></span>}
+            </div>
+            {roll.settled && <div className={`roll-sum${sum === 7 ? ' seven' : ''}`}>{sum}</div>}
+          </div>
+        );
+      })}
     </div>
   );
 }

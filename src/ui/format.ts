@@ -36,6 +36,7 @@ export function formatLog(e: { k: string; p?: LogEntry['p'] }, view: GameState, 
     else if (k === 'track') p[k] = t(`track.${v}`);
     else if (k === 'terrain') p[k] = lower(t(`terrain.${v}`));
     else if (k === 'kind' || k === 'target') p[k] = lower(t(`piece.${v}`));
+    else if (k === 'ev') p[k] = t(`chronicle.ev.${v}`);
     else p[k] = v as string | number;
   }
   return t(`log.${e.k}`, p);

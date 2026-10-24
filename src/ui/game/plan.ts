@@ -1,12 +1,13 @@
 // Qué se puede tocar en el tablero ahora y qué acción produce cada toque.
 import * as C from '../../engine/core';
 import * as Guild from '../../engine/guilds';
+import * as Duel from '../../engine/mods/duel';
 import type { Action, GameState, ProgressType } from '../../engine/types';
 import type { Targets } from '../Board';
 
 export type Mode =
   | null
-  | { k: 'build'; what: 'road' | 'ship' | 'settlement' | 'city' | 'wall' }
+  | { k: 'build'; what: 'road' | 'ship' | 'settlement' | 'city' | 'wall' | 'repair' }
   | { k: 'recruit' }
   | { k: 'activate' }
   | { k: 'promote' }
@@ -72,6 +73,12 @@ export function plan(v: GameState, me: number | null, mode: Mode, routeKind: 'ro
         return { targets: { vertices: myKnights(v, me) }, hint: 'step.deserterChoose', pick: (_k, id) => ({ act: { t: 'deserterChoose', vertex: id } }) };
       case 'deserterPlace':
         return { targets: { vertices: C.recruitSpots(v, me) }, hint: 'step.deserterPlace', hintParams: { n: st.level }, pick: (_k, id) => ({ act: { t: 'deserterPlace', vertex: id } }), skip: { t: 'deserterPlace', vertex: null } };
+      case 'quake':
+        return { targets: { edges: Object.keys(v.roads).filter((e) => v.roads[e].owner === me && !v.roads[e].broken) }, hint: 'step.quake', pick: (_k, id) => ({ act: { t: 'quake', edge: id } }) };
+      case 'neutral': {
+        const ids = Duel.neutralSpots(v, st.what);
+        return { targets: st.what === 'road' ? { edges: ids } : { vertices: ids }, hint: `step.neutral.${st.what}`, pick: (_k, id) => ({ act: { t: 'neutral', at: id } }) };
+      }
       default:
         return { targets: null, hint: null };
     }
@@ -108,9 +115,10 @@ export function plan(v: GameState, me: number | null, mode: Mode, routeKind: 'ro
         settlement: () => C.legalSettlements(v, me),
         city: () => C.legalCities(v, me),
         wall: () => myCities(v, me).filter((x) => !v.buildings[x].wall),
+        repair: () => Object.keys(v.roads).filter((e) => v.roads[e].owner === me && v.roads[e].broken),
       };
       const ids = lists[mode.what]();
-      const isEdge = mode.what === 'road' || mode.what === 'ship';
+      const isEdge = mode.what === 'road' || mode.what === 'ship' || mode.what === 'repair';
       return {
         targets: isEdge ? { edges: ids } : { vertices: ids },
         hint: ids.length ? `pick.${mode.what}` : 'pick.none',

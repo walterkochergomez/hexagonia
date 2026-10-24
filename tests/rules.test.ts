@@ -5,6 +5,9 @@ import { Rng, seedRng } from '../src/engine/rng';
 import * as C from '../src/engine/core';
 import { viewFor } from '../src/engine/view';
 import { buildGraph, parseHex, sharedVertex } from '../src/engine/geometry';
+import { harborPoints } from '../src/engine/mods/harbor';
+import { CHRONICLE_CARDS, newDeck } from '../src/engine/mods/chronicle';
+import * as Duel from '../src/engine/mods/duel';
 import { settings, seats, totals } from './helpers';
 import {
   CARDS, RESOURCES, handTotal, type Action, type Card, type GameState, type Hand, type SeaScenario, type Settings,
@@ -662,6 +665,194 @@ describe('vistas', () => {
     expect(v0.log.at(-1)!.k).toBe('dev.buy.card');
     expect(v0.players[0].dev.length).toBe(1);
     expect(RESOURCES.every((r) => v2.bank[r] === s.bank[r])).toBe(true);
+  });
+});
+
+describe('Comarcas: señor de los muelles', () => {
+  it('puntos de puerto, premio con 3 y se quita superándolo', () => {
+    let s = main(game({ seed: 50, harbormaster: true }));
+    expect(s.settings.vpTarget).toBe(11);
+    const g = C.G(s);
+    const spots = s.board.harbors.map((h) => g.edges[h.edge].a);
+    s.buildings[spots[0]] = { owner: 0, kind: 'city' };
+    expect(harborPoints(s, 0)).toBe(2);
+    s.buildings[spots[1]] = { owner: 0, kind: 'settlement' };
+    s = act(s, 0, { t: 'endTurn' });
+    expect(s.awards.harbor).toEqual({ owner: 0, pts: 3 });
+    expect(C.vpOf(s, 0)).toBe(3 + 2);
+    // otro jugador con 3: no alcanza, hay que superarlo
+    s.buildings[spots[2]] = { owner: 1, kind: 'city' };
+    s.buildings[spots[3]] = { owner: 1, kind: 'settlement' };
+    s = main(s, 1);
+    s = act(s, 1, { t: 'endTurn' });
+    expect(s.awards.harbor!.owner).toBe(0);
+    s.buildings[spots[3]].kind = 'city';
+    s = main(s, 1);
+    s = act(s, 1, { t: 'endTurn' });
+    expect(s.awards.harbor).toEqual({ owner: 1, pts: 4 });
+  });
+});
+
+describe('Comarcas: mazo de sucesos', () => {
+  it('36 cartas como dos dados, 20 con suceso y el año nuevo cerca del fondo', () => {
+    expect(CHRONICLE_CARDS.length).toBe(36);
+    const by = (n: number) => CHRONICLE_CARDS.filter((c) => c.n === n).length;
+    expect([2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(by)).toEqual([1, 2, 3, 4, 5, 6, 5, 4, 3, 2, 1]);
+    expect(CHRONICLE_CARDS.filter((c) => c.ev).length).toBe(20);
+    const deck = newDeck(new Rng(seedRng(3)));
+    expect(deck.length).toBe(37);
+    expect(deck.findIndex((c) => c.newYear)).toBe(31);
+  });
+
+  it('la carta reemplaza a los dados; el año nuevo baraja todo', () => {
+    let s = main(game({ seed: 51, chronicle: true }));
+    s.turn.phase = 'preRoll';
+    s.hidden.chronicle = [{ n: 0, newYear: true }, { n: 9 }];
+    s = act(s, 0, { t: 'roll' });
+    expect(s.turn.card!.n).toBeGreaterThan(1);
+    expect(s.turn.dice![0] + s.turn.dice![1]).toBe(s.turn.card!.n);
+    expect(s.log.some((e) => e.k === 'chronicle.newYear')).toBe(true);
+    expect(s.chronicle!.left).toBe(36);
+  });
+
+  it('peste: las ciudades producen como poblados', () => {
+    let s = main(game({ seed: 52, chronicle: true }));
+    const hex = Object.values(s.board.hexes).find((h) => h.terrain === 'mountains' && h.number && h.number !== 7)!;
+    s.board.robber = null;
+    s.buildings[C.G(s).hexes[hex.id].vertices[0]] = { owner: 1, kind: 'city' };
+    s.turn.phase = 'preRoll';
+    s.hidden.chronicle = [{ n: hex.number!, ev: 'plague' }];
+    s = act(s, 0, { t: 'roll' });
+    expect(s.players[1].hand.ore).toBe(1);
+  });
+
+  it('temblor: un camino dañado no cuenta para la ruta y bloquea caminos nuevos hasta repararlo', () => {
+    let s = main(game({ seed: 53, chronicle: true }));
+    const { vs, es } = landPath(s, 5);
+    s.buildings[vs[0]] = { owner: 0, kind: 'settlement' };
+    for (const e of es) s.roads[e] = { owner: 0 };
+    C.updateRoadAward(s);
+    expect(s.awards.road.owner).toBe(0);
+    s.turn.phase = 'preRoll';
+    s.hidden.chronicle = [{ n: 6, ev: 'quake' }];
+    s = act(s, 0, { t: 'roll' });
+    expect(s.steps[0]).toMatchObject({ k: 'quake', waiting: [0] });
+    s = act(s, 0, { t: 'quake', edge: es[2] });
+    expect(s.roads[es[2]].broken).toBe(true);
+    expect(s.awards.road.owner).toBe(null);
+    give(s, 0, { lumber: 2, brick: 2 });
+    expect(C.legalRoads(s, 0)).toEqual([]);
+    s = act(s, 0, { t: 'build', what: 'repair', at: es[2] });
+    expect(s.roads[es[2]].broken).toBeUndefined();
+    expect(s.awards.road.owner).toBe(0);
+    expect(C.legalRoads(s, 0).length).toBeGreaterThan(0);
+  });
+
+  it('buenos vecinos: cada uno regala un recurso al siguiente', () => {
+    let s = main(game({ seed: 54, chronicle: true }, 3));
+    give(s, 0, { wool: 1 });
+    give(s, 1, { ore: 1 });
+    s.turn.phase = 'preRoll';
+    s.hidden.chronicle = [{ n: 6, ev: 'neighbors' }];
+    s = act(s, 0, { t: 'roll' });
+    expect(s.steps[0]).toMatchObject({ k: 'gift', waiting: { 0: 1, 1: 1 }, to: { 0: [1], 1: [2] } });
+    expect(() => act(s, 0, { t: 'gift', to: 2, cards: { wool: 1 } })).toThrow();
+    s = act(s, 0, { t: 'gift', to: 1, cards: { wool: 1 } });
+    s = act(s, 1, { t: 'gift', to: 2, cards: { ore: 1 } });
+    expect(s.players[1].hand.wool).toBe(1);
+    expect(s.players[2].hand.ore).toBe(1);
+  });
+});
+
+describe('Comarcas: duelo', () => {
+  it('dos neutrales con dos poblados y caminos; los turnos los saltan', () => {
+    let s = createGame(settings({ seed: 60, duel: true }), seats(2));
+    expect(s.players.length).toBe(4);
+    expect(s.players.filter((p) => p.neutral).length).toBe(2);
+    for (const n of [2, 3]) {
+      expect(Object.values(s.buildings).filter((b) => b.owner === n).length).toBe(2);
+      expect(Object.values(s.roads).filter((r) => r.owner === n).length).toBe(2);
+    }
+    expect(s.turn.setupOrder.every((x) => x < 2)).toBe(true);
+    expect(s.players[0].tokens).toBe(5);
+    expect(s.duel!.supply).toBe(10);
+    s = main(s, 1);
+    s = act(s, 1, { t: 'endTurn' });
+    expect(s.turn.current).toBe(0);
+  });
+
+  it('dos tiradas distintas por turno', () => {
+    let s = main(createGame(settings({ seed: 61, duel: true }), seats(2)), 0);
+    for (let i = 0; i < 12; i++) {
+      s.turn.phase = 'preRoll';
+      s.steps = [];
+      s = act(s, 0, { t: 'roll' });
+      while (s.steps.length) {
+        const st = s.steps[0];
+        if (st.k === 'discard') s = act(s, C.waitingSeats(st)[0], { t: 'discard', cards: Object.fromEntries(Object.entries(s.players[C.waitingSeats(st)[0]].hand).filter(([, n]) => n > 0).slice(0, 1)) as Partial<Hand> });
+        else if (st.k === 'robber') s = act(s, 0, { t: 'robber', hex: C.legalRobberHexes(s, 0)[0], target: 'robber' });
+        else if (st.k === 'steal') s = act(s, 0, { t: 'steal', from: st.from[0] });
+        else break;
+      }
+      if (s.steps.length) continue;
+      const [a, b] = s.turn.rolls!;
+      expect(s.turn.rolls!.length).toBe(2);
+      expect(a[0] + a[1]).not.toBe(b[0] + b[1]);
+    }
+  });
+
+  it('al construir, el jugador hace crecer a un neutral', () => {
+    let s = main(createGame(settings({ seed: 62, duel: true }), seats(2)), 0);
+    const mine = Object.keys(s.buildings).find((v) => s.buildings[v].owner === 0);
+    expect(mine).toBeUndefined(); // sin preparación todavía
+    const v = C.legalSetupVertices(s)[0];
+    s.buildings[v] = { owner: 0, kind: 'settlement' };
+    give(s, 0, { lumber: 1, brick: 1 });
+    const e = C.legalRoads(s, 0)[0];
+    s = act(s, 0, { t: 'build', what: 'road', at: e });
+    expect(s.steps[0]).toMatchObject({ k: 'neutral', seat: 0, what: 'road' });
+    expect(() => act(s, 0, { t: 'endTurn' })).toThrow();
+    const spot = Duel.neutralSpots(s, 'road')[0];
+    s = act(s, 0, { t: 'neutral', at: spot });
+    expect(s.roads[spot].owner).toBeGreaterThanOrEqual(2);
+    expect(s.steps.length).toBe(0);
+  });
+
+  it('fichas: el cambio forzado cuesta 1 yendo atrás y 2 yendo adelante; el ladrón vuelve al desierto', () => {
+    let s = main(createGame(settings({ seed: 63, duel: true }), seats(2)), 0);
+    s.buildings[C.legalSetupVertices(s)[0]] = { owner: 1, kind: 'settlement' };
+    expect(Duel.tokenCost(s, 0)).toBe(1);
+    give(s, 1, { ore: 3 });
+    give(s, 0, { wool: 2 });
+    s = act(s, 0, { t: 'token', use: 'force' });
+    expect(s.players[0].tokens).toBe(4);
+    expect(s.players[0].hand.ore).toBe(2);
+    expect(s.steps[0]).toMatchObject({ k: 'gift', reason: 'force', waiting: { 0: 2 }, to: { 0: [1] } });
+    s = act(s, 0, { t: 'gift', to: 1, cards: { wool: 2 } });
+    expect(s.players[1].hand).toMatchObject({ ore: 1, wool: 2 });
+    // una vez por turno
+    expect(() => act(s, 0, { t: 'token', use: 'robber' })).toThrow();
+    s.turn.tokenUsed = false;
+    s.board.robber = Object.keys(s.board.hexes).find((h) => C.hexIsLand(s, h) && h !== s.board.robberStart)!;
+    s.buildings[C.legalSetupVertices(s)[0]] = { owner: 0, kind: 'city' };
+    expect(Duel.tokenCost(s, 0)).toBe(2);
+    s = act(s, 0, { t: 'token', use: 'robber' });
+    expect(s.board.robber).toBe(s.board.robberStart);
+    expect(s.players[0].tokens).toBe(2);
+  });
+
+  it('fichas por poblados en la costa y junto al desierto', () => {
+    let s = main(createGame(settings({ seed: 64, duel: true }), seats(2)), 0);
+    const g = C.G(s);
+    const desert = s.board.robberStart!;
+    const v = g.hexes[desert].vertices.find((x) => C.canSettle(s, 0, x) || C.distanceOk(s, x))!;
+    const e = g.vertices[v].edges.find((x) => C.edgeRoadable(s, x))!;
+    s.roads[e] = { owner: 0 };
+    give(s, 0, { lumber: 1, brick: 1, wool: 1, grain: 1 });
+    const before = s.players[0].tokens!;
+    s = act(s, 0, { t: 'build', what: 'settlement', at: v });
+    const coast = g.vertices[v].hexes.some((h) => s.board.hexes[h].terrain === 'sea');
+    expect(s.players[0].tokens! - before).toBe(2 + (coast ? 1 : 0));
   });
 });
 

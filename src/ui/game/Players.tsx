@@ -12,6 +12,18 @@ export function Players({ view, me, lobby, compact }: { view: GameState; me: num
     <ol className={`players${compact ? ' compact' : ''}`} tabIndex={0} aria-label={t('act.players')}>
       {view.players.map((p) => {
         const seat = p.seat;
+        if (p.neutral) {
+          const label = t('player.neutral', { n: neutralLetter(view, seat) });
+          return compact ? null : (
+            <li key={seat} className="player neutral" data-seat={seat}>
+              <div className="prow">
+                <PlayerMark color={p.color} />
+                <span className="pname">{label}</span>
+                <span className="tag">{t('player.neutralTag')}</span>
+              </div>
+            </li>
+          );
+        }
         const vp = C.vpOf(view, seat, seat === me || view.winner !== null);
         const offline = lobby?.seats[seat] && !lobby.seats[seat].connected;
         const knights = Object.values(view.knights).filter((k) => k.owner === seat);
@@ -20,6 +32,7 @@ export function Players({ view, me, lobby, compact }: { view: GameState; me: num
         const badges: string[] = [];
         if (view.awards.road.owner === seat) badges.push(t('player.longest'));
         if (!view.settings.guilds && view.awards.army.owner === seat) badges.push(t('player.army'));
+        if (view.awards.harbor?.owner === seat) badges.push(t('player.harbor'));
         for (const tr of TRACKS) if (view.metropolis[tr]?.owner === seat) badges.push(t('guild.metro', { track: t(`track.${tr}`) }));
         if (p.defender) badges.push(`${t('player.defender')} ×${p.defender}`);
         const bonus = p.bonus.reduce((a, b) => a + b.vp, 0);
@@ -50,6 +63,7 @@ export function Players({ view, me, lobby, compact }: { view: GameState; me: num
               {view.settings.guilds && <span>{t('player.progress', { n: p.progressCount ?? 0 })}</span>}
               {view.settings.guilds && <span>{t('player.knights', { n: `${strength}/${knights.reduce((a, k) => a + k.level, 0)}` })}</span>}
               <span>{t('player.route', { n: route })}</span>
+              {p.tokens !== undefined && <span>{t('player.tokens', { n: p.tokens })}</span>}
               {view.settings.guilds && (
                 <span className="tracks" aria-label={t('guild.title')}>
                   {TRACKS.map((tr) => <span key={tr} className={`lvl tr-${tr}`} title={`${t(`track.${tr}`)} ${p.improvements[tr]}`}>{p.improvements[tr]}</span>)}
@@ -62,4 +76,10 @@ export function Players({ view, me, lobby, compact }: { view: GameState; me: num
       })}
     </ol>
   );
+}
+
+/** Letra de cada neutral (A, B) en el orden de la mesa. */
+export function neutralLetter(view: GameState, seat: number): string {
+  const i = view.players.filter((p) => p.neutral).findIndex((p) => p.seat === seat);
+  return String.fromCharCode(65 + Math.max(0, i));
 }

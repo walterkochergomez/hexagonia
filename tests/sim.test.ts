@@ -12,6 +12,13 @@ const configs: [string, Partial<Settings>, number[]][] = [
   ['gremios 5-6', { guilds: true, turnMode: 'specialBuild' }, [5, 6]],
   ['gremios + mar', { guilds: true, openSea: true, scenario: 'islands' }, [4]],
   ['gremios + mar desierto', { guilds: true, openSea: true, scenario: 'desert' }, [3, 6]],
+  // Comarcas
+  ['señor de los muelles', { harbormaster: true }, [3, 4]],
+  ['mazo de sucesos', { chronicle: true }, [3, 4]],
+  ['sucesos + muelles 5-6', { chronicle: true, harbormaster: true, turnMode: 'paired' }, [5]],
+  ['sucesos + mar', { chronicle: true, openSea: true, scenario: 'islands' }, [4]],
+  ['duelo', { duel: true }, [2]],
+  ['duelo + sucesos + muelles', { duel: true, chronicle: true, harbormaster: true }, [2]],
 ];
 
 const GAMES = Number(process.env.SIM_GAMES ?? 6);

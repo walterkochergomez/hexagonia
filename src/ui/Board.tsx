@@ -24,10 +24,28 @@ interface Props {
   view: GameState;
   targets: Targets | null;
   onPick?: (kind: 'vertex' | 'edge' | 'hex', id: string) => void;
-  /** Número que acaba de salir: sus casillas se iluminan cuando terminan de rodar los dados. */
-  flash: { key: string; number: number } | null;
+  /** Números que acaban de salir: sus casillas se iluminan cuando terminan de rodar los dados. */
+  flash: { key: string; numbers: number[] } | null;
   /** capas encima del tablero (dados, avisos), sin eventos de puntero */
   children?: ReactNode;
+  /** Ilustración fija (manuales): sin gestos, sin herramientas, sin giro ni inclinación. */
+  still?: boolean;
+  /** con `still`: número cuyas casillas se ven encendidas */
+  lit?: number | null;
+  /** con `still`: dibujo extra encima de las piezas, en coordenadas del tablero */
+  overlay?: (at: BoardPos) => ReactNode;
+  /** con `still`: descripción para lectores de pantalla */
+  label?: string;
+  /** con `still`: false si la página ya tiene las definiciones de las fichas */
+  defs?: boolean;
+  /** con `still`: margen extra alrededor (arriba, derecha, abajo, izquierda) para dibujos que salen de la isla */
+  pad?: [number, number, number, number];
+}
+
+export interface BoardPos {
+  v: (id: string) => [number, number];
+  e: (id: string) => [number, number];
+  h: (id: string) => [number, number];
 }
 
 /** Claves que aparecieron desde la última vez (para que las piezas nuevas caigan en su lugar). */
@@ -69,11 +87,13 @@ function useHop(ref: RefObject<SVGGElement | null>, pos: [number, number] | null
   }, [posKey]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
-export function Board({ view, targets, onPick, flash, children }: Props) {
+export function Board({ view, targets, onPick, flash, children, still = false, lit: litFixed = null, overlay, label, defs = true, pad }: Props) {
   const t = useT();
-  const { boardRot, boardTilt } = usePrefs();
+  const prefsNow = usePrefs();
   // el tablero gira en pasos de 60°: como las casillas son hexágonos, basta con mover los centros y todo queda derecho
-  const rot = (boardRot % 6) * 60;
+  const rot = still ? 0 : (prefsNow.boardRot % 6) * 60;
+  const boardTilt = !still && prefsNow.boardTilt;
+  const boardRot = prefsNow.boardRot;
   const g = graphOf(view.board.hexes);
   const svgRef = useRef<SVGSVGElement>(null);
   const [tf, setTf] = useState({ x: 0, y: 0, k: 1 });
@@ -82,7 +102,8 @@ export function Board({ view, targets, onPick, flash, children }: Props) {
   const suppress = useRef(0);
 
   // casillas que producen: se encienden cuando los dados ya se detuvieron
-  const [lit, setLit] = useState<{ key: string; number: number } | null>(null);
+  const [litNow, setLit] = useState<{ key: string; numbers: number[] } | null>(null);
+  const lit = still ? (litFixed ? { key: 'fig', numbers: [litFixed] } : null) : litNow;
   const shownFlash = useRef(flash?.key); // la tirada que ya estaba al abrir la partida no se repite
   useEffect(() => {
     if (!flash || flash.key === shownFlash.current) return;
@@ -121,9 +142,10 @@ export function Board({ view, targets, onPick, flash, children }: Props) {
         grow(qx - 17, qy - 17, qx + 17, qy + 19);
       }
     }
-    const m = openSea ? 10 : 14;
-    return { x: x0 - m, y: y0 - m, w: x1 - x0 + 2 * m, h: y1 - y0 + 2 * m };
-  }, [g, openSea, view.board.harbors, rot]); // eslint-disable-line react-hooks/exhaustive-deps
+    const m = still ? 26 : openSea ? 10 : 14;
+    const [pt, pr, pb, pl] = still && pad ? pad : [0, 0, 0, 0];
+    return { x: x0 - m - pl, y: y0 - m - pt, w: x1 - x0 + 2 * m + pl + pr, h: y1 - y0 + 2 * m + pt + pb };
+  }, [g, openSea, view.board.harbors, rot, still, pad?.join()]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // al girar o inclinar se vuelve al encuadre completo
   useEffect(() => setTf({ x: 0, y: 0, k: 1 }), [rot, boardTilt]);
@@ -239,7 +261,7 @@ export function Board({ view, targets, onPick, flash, children }: Props) {
           {land.map((h) => {
             const [cx, cy] = hpos(h.id);
             const robbed = h.id === view.board.robber;
-            const on = !!lit && h.number === lit.number && !robbed;
+            const on = !!lit && h.number !== null && lit.numbers.includes(h.number) && !robbed;
             return (
               <g key={h.id} transform={`translate(${cx} ${cy})`} className={`hex t-${h.terrain}${robbed ? ' robbed' : ''}${on ? ' lit' : ''}`} data-hex={h.id}>
                 <title>{name(`terrain.${h.terrain}`) + (h.number ? ` ${h.number}` : '')}</title>
@@ -292,7 +314,94 @@ export function Board({ view, targets, onPick, flash, children }: Props) {
         </g>
       </>
     );
-  }, [view.board, lit?.key, lit?.number, t, rot]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [view.board, lit?.key, lit?.numbers.join(), t, rot]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const routes = () => (
+    <>
+      {Object.entries(view.roads).map(([e, r]) => {
+        const ed = g.edges[e];
+        const [ax, ay] = vpos(ed.a);
+        const [bx, by] = vpos(ed.b);
+        const k = 0.15;
+        const x0 = ax + (bx - ax) * k, y0 = ay + (by - ay) * k, x1 = bx - (bx - ax) * k, y1 = by - (by - ay) * k;
+        const d = `M${x0} ${y0} L${x1} ${y1}`;
+        const isNew = fresh.has(`r:${e}`);
+        return (
+          <g key={e} className={`road p${colorOf(r.owner)}${isNew ? ' fresh-road' : ''}${r.broken ? ' broken' : ''}`}>
+            <path d={`M${x0 + 1.5} ${y0 + 2.6} L${x1 + 1.5} ${y1 + 2.6}`} className="road-shadow" pathLength={1} />
+            <path d={d} className="road-outline" pathLength={1} />
+            <path d={d} className="road-fill" pathLength={1} />
+            <path d={`M${x0} ${y0 - 1.3} L${x1} ${y1 - 1.3}`} className="road-shine" pathLength={1} />
+          </g>
+        );
+      })}
+      {Object.entries(view.ships).map(([e, r]) => {
+        const ed = g.edges[e];
+        const [x, y] = at(ed.X, ed.Y);
+        return (
+          <g key={e} transform={`translate(${x} ${y})`}>
+            <g transform={stand}><g className={fresh.has(`s:${e}`) ? 'fresh-drop' : undefined}><ShipShape color={colorOf(r.owner)} /></g></g>
+          </g>
+        );
+      })}
+    </>
+  );
+  const pieces = () => (
+    <>
+      {Object.entries(view.buildings).map(([v, b]) => {
+        const [x, y] = vpos(v);
+        const isNew = fresh.has(`b:${v}:${b.kind}:${b.wall ? 'w' : ''}:${b.metro ?? ''}`);
+        return (
+          <g key={v} transform={`translate(${x} ${y})`}>
+            {isNew && <ellipse cx={1} cy={8} rx={13} ry={4} className="dust" />}
+            <g transform={stand}>
+              <g className={isNew ? 'fresh-drop' : undefined}>
+                {b.kind === 'city' ? <CityShape color={colorOf(b.owner)} wall={b.wall} metro={b.metro} damaged={b.damaged} /> : <SettlementShape color={colorOf(b.owner)} />}
+              </g>
+            </g>
+          </g>
+        );
+      })}
+      {Object.entries(view.knights).map(([v, k]) => {
+        const [x, y] = vpos(v);
+        const isNew = fresh.has(`k:${v}:${k.level}:${k.active ? 1 : 0}`);
+        return (
+          <g key={v} transform={`translate(${x} ${y})`}>
+            <g transform={stand}><g className={isNew ? 'fresh-drop' : undefined}><KnightShape color={colorOf(k.owner)} level={k.level} active={k.active} /></g></g>
+          </g>
+        );
+      })}
+    </>
+  );
+  const tokens = () => (
+    <>
+      {robberAt && (() => {
+        const [x, y] = hpos(robberAt);
+        return <g transform={`translate(${x - 26} ${y + 4})`}><title>{t('piece.robber')}</title><g ref={robberRef}><g transform={stand}><g transform="scale(1.15)"><RobberShape /></g></g></g></g>;
+      })()}
+      {pirateAt && (() => {
+        const [x, y] = hpos(pirateAt);
+        return <g transform={`translate(${x} ${y})`}><title>{t('piece.pirate')}</title><g ref={pirateRef}><g transform={stand}><g transform="scale(1.5)"><ShipShape /></g></g></g></g>;
+      })()}
+      {view.board.merchant && (() => {
+        const [x, y] = hpos(view.board.merchant.hex);
+        return <g transform={`translate(${x + 26} ${y + 4})`}><title>{t('piece.merchant')}</title><g transform={stand}><MerchantShape color={colorOf(view.board.merchant.owner)} /></g></g>;
+      })()}
+    </>
+  );
+
+  if (still) {
+    return (
+      <svg className="board still" viewBox={`${box.x} ${box.y} ${box.w} ${box.h}`} preserveAspectRatio="xMidYMid meet" role="img" aria-label={label ?? t('app.name')}>
+        {defs && <TileDefs />}
+        {landscape}
+        <g className="layer-routes">{routes()}</g>
+        <g className="layer-buildings">{pieces()}</g>
+        <g className="layer-tokens">{tokens()}</g>
+        {overlay && <g className="layer-overlay">{overlay({ v: vpos, h: hpos, e: (id) => at(g.edges[id].X, g.edges[id].Y) })}</g>}
+      </svg>
+    );
+  }
 
   return (
     <div className={`board-wrap${boardTilt ? ' tilted' : ''}`}>
@@ -328,75 +437,9 @@ export function Board({ view, targets, onPick, flash, children }: Props) {
             </g>
           )}
 
-          <g className="layer-routes">
-            {Object.entries(view.roads).map(([e, r]) => {
-              const ed = g.edges[e];
-              const [ax, ay] = vpos(ed.a);
-              const [bx, by] = vpos(ed.b);
-              const k = 0.15;
-              const x0 = ax + (bx - ax) * k, y0 = ay + (by - ay) * k, x1 = bx - (bx - ax) * k, y1 = by - (by - ay) * k;
-              const d = `M${x0} ${y0} L${x1} ${y1}`;
-              const isNew = fresh.has(`r:${e}`);
-              return (
-                <g key={e} className={`road p${colorOf(r.owner)}${isNew ? ' fresh-road' : ''}`}>
-                  <path d={`M${x0 + 1.5} ${y0 + 2.6} L${x1 + 1.5} ${y1 + 2.6}`} className="road-shadow" pathLength={1} />
-                  <path d={d} className="road-outline" pathLength={1} />
-                  <path d={d} className="road-fill" pathLength={1} />
-                  <path d={`M${x0} ${y0 - 1.3} L${x1} ${y1 - 1.3}`} className="road-shine" pathLength={1} />
-                </g>
-              );
-            })}
-            {Object.entries(view.ships).map(([e, r]) => {
-              const ed = g.edges[e];
-              const [x, y] = at(ed.X, ed.Y);
-              return (
-                <g key={e} transform={`translate(${x} ${y})`}>
-                  <g transform={stand}><g className={fresh.has(`s:${e}`) ? 'fresh-drop' : undefined}><ShipShape color={colorOf(r.owner)} /></g></g>
-                </g>
-              );
-            })}
-          </g>
-
-          <g className="layer-buildings">
-            {Object.entries(view.buildings).map(([v, b]) => {
-              const [x, y] = vpos(v);
-              const isNew = fresh.has(`b:${v}:${b.kind}:${b.wall ? 'w' : ''}:${b.metro ?? ''}`);
-              return (
-                <g key={v} transform={`translate(${x} ${y})`}>
-                  {isNew && <ellipse cx={1} cy={8} rx={13} ry={4} className="dust" />}
-                  <g transform={stand}>
-                    <g className={isNew ? 'fresh-drop' : undefined}>
-                      {b.kind === 'city' ? <CityShape color={colorOf(b.owner)} wall={b.wall} metro={b.metro} damaged={b.damaged} /> : <SettlementShape color={colorOf(b.owner)} />}
-                    </g>
-                  </g>
-                </g>
-              );
-            })}
-            {Object.entries(view.knights).map(([v, k]) => {
-              const [x, y] = vpos(v);
-              const isNew = fresh.has(`k:${v}:${k.level}:${k.active ? 1 : 0}`);
-              return (
-                <g key={v} transform={`translate(${x} ${y})`}>
-                  <g transform={stand}><g className={isNew ? 'fresh-drop' : undefined}><KnightShape color={colorOf(k.owner)} level={k.level} active={k.active} /></g></g>
-                </g>
-              );
-            })}
-          </g>
-
-          <g className="layer-tokens">
-            {robberAt && (() => {
-              const [x, y] = hpos(robberAt);
-              return <g transform={`translate(${x - 26} ${y + 4})`}><title>{t('piece.robber')}</title><g ref={robberRef}><g transform={stand}><g transform="scale(1.15)"><RobberShape /></g></g></g></g>;
-            })()}
-            {pirateAt && (() => {
-              const [x, y] = hpos(pirateAt);
-              return <g transform={`translate(${x} ${y})`}><title>{t('piece.pirate')}</title><g ref={pirateRef}><g transform={stand}><g transform="scale(1.5)"><ShipShape /></g></g></g></g>;
-            })()}
-            {view.board.merchant && (() => {
-              const [x, y] = hpos(view.board.merchant.hex);
-              return <g transform={`translate(${x + 26} ${y + 4})`}><title>{t('piece.merchant')}</title><g transform={stand}><MerchantShape color={colorOf(view.board.merchant.owner)} /></g></g>;
-            })()}
-          </g>
+          <g className="layer-routes">{routes()}</g>
+          <g className="layer-buildings">{pieces()}</g>
+          <g className="layer-tokens">{tokens()}</g>
 
           {targets && (
             <g className="layer-targets">

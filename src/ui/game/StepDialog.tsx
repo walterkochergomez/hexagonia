@@ -11,6 +11,7 @@ export function StepDialog({ view, me, st, send }: { view: GameState; me: number
   const hand = view.players[me].hand;
   const [sel, setSel] = useState<Partial<Hand>>({});
   const [offers, setOffers] = useState<Record<number, Resource | ''>>({});
+  const [gift, setGift] = useState<number | null>(null);
   const name = (s: number) => view.players[s]?.name ?? '?';
   const cardsInHand = (view.settings.guilds ? CARDS : RESOURCES).filter((c) => hand[c] > 0);
 
@@ -103,6 +104,28 @@ export function StepDialog({ view, me, st, send }: { view: GameState; me: number
         </Modal>
       );
     }
+    case 'gift': {
+      const n = st.waiting[me];
+      const to = st.to[me] ?? [];
+      const only = st.reason === 'force' ? CARDS : RESOURCES;
+      const target = to.length === 1 ? to[0] : gift;
+      const title = st.reason === 'force' ? t('step.gift.force', { n, name: name(to[0]) }) : st.reason === 'aid' ? t('step.gift.aid') : t('step.gift.neighbors', { name: name(to[0]) });
+      return (
+        <Modal title={title}
+          actions={<button type="button" className="btn primary" disabled={handTotal(sel) !== n || target === null} onClick={() => send({ t: 'gift', to: target!, cards: sel })}>{t('common.confirm')}</button>}>
+          {to.length > 1 && (
+            <div className="choice-list" role="radiogroup" aria-label={t('step.gift.to')}>
+              {to.map((x) => (
+                <button key={x} type="button" role="radio" aria-checked={gift === x} className={`btn ${gift === x ? 'primary' : 'secondary'}`} onClick={() => setGift(x)}>
+                  <PlayerMark color={view.players[x].color} size={16} /> {name(x)}
+                </button>
+              ))}
+            </div>
+          )}
+          <CardPicker cards={only.filter((c) => hand[c] > 0)} limit={hand} value={sel} onChange={setSel} total={n} />
+        </Modal>
+      );
+    }
     case 'harborOffer': {
       const used: Partial<Hand> = {};
       for (const r of Object.values(offers)) if (r) used[r] = (used[r] ?? 0) + 1;
@@ -148,4 +171,4 @@ function ResourceButtons({ cards, onPick }: { cards: readonly Card[]; onPick: (c
   );
 }
 
-export const DIALOG_STEPS = ['discard', 'steal', 'pick', 'monopoly', 'defenderPick', 'progressLimit', 'spy', 'masterMerchant', 'give', 'harborOffer', 'harborReply'];
+export const DIALOG_STEPS = ['discard', 'steal', 'pick', 'monopoly', 'defenderPick', 'progressLimit', 'spy', 'masterMerchant', 'give', 'harborOffer', 'harborReply', 'gift'];

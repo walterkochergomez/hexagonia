@@ -6,6 +6,7 @@ Juego de colonización y comercio en una isla de hexágonos, para jugar en líne
 - **Mar Abierto**: barcos, pirata, campos de oro, islas que dan puntos extra, mar de niebla y cinco escenarios con mapas generados en cada partida.
 - **Gremios y Guardianes**: mercancías, mejoras de ciudad con metrópolis, caballeros, ataques bárbaros y 54 cartas de progreso.
 - Los dos módulos se pueden **combinar**.
+- **Comarcas**: variantes para la isla base que se suman a cualquier partida: señor de los muelles, mazo de sucesos en vez de dados y duelo para 2 jugadores con colores neutrales.
 - **Salas con código**: quien crea la sala comparte un link y los demás entran desde cualquier navegador (también desde el celular).
 - **Partida en un solo dispositivo** pasándolo de mano en mano, o contra bots.
 
@@ -17,7 +18,7 @@ Juego de colonización y comercio en una isla de hexágonos, para jugar en líne
 
 Si alguien pierde la conexión, vuelve a abrir el mismo link y recupera su lugar. Si el anfitrión cierra la pestaña, la partida queda guardada en su navegador: al volver a la página aparece **Continuar sala** con el mismo código y los demás se reconectan solos.
 
-Las reglas completas están dentro del juego, en el botón **?**.
+Cada versión tiene su manual dentro del juego (botón **?**), ilustrado con las mismas piezas del tablero, en tres idiomas y listo para imprimir.
 
 ## Publicarlo en tu GitHub
 
@@ -45,6 +46,8 @@ npm run e2e:soak   # partidas completas por la interfaz en cada modo
 npm run e2e:a11y   # revisión de accesibilidad
 npm run e2e:fit    # que nada se salga de la pantalla en celulares (320–430 px, tres idiomas)
 npm run e2e:fx     # animaciones: dados, cartas que viajan, piezas que caen, ladrón, aviso de turno y «reducir movimiento»
+npm run e2e:manual # manuales: cada uno en tres idiomas, figuras dibujadas, celular, accesibilidad e impresión
+npm run e2e:shires # Comarcas en la interfaz: neutrales, cartas de sucesos, fichas y construcción para neutrales
 ```
 
 ### Cómo está hecho

@@ -44,6 +44,10 @@ export const EVENT_FACES: readonly EventFace[] = ['ship', 'ship', 'ship', 'scien
 export type SeaScenario = 'islands' | 'archipelago' | 'fog' | 'desert' | 'newWorld';
 export const SEA_SCENARIOS: readonly SeaScenario[] = ['islands', 'archipelago', 'fog', 'desert', 'newWorld'];
 
+/** Escenarios de la caja Comarcas (se juegan sobre la isla base). */
+export type Shire = 'fishers' | 'rivers' | 'caravans' | 'raid' | 'traders';
+export const SHIRES: readonly Shire[] = ['fishers', 'rivers', 'caravans', 'raid', 'traders'];
+
 export interface Settings {
   seats: number; // 2..6
   openSea: boolean;
@@ -53,7 +57,16 @@ export interface Settings {
   turnMode: 'specialBuild' | 'paired'; // sólo con 5-6
   friendlyRobber: boolean;
   seed: number;
+  // Comarcas (ausentes en partidas guardadas antes: apagado)
+  shire?: Shire | null;
+  harbormaster?: boolean; // señor de los muelles
+  chronicle?: boolean; // mazo de sucesos en vez de dados
+  duel?: boolean; // reglas para 2 con jugadores neutrales
 }
+
+/** Sucesos del mazo de crónica. */
+export type ChronicleEvent = 'harvest' | 'feud' | 'flee' | 'joust' | 'tradeWind' | 'quake' | 'neighbors' | 'plague' | 'raid' | 'calm' | 'aid';
+export interface ChronicleCard { n: number; ev?: ChronicleEvent; newYear?: boolean }
 
 export const COST: Record<string, Partial<Hand>> = {
   road: { lumber: 1, brick: 1 },
@@ -113,6 +126,10 @@ export interface PlayerState {
   defender: number; // PV de defensor
   bonus: { kind: 'island' | 'region'; id: number; vp: number }[];
   homeRegions: number[];
+  /** duelo: color neutral que crece cuando los demás construyen (no tiene turno ni mano) */
+  neutral?: boolean;
+  /** duelo: fichas de comercio */
+  tokens?: number;
   // sólo en vistas: totales visibles para los demás
   handCount?: number;
   devCount?: number;
@@ -122,8 +139,8 @@ export interface PlayerState {
 export type Step =
   | { k: 'discard'; reason: 'seven' | 'saboteur'; waiting: Record<number, number> }
   | { k: 'robber'; seat: number; robber: boolean; pirate: boolean; mode: 'steal1' | 'stealAll' }
-  | { k: 'steal'; seat: number; hex: string; on: 'robber' | 'pirate'; from: number[] }
-  | { k: 'pick'; reason: 'gold' | 'aqueduct' | 'plenty' | 'fog'; waiting: Record<number, number> }
+  | { k: 'steal'; seat: number; hex: string; on: 'robber' | 'pirate' | 'event'; from: number[] }
+  | { k: 'pick'; reason: 'gold' | 'aqueduct' | 'plenty' | 'fog' | 'harvest' | 'joust' | 'calm'; waiting: Record<number, number> }
   | { k: 'monopoly'; seat: number }
   | { k: 'freeRoutes'; seat: number; left: number; source: 'dev' | 'progress' | 'diplomat' }
   | { k: 'pillage'; waiting: number[] }
@@ -138,7 +155,12 @@ export type Step =
   | { k: 'give'; reason: 'wedding'; to: number; waiting: Record<number, number> }
   | { k: 'harborOffer'; seat: number; targets: number[] }
   | { k: 'harborReply'; seat: number; offers: Record<number, Resource> }
-  | { k: 'produce' };
+  // Comarcas
+  | { k: 'quake'; waiting: number[] }
+  | { k: 'gift'; reason: 'neighbors' | 'aid' | 'force'; waiting: Record<number, number>; to: Record<number, number[]> }
+  | { k: 'neutral'; seat: number; what: 'road' | 'settlement' }
+  | { k: 'produce' }
+  | { k: 'duelRoll' };
 
 export interface TradeOffer {
   id: number;
@@ -166,6 +188,15 @@ export interface TurnState {
   partner: number | null; // turno en pareja
   fleet: { seat: number; card: Card } | null; // flota mercante
   alchemist: [number, number] | null;
+  /** tiradas de este turno (en el duelo son dos) */
+  rolls?: [number, number][];
+  /** carta de crónica que salió (en vez de dados) y todas las de este turno */
+  card?: ChronicleCard | null;
+  cards?: ChronicleCard[];
+  /** peste: esta producción las ciudades dan 1 */
+  plague?: boolean;
+  /** duelo: ya usó una ficha de comercio este turno */
+  tokenUsed?: boolean;
 }
 
 export interface LogEntry {
@@ -195,9 +226,10 @@ export interface GameState {
     devDeck: DevType[];
     progress: Record<Track, ProgressType[]>;
     rng: [number, number, number, number];
+    chronicle?: ChronicleCard[];
   };
   buildings: Record<string, Building>;
-  roads: Record<string, { owner: number }>;
+  roads: Record<string, { owner: number; broken?: boolean }>;
   ships: Record<string, { owner: number }>;
   knights: Record<string, Knight>;
   players: PlayerState[];
@@ -207,11 +239,15 @@ export interface GameState {
   steps: Step[];
   trade: TradeOffer | null;
   tradeSeq: number;
-  awards: { road: { owner: number | null; len: number }; army: { owner: number | null; size: number } };
+  awards: { road: { owner: number | null; len: number }; army: { owner: number | null; size: number }; harbor?: { owner: number | null; pts: number } };
   barbarians: { pos: number; attacks: number; last: BarbarianResult | null };
   metropolis: Record<Track, { owner: number; vertex: string } | null>;
   log: LogEntry[];
   stats: { rolls: number[]; turns: number };
+  /** mazo de crónica: cartas que quedan antes de barajar y la última */
+  chronicle?: { left: number; last: ChronicleCard | null };
+  /** duelo: fichas de comercio en reserva */
+  duel?: { supply: number };
   winner: number | null;
   redacted?: boolean; // vista para un asiento
   viewer?: number | null;
@@ -232,7 +268,7 @@ export type Action =
   | { t: 'setupRoute'; edge: string; ship?: boolean }
   | { t: 'roll' }
   | { t: 'endTurn' }
-  | { t: 'build'; what: 'road' | 'ship' | 'settlement' | 'city' | 'wall'; at: string }
+  | { t: 'build'; what: 'road' | 'ship' | 'settlement' | 'city' | 'wall' | 'repair'; at: string }
   | { t: 'moveShip'; from: string; to: string }
   | { t: 'buyDev' }
   | { t: 'playDev'; card: 'soldier' | 'roads' }
@@ -270,7 +306,13 @@ export type Action =
   | { t: 'masterTake'; cards: Partial<Hand> }
   | { t: 'give'; cards: Partial<Hand> }
   | { t: 'harborOffer'; offers: Record<number, Resource> }
-  | { t: 'harborReply'; card: Commodity };
+  | { t: 'harborReply'; card: Commodity }
+  // Comarcas
+  | { t: 'quake'; edge: string }
+  | { t: 'gift'; to: number; cards: Partial<Hand> }
+  | { t: 'neutral'; at: string }
+  | { t: 'token'; use: 'force' | 'robber' }
+  | { t: 'cashSoldier' };
 
 export interface ProgressArg {
   dice?: [number, number];

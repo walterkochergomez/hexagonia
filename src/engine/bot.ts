@@ -2,6 +2,7 @@
 import type { Rng } from './rng';
 import * as C from './core';
 import * as Guild from './guilds';
+import * as Duel from './mods/duel';
 import {
   CARDS, COMMODITIES, COST, RESOURCES, TRACKS, TRACK_COMMODITY, emptyHand, handTotal,
   type Action, type Card, type GameState, type Hand, type Resource,
@@ -130,6 +131,12 @@ export function botAction(s: GameState, seat: number, rng: Rng): Action | null {
         return { t: 'harborOffer', offers };
       }
       case 'harborReply': return { t: 'harborReply', card: rng.pick(COMMODITIES.filter((c) => h[c] > 0)) };
+      case 'quake': return { t: 'quake', edge: rng.pick(Object.keys(s.roads).filter((e) => s.roads[e].owner === seat && !s.roads[e].broken)) };
+      case 'gift': {
+        const only = st.reason === 'force' ? CARDS : RESOURCES;
+        return { t: 'gift', to: rng.pick(st.to[seat]), cards: randomCards(rng, h, st.waiting[seat], only) };
+      }
+      case 'neutral': return { t: 'neutral', at: rng.pick(Duel.neutralSpots(s, st.what)) };
       default: return null;
     }
   }
@@ -178,6 +185,18 @@ export function botAction(s: GameState, seat: number, rng: Rng): Action | null {
   const sbp = t.phase === 'specialBuild';
   const left = C.piecesLeft(s, seat);
   const can = (cost: Partial<Hand>) => C.hasCards(h, cost);
+  // temblor: reparar antes de seguir con caminos
+  if (C.hasBrokenRoad(s, seat) && can(COST.road)) {
+    const broken = Object.keys(s.roads).find((e) => s.roads[e].owner === seat && s.roads[e].broken)!;
+    return { t: 'build', what: 'repair', at: broken };
+  }
+  // duelo: fichas de comercio
+  if (Duel.isDuel(s) && t.phase === 'main') {
+    const robbedMe = s.board.robber && C.G(s).hexes[s.board.robber].vertices.some((v) => s.buildings[v]?.owner === seat);
+    if (robbedMe && Duel.canUseToken(s, seat, 'robber') && rng.float() < 0.7) return { t: 'token', use: 'robber' };
+    if (Duel.canUseToken(s, seat, 'force') && rng.float() < 0.08) return { t: 'token', use: 'force' };
+    if (p.soldiers > 0 && s.awards.army.owner !== seat && (p.tokens ?? 0) < 2 && (s.duel?.supply ?? 0) > 0 && rng.float() < 0.1) return { t: 'cashSoldier' };
+  }
   // construir
   if (can(COST.city) && left.city > 0) {
     const cities = C.legalCities(s, seat);

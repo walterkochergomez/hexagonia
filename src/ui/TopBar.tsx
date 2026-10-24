@@ -5,7 +5,7 @@ import { roomLink } from '../app/router';
 import { LANGS, type Lang } from '../i18n';
 import type { NetStatus, UiError } from '../net/session';
 
-export function TopBar({ code, status, error, onHome }: { code: string | null; status?: NetStatus; error?: UiError | null; onHome: () => void }) {
+export function TopBar({ code, status, error, onHome, manual }: { code: string | null; status?: NetStatus; error?: UiError | null; onHome: () => void; manual?: string }) {
   const t = useT();
   const { lang, sound } = usePrefs();
   const [copied, setCopied] = useState(false);
@@ -47,7 +47,7 @@ export function TopBar({ code, status, error, onHome }: { code: string | null; s
           {sound ? <path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" className="waves" /> : <path d="M16 9l5 6M21 9l-5 6" className="waves" />}
         </svg>
       </button>
-      <a className="icon-btn" href="#/reglas" target={code ? '_blank' : undefined} rel="noopener" title={t('home.rules')} aria-label={t('home.rules')}>?</a>
+      <a className="icon-btn" href={manual ? `#/reglas/${manual}` : '#/reglas'} target={code ? '_blank' : undefined} rel="noopener" title={t('home.rules')} aria-label={t('home.rules')}>?</a>
     </header>
   );
 }

@@ -33,6 +33,11 @@ export function BuildMenu({ view, me, send, setMode, onClose }: { view: GameStat
     { id: 'road', label: t('piece.road'), cost: COST.road, left: left.road, ok: can(COST.road) && left.road > 0 && C.legalRoads(view, me).length > 0,
       icon: icon(<g className={`road p${color}`}><path d="M-12 7 L12 -7" className="road-outline" /><path d="M-12 7 L12 -7" className="road-fill" /><path d="M-12 5.7 L12 -8.3" className="road-shine" /></g>), run: pick({ k: 'build', what: 'road' }) },
   ];
+  const broken = Object.values(view.roads).some((r) => r.owner === me && r.broken);
+  if (broken) {
+    items.push({ id: 'repair', label: t('act.repair'), cost: COST.road, ok: can(COST.road),
+      icon: icon(<g className={`road p${color} broken`}><path d="M-12 7 L12 -7" className="road-outline" /><path d="M-12 7 L12 -7" className="road-fill" /><path d="M-1 -4 L1 1 L-2 3 L0 7" className="road-crack" /></g>), run: pick({ k: 'build', what: 'repair' }) });
+  }
   if (view.settings.openSea) {
     items.push({ id: 'ship', label: t('piece.ship'), cost: COST.ship, left: left.ship, ok: can(COST.ship) && left.ship > 0 && C.legalShips(view, me).length > 0,
       icon: icon(<ShipShape color={color} />), run: pick({ k: 'build', what: 'ship' }) });

@@ -1,4 +1,4 @@
-import type { Action, GameState, SeaScenario } from '../engine/types';
+import type { Action, GameState, SeaScenario, Shire } from '../engine/types';
 
 export const PROTOCOL = 1;
 export const PEER_PREFIX = `hexagonia-v${PROTOCOL}-`;
@@ -21,10 +21,16 @@ export interface LobbySettings {
   vpTarget: number; // 0 = automático
   turnMode: 'specialBuild' | 'paired';
   friendlyRobber: boolean;
+  // Comarcas (las salas guardadas antes no los traen: apagado)
+  shire?: Shire | null;
+  harbormaster?: boolean;
+  chronicle?: boolean;
+  duel?: boolean;
 }
 
 export const DEFAULT_SETTINGS: LobbySettings = {
   openSea: false, scenario: 'islands', guilds: false, vpTarget: 0, turnMode: 'specialBuild', friendlyRobber: false,
+  shire: null, harbormaster: false, chronicle: false, duel: false,
 };
 
 export interface LobbySeat {

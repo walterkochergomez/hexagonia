@@ -3,6 +3,9 @@ import { Rng, seedRng } from './rng';
 import { seaMap, standardMap } from './maps';
 import * as C from './core';
 import * as Guild from './guilds';
+import * as Harbor from './mods/harbor';
+import * as Chron from './mods/chronicle';
+import * as Duel from './mods/duel';
 import {
   CARDS, COST, EVENT_FACES, GameError, PROGRESS_DECKS, RESOURCES, TERRAIN_COMMODITY, TERRAIN_RESOURCE, TRACKS,
   emptyHand, handTotal, isCard, isResource,
@@ -16,17 +19,32 @@ const need = (cond: unknown, code: string): void => {
   if (!cond) throw new GameError(code);
 };
 
-export function defaultVp(o: { openSea: boolean; scenario: SeaScenario; guilds: boolean }): number {
+export function defaultVp(o: Pick<Settings, 'openSea' | 'scenario' | 'guilds' | 'harbormaster' | 'shire'>): number {
   const sea: Record<SeaScenario, number> = { islands: 13, archipelago: 12, fog: 12, desert: 12, newWorld: 12 };
-  if (o.openSea && o.guilds) return sea[o.scenario] + 2;
-  if (o.openSea) return sea[o.scenario];
-  if (o.guilds) return 13;
-  return 10;
+  let vp = 10;
+  if (o.openSea && o.guilds) vp = sea[o.scenario] + 2;
+  else if (o.openSea) vp = sea[o.scenario];
+  else if (o.guilds) vp = 13;
+  if (o.harbormaster) vp += 1;
+  return vp;
 }
 
-export function createGame(settings: Settings, seats: SeatInfo[]): GameState {
+/** Deja sólo combinaciones válidas (la sala ya las ofrece así, pero el motor no confía). */
+export function normalizeSettings(st: Settings): Settings {
+  const s: Settings = { ...st, shire: st.shire ?? null, harbormaster: !!st.harbormaster, chronicle: !!st.chronicle, duel: !!st.duel };
+  if (s.shire) {
+    s.openSea = false;
+    s.guilds = false;
+  }
+  if (s.guilds) s.chronicle = false;
+  if (s.seats !== 2 || s.openSea || s.guilds || s.shire) s.duel = false;
+  return s;
+}
+
+export function createGame(input: Settings, seats: SeatInfo[]): GameState {
   const n = seats.length;
   need(n >= 2 && n <= 6, 'seats');
+  const settings = normalizeSettings({ ...input, seats: n });
   const big = n > 4;
   const rng = new Rng(seedRng(settings.seed));
   const map = settings.openSea ? seaMap(rng, settings.scenario, big) : standardMap(rng, big);
@@ -81,6 +99,13 @@ export function createGame(settings: Settings, seats: SeatInfo[]): GameState {
     metropolis: { science: null, trade: null, politics: null },
     log: [], stats: { rolls: Array(13).fill(0), turns: 0 }, winner: null,
   };
+  if (settings.harbormaster) s.awards.harbor = { owner: null, pts: 0 };
+  if (settings.chronicle) {
+    s.hidden.chronicle = Chron.newDeck(rng);
+    s.chronicle = { left: s.hidden.chronicle.length, last: null };
+  }
+  if (settings.duel) Duel.setup(s, rng);
+  s.hidden.rng = rng.s;
   s.decks = C.decksOf(s);
   C.log(s, 'game.start', { seat: first });
   return s;
@@ -111,12 +136,18 @@ function settle(s: GameState, rng: Rng) {
       produce(s, rng);
       continue;
     }
+    if (st.k === 'duelRoll') {
+      s.steps.shift();
+      secondRoll(s, rng);
+      continue;
+    }
     if (stepDone(s, st)) {
       s.steps.shift();
       continue;
     }
     break;
   }
+  Harbor.updateHarborAward(s);
   checkVictory(s);
 }
 
@@ -133,6 +164,17 @@ function stepDone(s: GameState, st: Step): boolean {
       return !st.waiting.length || (st.k === 'defenderPick' && TRACKS.every((t) => !s.hidden.progress[t].length));
     case 'harborReply':
       return !Object.keys(st.offers).length;
+    case 'quake':
+      return !st.waiting.length;
+    case 'gift':
+      // quien ya no tiene qué dar queda libre
+      for (const k of Object.keys(st.waiting)) {
+        const h = s.players[Number(k)].hand;
+        if ((st.reason === 'force' ? handTotal(h) : C.resourcesIn(h)) < st.waiting[Number(k)]) delete st.waiting[Number(k)];
+      }
+      return !Object.keys(st.waiting).length;
+    case 'neutral':
+      return !Duel.neutralSpots(s, st.what).length;
     case 'steal':
       return !st.from.length;
     case 'freeRoutes':
@@ -171,11 +213,17 @@ function checkVictory(s: GameState) {
 
 function nextTurn(s: GameState) {
   const t = s.turn;
-  t.current = (t.current + 1) % s.players.length;
+  do t.current = (t.current + 1) % s.players.length;
+  while (s.players[t.current].neutral);
   t.n++;
   t.phase = 'preRoll';
   t.dice = null;
   t.event = null;
+  t.rolls = [];
+  t.card = null;
+  t.cards = [];
+  t.plague = false;
+  t.tokenUsed = false;
   t.shipMoved = [];
   t.builtShips = [];
   t.partner = null;
@@ -216,6 +264,7 @@ function produce(s: GameState, rng: Rng) {
     seven(s);
     return;
   }
+  if (s.turn.plague) C.log(s, 'chronicle.plague');
   const n = s.players.length;
   const gains: Hand[] = Array.from({ length: n }, emptyHand);
   const gold: Record<number, number> = {};
@@ -224,8 +273,8 @@ function produce(s: GameState, rng: Rng) {
     if (h.number !== total || id === s.board.robber || !C.isLandTerrain(h.terrain) || h.terrain === 'desert') continue;
     for (const v of g.hexes[id].vertices) {
       const b = s.buildings[v];
-      if (!b) continue;
-      const city = b.kind === 'city' && !b.damaged;
+      if (!b || s.players[b.owner].neutral) continue;
+      const city = b.kind === 'city' && !b.damaged && !s.turn.plague;
       if (h.terrain === 'gold') {
         gold[b.owner] = (gold[b.owner] ?? 0) + (city ? 2 : 1);
         continue;
@@ -266,6 +315,50 @@ function produce(s: GameState, rng: Rng) {
     if (Object.keys(aq).length) steps.push({ k: 'pick', reason: 'aqueduct', waiting: aq });
   }
   s.steps.unshift(...steps);
+  s.turn.plague = false;
+}
+
+/** Tirar (o sacar carta de sucesos): registra, resuelve el suceso y deja la producción en la cola. */
+function rollOnce(s: GameState, rng: Rng, seat: number, avoid?: number) {
+  const t = s.turn;
+  let d1: number, d2: number;
+  if (s.settings.chronicle) {
+    const card = Chron.draw(s, rng, avoid);
+    [d1, d2] = Chron.diceOf(card.n);
+    t.card = card;
+    t.cards = [...(t.cards ?? []), card];
+    t.dice = [d1, d2];
+    s.stats.rolls[card.n]++;
+    C.log(s, 'roll.card', { seat, n: card.n, ev: card.ev ?? null });
+    s.steps.push(...Chron.resolve(s, card));
+  } else {
+    do {
+      d1 = rng.die();
+      d2 = rng.die();
+    } while (avoid !== undefined && d1 + d2 === avoid);
+    if (t.alchemist) {
+      [d1, d2] = t.alchemist;
+      t.alchemist = null;
+    }
+    t.dice = [d1, d2];
+    s.stats.rolls[d1 + d2]++;
+    if (s.settings.guilds) {
+      const face = rng.pick(EVENT_FACES);
+      t.event = face;
+      C.log(s, 'roll', { seat, d1, d2, event: face });
+      Guild.resolveEvent(s, face, d1);
+    } else {
+      C.log(s, 'roll', { seat, d1, d2 });
+    }
+  }
+  t.rolls = [...(t.rolls ?? []), t.dice!];
+  s.steps.push({ k: 'produce' });
+}
+
+/** Duelo: la segunda tirada del turno, con un resultado distinto de la primera. */
+function secondRoll(s: GameState, rng: Rng) {
+  const first = s.turn.rolls?.[0];
+  rollOnce(s, rng, s.turn.current, first ? first[0] + first[1] : undefined);
 }
 
 function seven(s: GameState) {
@@ -335,6 +428,7 @@ function placeRoute(s: GameState, seat: number, e: string, ship: boolean, free: 
   C.log(s, ship ? 'build.ship' : 'build.road', { seat });
   revealAround(s, seat, e);
   C.updateRoadAward(s);
+  if (!ship) Duel.afterBuild(s, seat, 'road');
 }
 
 function build(s: GameState, seat: number, what: string, at: string) {
@@ -353,6 +447,8 @@ function build(s: GameState, seat: number, what: string, at: string) {
       C.log(s, 'build.settlement', { seat });
       regionBonus(s, seat, at);
       C.updateRoadAward(s);
+      Duel.earnForSettlement(s, seat, at);
+      Duel.afterBuild(s, seat, 'settlement');
       return;
     }
     case 'city': {
@@ -363,6 +459,15 @@ function build(s: GameState, seat: number, what: string, at: string) {
       b.kind = 'city';
       delete b.damaged;
       C.log(s, 'build.city', { seat });
+      return;
+    }
+    case 'repair': {
+      const r = s.roads[at];
+      need(r && r.owner === seat && r.broken, 'illegal');
+      C.pay(s, seat, COST.road);
+      delete r.broken;
+      C.log(s, 'road.repair', { seat });
+      C.updateRoadAward(s);
       return;
     }
     case 'wall': {
@@ -425,24 +530,11 @@ function handle(s: GameState, seat: number, a: Action, rng: Rng) {
     }
     case 'roll': {
       need(t.phase === 'preRoll' && seat === t.current, 'notYourTurn');
-      let d1 = rng.die();
-      let d2 = rng.die();
-      if (t.alchemist) {
-        [d1, d2] = t.alchemist;
-        t.alchemist = null;
-      }
-      t.dice = [d1, d2];
-      s.stats.rolls[d1 + d2]++;
       t.phase = 'main';
-      if (s.settings.guilds) {
-        const face = rng.pick(EVENT_FACES);
-        t.event = face;
-        C.log(s, 'roll', { seat, d1, d2, event: face });
-        Guild.resolveEvent(s, face, d1);
-      } else {
-        C.log(s, 'roll', { seat, d1, d2 });
-      }
-      s.steps.push({ k: 'produce' });
+      t.rolls = [];
+      t.cards = [];
+      rollOnce(s, rng, seat);
+      if (Duel.isDuel(s)) s.steps.push({ k: 'duelRoll' });
       return;
     }
     case 'endTurn':
@@ -589,6 +681,13 @@ function handle(s: GameState, seat: number, a: Action, rng: Rng) {
       need(s.settings.guilds, 'badAction');
       Guild.playProgress(s, seat, a.card, a.arg);
       return;
+    // ---- Comarcas ----
+    case 'token':
+      Duel.useToken(s, seat, a.use, rng);
+      return;
+    case 'cashSoldier':
+      Duel.cashSoldier(s, seat);
+      return;
     default:
       throw new GameError('pendingOrBad');
   }
@@ -728,6 +827,37 @@ function handleStep(s: GameState, seat: number, a: Action, st: Step, rng: Rng) {
       placeRoute(s, seat, a.edge, !!a.ship, true);
       st.left--;
       if (st.left <= 0) s.steps.splice(s.steps.indexOf(st), 1);
+      return;
+    }
+    case 'quake': {
+      need(a.t === 'quake' && st.waiting.includes(seat), 'pending');
+      if (a.t !== 'quake') return;
+      const r = s.roads[a.edge];
+      need(r && r.owner === seat && !r.broken, 'illegal');
+      r.broken = true;
+      C.log(s, 'road.broken', { seat });
+      st.waiting = st.waiting.filter((x) => x !== seat);
+      if (!st.waiting.length) s.steps.shift();
+      C.updateRoadAward(s);
+      return;
+    }
+    case 'gift': {
+      need(a.t === 'gift' && st.waiting[seat] !== undefined, 'pending');
+      if (a.t !== 'gift') return;
+      need(st.to[seat].includes(a.to), 'illegal');
+      need(C.validHandPart(a.cards) && handTotal(a.cards) === st.waiting[seat], 'badArg');
+      if (st.reason !== 'force') need(Object.keys(a.cards).every((c) => isResource(c) || !(a.cards as Record<string, number>)[c]), 'badArg');
+      C.moveCards(s, seat, a.to, a.cards);
+      C.log(s, 'gift.cards', { seat, to: a.to, cards: C.handText(a.cards) }, [seat, a.to], { k: 'gift', p: { seat, to: a.to, n: st.waiting[seat] } });
+      delete st.waiting[seat];
+      if (!Object.keys(st.waiting).length) s.steps.splice(s.steps.indexOf(st), 1);
+      return;
+    }
+    case 'neutral': {
+      need(a.t === 'neutral' && seat === st.seat, 'pending');
+      if (a.t !== 'neutral') return;
+      s.steps.shift();
+      Duel.placeNeutral(s, st, a.at);
       return;
     }
     default:

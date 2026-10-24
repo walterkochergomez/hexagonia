@@ -4,12 +4,13 @@ import { chime } from '../../app/sound';
 import * as C from '../../engine/core';
 import type { Action } from '../../engine/types';
 import type { Session, Snapshot } from '../../net/session';
-import { DieFace, EventFace } from '../art';
+import { ChronicleFace, DieFace, EventFace } from '../art';
 import { DiceOverlay, FxSprites, TurnBanner, useDiceRoll, useLogEffects, useTurnBanner } from './effects';
 import { Board } from '../Board';
 import { Toasts } from '../common';
 import { errorText } from '../format';
 import { TopBar } from '../TopBar';
+import { manualFor } from '../../manual/load';
 import { BuildMenu } from './BuildMenu';
 import { CardsSheet } from './Cards';
 import { GameOver } from './GameOver';
@@ -20,9 +21,11 @@ import { LogChat } from './LogChat';
 import { plan, stepForMe, type Mode } from './plan';
 import { Players } from './Players';
 import { DIALOG_STEPS, StepDialog } from './StepDialog';
+import { DuelSheet } from './Duel';
+import * as Duel from '../../engine/mods/duel';
 import { IncomingTrade, TradeSheet } from './Trade';
 
-type Sheet = null | 'build' | 'trade' | 'cards' | 'guild' | 'log' | 'players';
+type Sheet = null | 'build' | 'trade' | 'cards' | 'guild' | 'log' | 'players' | 'duel';
 
 function stepKey(n: number, st: { k: string; reason?: string; waiting?: unknown }, me: number): string {
   const w = st.waiting && !Array.isArray(st.waiting) ? (st.waiting as Record<number, number>)[me] : '';
@@ -84,7 +87,9 @@ export function Game({ session, snap, onHome }: { session: Session; snap: Snapsh
     if ('mode' in r) setMode(r.mode ?? null);
   };
 
-  const flash = useMemo(() => (view.turn.dice ? { key: `${view.turn.n}:${view.turn.dice.join('-')}`, number: view.turn.dice[0] + view.turn.dice[1] } : null), [view.turn.n, view.turn.dice]);
+  const rolls = view.turn.rolls?.length ? view.turn.rolls : view.turn.dice ? [view.turn.dice] : [];
+  const rollSig = rolls.map((r) => r.join('-')).join('|');
+  const flash = useMemo(() => (rolls.length ? { key: `${view.turn.n}:${rollSig}`, numbers: rolls.map((r) => r[0] + r[1]) } : null), [view.turn.n, rollSig]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const nameOf = (s: number | null) => (s === null ? '' : view.players[s]?.name ?? '?');
   const translateParams = (ps?: Record<string, string | number>) => {
@@ -127,6 +132,7 @@ export function Game({ session, snap, onHome }: { session: Session; snap: Snapsh
     if (guilds) buttons.push({ id: 'guild', label: t('act.improve'), onClick: () => setSheet('guild') });
     if (guilds && ph !== 'specialBuild') buttons.push({ id: 'knight', label: t('act.useKnight'), onClick: () => setMode({ k: 'knight' }) });
     if (sea && ph !== 'specialBuild') buttons.push({ id: 'ship', label: t('act.moveShip'), disabled: view.turn.shipMoved.includes(me!), onClick: () => setMode({ k: 'ship' }) });
+    if (Duel.isDuel(view) && ph === 'main') buttons.push({ id: 'tokens', label: t('act.tokens'), badge: view.players[me!].tokens ?? 0, onClick: () => setSheet('duel') });
   }
   buttons.push({ id: 'cards', label: t('act.cards'), badge: myCards, onClick: () => setSheet('cards') });
   if (guilds && !buttons.some((b) => b.id === 'guild')) buttons.push({ id: 'guild', label: t('act.improve'), onClick: () => setSheet('guild') });
@@ -152,7 +158,7 @@ export function Game({ session, snap, onHome }: { session: Session; snap: Snapsh
 
   return (
     <div className="game">
-      <TopBar code={snap.code ?? (snap.kind === 'local' ? '' : null)} status={snap.status} error={snap.error} onHome={() => { if (view.winner !== null || window.confirm(t('game.leaveConfirm'))) onHome(); }} />
+      <TopBar manual={manualFor({ ...view.settings, seats: view.players.length })} code={snap.code ?? (snap.kind === 'local' ? '' : null)} status={snap.status} error={snap.error} onHome={() => { if (view.winner !== null || window.confirm(t('game.leaveConfirm'))) onHome(); }} />
       <main className="game-main">
         <h1 className="sr">{t('app.name')}</h1>
         <section className="board-area">
@@ -168,8 +174,14 @@ export function Game({ session, snap, onHome }: { session: Session; snap: Snapsh
           <div className="status-bar" aria-live="polite">
             {dice && (!roll || roll.settled) && (
               <span className="dice" key={flash?.key}>
-                <DieFace value={dice[0]} tone={guilds ? 'red' : 'light'} />
-                <DieFace value={dice[1]} tone="light" />
+                {view.settings.chronicle
+                  ? (view.turn.cards?.length ? view.turn.cards : view.turn.card ? [view.turn.card] : []).map((c, i) => <ChronicleFace key={i} card={c} />)
+                  : rolls.map((r, i) => (
+                    <span key={i} className="dice-pair">
+                      <DieFace value={r[0]} tone={guilds ? 'red' : 'light'} />
+                      <DieFace value={r[1]} tone="light" />
+                    </span>
+                  ))}
                 {view.turn.event && <EventFace face={view.turn.event} />}
               </span>
             )}
@@ -214,6 +226,7 @@ export function Game({ session, snap, onHome }: { session: Session; snap: Snapsh
       {sheet === 'trade' && me !== null && <TradeSheet view={view} me={me} send={send} onClose={() => setSheet(null)} />}
       {sheet === 'cards' && me !== null && <CardsSheet view={view} me={me} send={send} setMode={setMode} onClose={() => setSheet(null)} />}
       {sheet === 'guild' && me !== null && <GuildSheet view={view} me={me} send={send} onClose={() => setSheet(null)} />}
+      {sheet === 'duel' && me !== null && <DuelSheet view={view} me={me} send={send} onClose={() => setSheet(null)} />}
       {sheet === 'log' && (
         <div className="overlay" onClick={(e) => e.target === e.currentTarget && setSheet(null)}>
           <div className="modal wide" role="dialog" aria-modal="true" aria-label={t('act.log')}>

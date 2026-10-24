@@ -1,6 +1,6 @@
 // Ilustraciones propias en SVG: cartas de recursos, piezas de madera con volumen, dados y símbolos de jugador.
 // Luz desde arriba a la izquierda, como en las fichas del tablero.
-import type { Card, Terrain } from '../engine/types';
+import type { Card, ChronicleCard, Terrain } from '../engine/types';
 export { Pips } from './tiles';
 
 export const RES_TERRAIN: Record<Card, string> = {
@@ -322,4 +322,43 @@ export function EventFace({ face, size = 34 }: { face: string; size?: number }) 
       )}
     </svg>
   );
+}
+
+// ---------- mazo de sucesos ----------
+
+/** Dibujo chico de cada suceso (trazo simple, en una caja de 14×14 centrada). */
+const EV_GLYPH: Record<string, React.ReactNode> = {
+  harvest: <><path d="M0 7 L0 -6" /><path d="M0 -4 Q-3 -6 -3 -3 Q-3 -1 0 -2 M0 0 Q-3 -2 -3 1 Q-3 3 0 2 M0 -4 Q3 -6 3 -3 Q3 -1 0 -2 M0 0 Q3 -2 3 1 Q3 3 0 2" /></>,
+  feud: <><path d="M-6 -6 L6 6 M6 -6 L-6 6" /><path d="M-6 2 L-2 6 M6 2 L2 6" /></>,
+  flee: <><path d="M-5 -2 L5 -2 M-3 -2 L-2 -6 L2 -6 L3 -2" /><path d="M-6 4 L4 4 M1 1 L4 4 L1 7" /></>,
+  joust: <><path d="M-4 7 L-4 -7" /><path d="M-4 -7 L6 -4 L-4 -1 Z" /></>,
+  tradeWind: <><path d="M-1 6 L-1 -7 L6 4 Z" /><path d="M-7 6 L7 6" /></>,
+  quake: <path d="M-7 -2 L-3 1 L-1 -4 L2 3 L4 -1 L7 2" />,
+  neighbors: <><path d="M-7 6 L-7 0 L-4 -3 L-1 0 L-1 6 Z" /><path d="M1 6 L1 0 L4 -3 L7 0 L7 6 Z" /></>,
+  plague: <path d="M0 -7 Q6 1 4 4 Q2 7 0 7 Q-2 7 -4 4 Q-6 1 0 -7 Z" />,
+  raid: <><path d="M-6 -1 L6 -1" /><path d="M-3 -1 L-2 -6 L2 -6 L3 -1" /><circle cx={0} cy={3.5} r={3} /></>,
+  calm: <><path d="M-7 -2 Q-3.5 -5 0 -2 T7 -2" /><path d="M-7 3 Q-3.5 0 0 3 T7 3" /></>,
+  aid: <path d="M0 6 L-6 0 Q-8 -4 -4.5 -6 Q-2 -7 0 -4 Q2 -7 4.5 -6 Q8 -4 6 0 Z" />,
+};
+
+/** Carta del mazo de sucesos: número grande y, si trae suceso, su dibujo en la franja de abajo. */
+export function ChronicleFace({ card, size = 34 }: { card: ChronicleCard; size?: number }) {
+  const seven = card.n === 7;
+  return (
+    <svg className={`chron-card${seven ? ' seven' : ''}${card.ev ? ' ev' : ''}`} width={size * 0.76} height={size} viewBox="-15 -20 30 40" role="img" aria-label={String(card.n)}>
+      <rect x={-13.2} y={-18.4} width={27.4} height={38} rx={3.6} className="chron-shadow" />
+      <rect x={-13.7} y={-19} width={27.4} height={38} rx={3.6} className="chron-paper" />
+      <text y={card.ev ? 3 : 7} textAnchor="middle" className="chron-n">{card.n}</text>
+      {card.ev && (
+        <>
+          <path d="M-13.7 9 H13.7 V15.4 Q13.7 19 10.1 19 H-10.1 Q-13.7 19 -13.7 15.4 Z" className="chron-band" />
+          <g transform="translate(0 14) scale(.5)" className="chron-glyph">{EV_GLYPH[card.ev]}</g>
+        </>
+      )}
+    </svg>
+  );
+}
+
+export function EventGlyph({ ev, size = 18 }: { ev: string; size?: number }) {
+  return <svg className="ev-glyph" width={size} height={size} viewBox="-9 -9 18 18" aria-hidden="true"><g className="chron-glyph">{EV_GLYPH[ev]}</g></svg>;
 }

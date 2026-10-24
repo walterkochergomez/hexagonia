@@ -33,7 +33,7 @@ function PlayerTrade({ view, me, send }: { view: GameState; me: number; send: (a
   const hand = view.players[me].hand;
   const [give, setGive] = useState<Partial<Hand>>({});
   const [want, setWant] = useState<Partial<Hand>>({});
-  const others = view.players.filter((p) => p.seat !== me);
+  const others = view.players.filter((p) => p.seat !== me && !p.neutral);
   const [to, setTo] = useState<number[]>(others.map((p) => p.seat));
   const offer = view.trade && view.trade.from === me ? view.trade : null;
   const cards = cardsFor(view);
