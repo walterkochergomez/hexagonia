@@ -5,6 +5,7 @@ import * as C from '../../engine/core';
 import type { Action } from '../../engine/types';
 import type { Session, Snapshot } from '../../net/session';
 import { DieFace, EventFace } from '../art';
+import { DiceOverlay, FxSprites, TurnBanner, useDiceRoll, useLogEffects, useTurnBanner } from './effects';
 import { Board } from '../Board';
 import { Toasts } from '../common';
 import { errorText } from '../format';
@@ -60,13 +61,19 @@ export function Game({ session, snap, onHome }: { session: Session; snap: Snapsh
     if (snap.actionError) toast(errorText(snap.actionError.code, t), 'error');
   }, [snap.actionError, toast, t]);
 
+  // animaciones: dados en el centro, aviso de turno y cartas que viajan
+  const roll = useDiceRoll(view);
+  const banner = useTurnBanner(view);
+  useLogEffects(view, me);
+
   // aviso: te toca
   const attention = me !== null && view.winner === null && (!!myStep || (myTurn && view.turn.phase !== 'main'));
   const attKey = attention ? `${view.turn.n}-${view.turn.phase}-${view.steps[0]?.k ?? ''}` : '';
   useEffect(() => {
     if (!attKey) return;
     chime();
-    if (!myStep) toast(t('turn.yours'), 'turn');
+    // al empezar el turno ya aparece el aviso grande sobre el tablero
+    if (!myStep && view.turn.phase !== 'preRoll' && view.turn.phase !== 'setup') toast(t('turn.yours'), 'turn');
   }, [attKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const p = plan(view, me, mode, routeKind);
@@ -159,7 +166,7 @@ export function Game({ session, snap, onHome }: { session: Session; snap: Snapsh
             </button>
           </div>
           <div className="status-bar" aria-live="polite">
-            {dice && (
+            {dice && (!roll || roll.settled) && (
               <span className="dice" key={flash?.key}>
                 <DieFace value={dice[0]} tone={guilds ? 'red' : 'light'} />
                 <DieFace value={dice[1]} tone="light" />
@@ -180,7 +187,10 @@ export function Game({ session, snap, onHome }: { session: Session; snap: Snapsh
             {p.skip && <button type="button" className="btn ghost sm" onClick={() => send(p.skip!)}>{t('common.skip')}</button>}
             {p.cancel && <button type="button" className="btn ghost sm" onClick={() => setMode(null)}>{t('act.cancel')}</button>}
           </div>
-          <Board view={view} targets={p.targets} onPick={onPick} flash={flash} />
+          <Board view={view} targets={p.targets} onPick={onPick} flash={flash}>
+            {roll && <DiceOverlay roll={roll} red={guilds} event={view.turn.event ?? null} />}
+            {banner && !roll && <TurnBanner view={view} me={me} banner={banner} />}
+          </Board>
           <IncomingTrade view={view} me={me} send={send} />
         </section>
         <aside className="rail">
@@ -216,6 +226,7 @@ export function Game({ session, snap, onHome }: { session: Session; snap: Snapsh
       {showOver && <GameOver view={view} me={me} onHome={onHome} onRematch={session.rematch ? () => session.rematch!() : undefined} onClose={() => setOverClosed(true)} />}
       <BarbarianReport view={view} hidden={!!myStep && DIALOG_STEPS.includes(myStep.k)} />
       <Toasts items={toasts} />
+      <FxSprites />
     </div>
   );
 }

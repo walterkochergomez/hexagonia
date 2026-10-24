@@ -63,6 +63,23 @@ export function botDelay(): number {
   return q !== null && Number.isFinite(n) ? Math.max(0, n) : 650;
 }
 
+/**
+ * Pausa antes de la próxima jugada de un bot: un poco más larga justo después de una tirada o de un cambio de turno,
+ * para que se alcance a ver la animación de los dados y de las cartas. En pruebas rápidas (botDelay bajo) no se agrega nada.
+ */
+export function botPause(g: { turn: { n: number; current: number; dice: [number, number] | null } } | null, seen: { roll?: string; turn?: string }): number {
+  const base = botDelay();
+  if (!g || base < 300) return base;
+  const roll = g.turn.dice ? `${g.turn.n}:${g.turn.dice[0]}-${g.turn.dice[1]}` : '';
+  const turn = `${g.turn.n}:${g.turn.current}`;
+  let extra = 0;
+  if (roll && roll !== seen.roll) extra = 1250;
+  else if (turn !== seen.turn) extra = 650;
+  seen.roll = roll;
+  seen.turn = turn;
+  return base + extra;
+}
+
 export const BOT_NAMES = ['Lenga', 'Coihue', 'Ñirre', 'Calafate', 'Maqui', 'Canelo'];
 
 export function cleanName(s: string): string {

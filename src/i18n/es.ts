@@ -199,6 +199,7 @@ const es = {
   'progress.tradeMonopoly.d': 'Nombra una mercancía: cada rival te entrega 1.',
 
   'turn.yours': 'Tu turno',
+  'banner.turn': 'Turno de {name}',
   'turn.of': 'Turno de {name}',
   'turn.number': 'Turno {n}',
   'phase.setupBuilding': 'Coloca un poblado',

@@ -200,6 +200,7 @@ const de: Dict = {
   'progress.tradeMonopoly.d': 'Nenne eine Ware: Jede Gegner:in gibt dir 1.',
 
   'turn.yours': 'Du bist dran',
+  'banner.turn': '{name} ist dran',
   'turn.of': '{name} ist dran',
   'turn.number': 'Zug {n}',
   'phase.setupBuilding': 'Setze eine Siedlung',

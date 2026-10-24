@@ -44,6 +44,7 @@ npm run e2e        # anfitrión + invitado en dos navegadores, reconexión y rec
 npm run e2e:soak   # partidas completas por la interfaz en cada modo
 npm run e2e:a11y   # revisión de accesibilidad
 npm run e2e:fit    # que nada se salga de la pantalla en celulares (320–430 px, tres idiomas)
+npm run e2e:fx     # animaciones: dados, cartas que viajan, piezas que caen, ladrón, aviso de turno y «reducir movimiento»
 ```
 
 ### Cómo está hecho

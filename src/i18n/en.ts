@@ -200,6 +200,7 @@ const en: Dict = {
   'progress.tradeMonopoly.d': 'Name a commodity: each opponent gives you 1.',
 
   'turn.yours': 'Your turn',
+  'banner.turn': '{name}\'s turn',
   'turn.of': '{name}’s turn',
   'turn.number': 'Turn {n}',
   'phase.setupBuilding': 'Place a settlement',

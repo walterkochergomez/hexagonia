@@ -5,7 +5,7 @@ import { GameError, type Action, type GameState } from '../engine/types';
 import { pickBotMove } from './bots';
 import { Decoder, makePeer, sendMsg, type DataConnection, type Peer } from './peer';
 import { DEFAULT_SETTINGS, PEER_PREFIX, type ChatMsg, type LobbySeat, type LobbySettings, type LobbyState, type ToGuest, type ToHost } from './protocol';
-import { BOT_NAMES, BaseSession, botDelay, cleanName, type Session } from './session';
+import { BOT_NAMES, BaseSession, botPause, cleanName, type Session } from './session';
 
 declare const __BUILD__: string;
 const BUILD = typeof __BUILD__ === 'string' ? __BUILD__ : 'dev';
@@ -41,6 +41,7 @@ export class HostSession extends BaseSession implements Session {
   private closed = false;
   private retries = 0;
   private botTimer: ReturnType<typeof setTimeout> | null = null;
+  private botSeen: { roll?: string; turn?: string } = {};
   private pingTimer: ReturnType<typeof setInterval>;
   private rng = new Rng(seedRng(randomSeed()));
   private tradeSeen: { id: number; at: number } | null = null;
@@ -262,7 +263,7 @@ export class HostSession extends BaseSession implements Session {
     this.botTimer = setTimeout(() => {
       this.botTimer = null;
       this.runBots();
-    }, botDelay());
+    }, botPause(this.game, this.botSeen));
   }
 
   private runBots() {

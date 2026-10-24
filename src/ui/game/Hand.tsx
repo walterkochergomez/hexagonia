@@ -12,7 +12,7 @@ export function Hand({ view, me, onCards }: { view: GameState; me: number | null
     <div className="hand" aria-label={t('act.hand')}>
       <ul className="hand-cards">
         {cards.map((c) => (
-          <li key={c} className={`hand-card${p.hand[c] ? '' : ' zero'}`} title={t(`res.${c}`)}>
+          <li key={c} className={`hand-card${p.hand[c] ? '' : ' zero'}`} title={t(`res.${c}`)} data-card={c}>
             <CardIcon card={c} size={34} />
             <span className="n">{p.hand[c]}</span>
             <span className="sr">{t(`res.${c}`)}</span>

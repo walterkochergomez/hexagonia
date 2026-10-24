@@ -27,7 +27,7 @@ export function Players({ view, me, lobby, compact }: { view: GameState; me: num
         const cls = ['player', actor === seat ? 'acting' : '', waiting.has(seat) ? 'waiting' : '', seat === me ? 'me' : '', view.winner === seat ? 'winner' : ''].join(' ');
         if (compact) {
           return (
-            <li key={seat} className={cls} title={p.name}>
+            <li key={seat} className={cls} title={p.name} data-seat={seat}>
               <PlayerMark color={p.color} size={16} />
               <span className="pname">{p.name}</span>
               <span className="vp">{vp}</span>
@@ -35,7 +35,7 @@ export function Players({ view, me, lobby, compact }: { view: GameState; me: num
           );
         }
         return (
-          <li key={seat} className={cls}>
+          <li key={seat} className={cls} data-seat={seat}>
             <div className="prow">
               <PlayerMark color={p.color} />
               <span className="pname">{p.name}{seat === me && <span className="muted"> ({t('common.you')})</span>}</span>

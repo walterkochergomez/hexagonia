@@ -112,7 +112,7 @@ input, select {
 .wordmark { font-size: clamp(52px, 8.5vw, 104px); font-weight: 800; letter-spacing: -0.035em; color: var(--accent); margin: 0; line-height: .95; }
 .tagline { font-size: 18px; max-width: 34ch; margin-top: var(--s4); color: var(--text-muted); }
 .island-preview { width: 100%; max-width: 520px; margin-top: var(--s4); }
-.island-preview .sea-tile { fill: var(--sea); stroke: var(--sea); stroke-width: 4; }
+.island-preview .preview-sea { fill: #2b7c88; stroke: #2b7c88; stroke-width: 1; }
 .rise { animation: rise 520ms var(--m-ease) both; transform-box: fill-box; transform-origin: center; }
 @keyframes rise { from { opacity: 0; transform: translateY(16px) scale(.86); } to { opacity: 1; transform: none; } }
 .home-panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: var(--s6); display: grid; gap: var(--s2); }
@@ -160,7 +160,7 @@ input, select {
 /* minmax(0, …): ningún contenido puede ensanchar la partida más allá de la pantalla */
 .game { height: 100dvh; display: grid; grid-template-rows: auto 1fr auto; grid-template-columns: minmax(0, 1fr); overflow: hidden; }
 .game-main { display: grid; grid-template-columns: minmax(0, 1fr) var(--rail); min-height: 0; }
-.board-area { position: relative; display: flex; flex-direction: column; min-height: 0; min-width: 0; background: var(--sea-deep); }
+.board-area { position: relative; display: flex; flex-direction: column; min-height: 0; min-width: 0; background: #1f6370; }
 .rail { display: flex; flex-direction: column; min-height: 0; min-width: 0; border-left: 1px solid var(--border); background: var(--surface); }
 .strip { display: none; }
 .log-icon path { fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
@@ -174,14 +174,18 @@ input, select {
 .status-text.mine { padding-left: 10px; border-left: 4px solid var(--highlight); }
 .dice { display: inline-flex; gap: 4px; animation: dice-in var(--m-dice) var(--m-ease); }
 @keyframes dice-in { from { opacity: 0; transform: rotate(-24deg) scale(.7); } to { opacity: 1; transform: none; } }
-.die .face { fill: var(--surface); stroke: var(--ink); stroke-width: 1.2; }
+.die-shadow { fill: rgba(20, 40, 45, .3); }
+.die .face { fill: #fbfaf6; stroke: var(--ink); stroke-width: 1.1; }
+.die .sheen { fill: none; stroke: #fff; stroke-width: 1.6; stroke-linecap: round; opacity: .9; }
 .die .spot { fill: var(--ink); }
-.die-red .face { fill: var(--danger); stroke: #7e2618; }
+.die-red .face { fill: #c8402c; stroke: #6e2214; }
+.die-red .sheen { stroke: #ec8a77; }
 .die-red .spot { fill: #fff; }
 .die-event .gate { fill: none; stroke: var(--ink); stroke-width: 1.4; }
 .die-event.ev-science .face { fill: var(--track-science); }
 .die-event.ev-trade .face { fill: var(--track-trade); }
 .die-event.ev-politics .face { fill: var(--track-politics); }
+.die-event.ev-science .sheen, .die-event.ev-trade .sheen, .die-event.ev-politics .sheen { opacity: .45; }
 .die-event.ev-science .gate, .die-event.ev-politics .gate { stroke: #fff; }
 
 .board-wrap { position: relative; flex: 1; min-height: 0; }
@@ -189,81 +193,153 @@ input, select {
 .board:active { cursor: grabbing; }
 .board-tools { position: absolute; right: 10px; bottom: 10px; display: grid; gap: 6px; }
 
-/* hexágonos */
-.hex .tile { stroke: rgba(241, 245, 244, .9); stroke-width: 2.5; }
-.hex.t-sea .tile { fill: var(--sea); stroke: rgba(255, 255, 255, .07); stroke-width: 1; }
-.hex.t-forest .tile { fill: var(--terrain-forest); }
-.hex.t-hills .tile { fill: var(--terrain-hills); }
-.hex.t-pasture .tile { fill: var(--terrain-pasture); }
-.hex.t-fields .tile { fill: var(--terrain-fields); }
-.hex.t-mountains .tile { fill: var(--terrain-mountains); }
-.hex.t-desert .tile { fill: var(--terrain-desert); }
-.hex.t-gold .tile { fill: var(--terrain-gold); }
-.hex.t-fog .tile { fill: var(--terrain-fog); stroke: rgba(255,255,255,.4); }
-.hex.robbed .tile { filter: brightness(.72) saturate(.8); }
-.glyph { fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.t-forest .glyph { stroke: #a9d3b6; }
-.t-hills .glyph { stroke: #f3c1a8; }
-.t-pasture .glyph { stroke: #3c6a33; }
-.t-pasture .glyph path:first-child { fill: #f7faf9; }
-.t-pasture .glyph .fill { fill: #3c6a33; }
-.t-fields .glyph { stroke: #7f600d; }
-.t-mountains .glyph { stroke: #eef2f3; }
-.t-desert .glyph { stroke: #a88f55; }
-.t-gold .glyph { stroke: #6f5100; }
-.t-sea .glyph { stroke: rgba(255, 255, 255, .28); }
-.t-fog .glyph { stroke: #869498; }
-.t-paper .glyph { stroke: #6b5b35; }
-.t-cloth .glyph { stroke: #4b3a6e; }
-.t-coin .glyph { stroke: #6a4b0c; }
-.flash { fill: #fff; pointer-events: none; animation: flash 950ms ease-out both; }
-@keyframes flash { 0% { opacity: 0; } 25% { opacity: .5; } 100% { opacity: 0; } }
-
-.token circle { fill: var(--token); stroke: rgba(38, 50, 56, .3); stroke-width: 1; }
+/* tablero ilustrado: mar, fichas, números y puertos */
+.board-wrap { background: radial-gradient(ellipse 85% 75% at 50% 45%, #3893a0 0%, #2b7c88 55%, #1f6370 100%); }
+.sea-cell { fill: none; stroke: rgba(255, 255, 255, .075); stroke-width: 1; }
+.wave { fill: none; stroke: rgba(255, 255, 255, .2); stroke-width: 1.4; stroke-linecap: round; }
+.island-base { fill: #24332f; }
+.robbed-shade { fill: #10202a; opacity: .4; pointer-events: none; }
+.lit-glow { fill: #fff6d6; opacity: 0; pointer-events: none; animation: lit 1600ms ease-out both; }
+@keyframes lit { 0% { opacity: 0; } 22% { opacity: .42; } 100% { opacity: 0; } }
+.lit .token { animation: token-pop 900ms cubic-bezier(.3, 1.6, .5, 1) both; transform-box: fill-box; transform-origin: center; }
+@keyframes token-pop { 0% { transform: scale(1); } 35% { transform: scale(1.22); } 100% { transform: scale(1); } }
+.lit-ring { fill: none; stroke: #ffd56a; stroke-width: 3; opacity: 0; animation: lit-ring 1300ms ease-out both; transform-box: fill-box; transform-origin: center; }
+@keyframes lit-ring { 0% { opacity: .95; transform: scale(.8); } 100% { opacity: 0; transform: scale(1.9); } }
+.token-shadow { fill: #0d2a2f; opacity: .3; }
+.token-disc { fill: #f7f0dd; stroke: #c4b388; stroke-width: 1.1; }
+.token-ring { fill: none; stroke: #e7dcbd; stroke-width: 1; }
 .token text { font-family: var(--font-display); font-size: 15px; font-weight: 750; fill: var(--token-text); }
 .token .pips circle { fill: var(--token-text); stroke: none; }
 .token.hot text { fill: var(--token-hot); font-weight: 800; }
 .token.hot .pips circle { fill: var(--token-hot); }
 
-.harbor .pier { stroke: var(--pier); stroke-width: 4; stroke-linecap: round; }
-.harbor .badge { fill: var(--surface); stroke: var(--ink); stroke-width: 1.2; }
-.harbor text { font-family: var(--font-display); font-weight: 750; font-size: 11px; fill: var(--ink); }
-.harbor text.small { font-size: 9px; }
+.harbor .plank { stroke: #6b4a2c; stroke-width: 5.2; stroke-linecap: round; }
+.harbor .plank-top { stroke: #c89a63; stroke-width: 3.2; stroke-linecap: round; stroke-dasharray: 2.6 1.4; }
+.harbor .post { fill: #5a3c22; }
+.harbor .badge-shadow { fill: #0d2a2f; opacity: .3; }
+.harbor .badge { fill: #f7f0dd; stroke: #6b4a2c; stroke-width: 1.4; }
+.harbor text { font-family: var(--font-display); font-weight: 800; font-size: 11px; fill: var(--ink); }
+.harbor text.small { font-size: 8.5px; }
 
-/* piezas */
+/* piezas de madera */
 .pfill { fill: var(--pc); }
+.pfill-l { fill: var(--pc-l, var(--pc)); }
+.pfill-d { fill: var(--pc-d, var(--pc)); }
 .pstroke { stroke: var(--pc); }
-.piece path, .piece rect { stroke: var(--ink); stroke-width: 1.4; stroke-linejoin: round; }
+.p0 { --pc-l: #e1887c; --pc-d: #892a1d; }
+.p1 { --pc-l: #7c9cca; --pc-d: #1c3f70; }
+.p2 { --pc-l: #edc87d; --pc-d: #956e1e; }
+.p3 { --pc-l: #ad92ce; --pc-d: #513474; }
+.p4 { --pc-l: #e79abd; --pc-d: #8f3d62; }
+.p5 { --pc-l: #85898e; --pc-d: #272b30; }
+.piece-shadow { fill: #0d2a2f; opacity: .32; }
+.piece .pfill, .piece .pfill-l, .piece .pfill-d { stroke: var(--ink); stroke-width: 1.1; stroke-linejoin: round; }
 .piece .sym, .sym { fill: #fff; stroke: var(--ink); stroke-width: .6; }
-.piece .wall { fill: var(--wall); }
-.piece.damaged { opacity: .6; }
-.metro path { stroke: var(--ink); stroke-width: 1.4; }
+.piece .window { fill: rgba(30, 40, 45, .55); }
+.piece .wall path { stroke: var(--ink); stroke-width: 1; stroke-linejoin: round; }
+.wall-front { fill: #a9b4b8; }
+.wall-top { fill: #d3dadd; }
+.wall-side { fill: #7c888d; }
+.piece.damaged { opacity: .62; }
+.crack { fill: none; stroke: var(--ink); stroke-width: 1.3; stroke-linecap: round; }
+.metro path { stroke: var(--ink); stroke-width: 1.3; }
 .metro .flag { stroke-width: 1; }
 .m-science .flag { fill: var(--track-science); }
 .m-trade .flag { fill: var(--track-trade); }
 .m-politics .flag { fill: var(--track-politics); }
-.road-outline { stroke: var(--ink); stroke-width: 9; stroke-linecap: round; }
-.road-fill { stroke-width: 6; stroke-linecap: round; fill: none; }
-.piece .mast { stroke: var(--ink); stroke-width: 1.3; }
-.piece .sail { fill: #f7faf9; }
-.knight .kfill { fill: #f7faf9; stroke-width: 2.2; }
-.knight.active path { stroke: var(--ink); }
-.robber circle, .robber path { fill: var(--ink); stroke: #f1f5f4; stroke-width: 1.5; }
-.pirate path { fill: #1d272b; stroke: #f1f5f4; stroke-width: 1.1; }
-.pirate .mast { stroke: #f1f5f4; }
-.pirate .sail-dark { fill: #3b4148; }
+.road-shadow { stroke: #0d2a2f; opacity: .3; stroke-width: 8; stroke-linecap: round; fill: none; }
+.road-outline { stroke: var(--ink); stroke-width: 9; stroke-linecap: round; fill: none; }
+.road-fill { stroke: var(--pc); stroke-width: 6.2; stroke-linecap: round; fill: none; }
+.road-shine { stroke: var(--pc-l); stroke-width: 1.8; stroke-linecap: round; fill: none; }
+.ship .mast, .pirate .mast { stroke: var(--ink); stroke-width: 1.3; }
+.ship .sail, .ship .jib { stroke: var(--ink); stroke-width: .9; stroke-linejoin: round; }
+.ship .sail { fill: #f8f4ea; }
+.ship .jib { fill: #e9e2cf; }
+.pirate .hull, .pirate .hull-d, .pirate .sail, .pirate .jib { stroke: #eef3f2; stroke-width: 1; stroke-linejoin: round; }
+.pirate .hull { fill: #2a3236; }
+.pirate .hull-d { fill: #1a2124; }
+.pirate .sail { fill: #3d464b; }
+.pirate .jib { fill: #333b40; }
+.pirate .mast { stroke: #eef3f2; }
+.pirate .pennant { fill: #c4472f; stroke: #eef3f2; stroke-width: .8; }
+.pirate .mark { stroke: #eef3f2; stroke-width: 1.2; stroke-linecap: round; }
+.knight .shield { fill: #f4f1e8; stroke: var(--ink); stroke-width: 1.1; stroke-linejoin: round; }
+.knight .shield-inner { fill: none; stroke: var(--pc); stroke-width: 1.6; }
+.knight .knight-pip { fill: var(--pc); }
+.knight.active .shield { fill: var(--pc); }
+.knight.active .shield-inner { stroke: var(--pc-l); }
+.knight.active .knight-pip { fill: #fff; }
+.robber .body { fill: #2b3439; stroke: #eef3f2; stroke-width: 1.1; stroke-linejoin: round; }
+.robber .brim { fill: #1f272b; stroke: #eef3f2; stroke-width: 1.1; }
+.robber .stripe { fill: none; stroke: #c4472f; stroke-width: 1.7; }
+.robber .shine { fill: none; stroke: #5d6a71; stroke-width: 1.4; stroke-linecap: round; }
+.robber .band { stroke: #c0924f; stroke-width: 1.3; }
+.stall { fill: #f6efdc; stroke: var(--ink); stroke-width: 1; }
+.awning { stroke: #fff; stroke-width: 1.2; }
 .devcard { fill: var(--surface-2); stroke: var(--ink); stroke-width: 1.4; }
+
+/* piezas recién puestas */
+.fresh-drop { animation: piece-drop 560ms cubic-bezier(.25, 1.45, .5, 1) both; transform-box: fill-box; transform-origin: 50% 100%; }
+@keyframes piece-drop { 0% { transform: translateY(-26px) scale(1.18); opacity: 0; } 40% { opacity: 1; } 100% { transform: none; opacity: 1; } }
+.dust { fill: none; stroke: #f6f0e2; stroke-width: 1.8; opacity: 0; animation: dust 700ms ease-out 230ms both; transform-box: fill-box; transform-origin: center; }
+@keyframes dust { 0% { opacity: .85; transform: scale(.45); } 100% { opacity: 0; transform: scale(1.9); } }
+.fresh-road path { stroke-dasharray: 1 1; stroke-dashoffset: 1; animation: road-draw 480ms cubic-bezier(.3, .7, .3, 1) both; }
+@keyframes road-draw { to { stroke-dashoffset: 0; } }
+
+/* animaciones de la partida */
+.fx-layer { position: fixed; inset: 0; pointer-events: none; z-index: 25; overflow: hidden; }
+.fx-card { position: absolute; width: 32px; height: 32px; will-change: transform, opacity; filter: drop-shadow(0 4px 5px rgba(8, 30, 35, .35)); }
+.fx-card svg { display: block; width: 100%; height: 100%; }
+.fx-confetti { position: absolute; display: block; border-radius: 1.5px; will-change: transform; }
+.fx-sprites { position: absolute; width: 0; height: 0; overflow: hidden; visibility: hidden; pointer-events: none; }
+
+.dice-roll { position: absolute; left: 50%; top: 48%; z-index: 6; display: grid; justify-items: center; gap: 12px; pointer-events: none; transform: translate(-50%, -50%); animation: roll-out 1850ms ease both; }
+@keyframes roll-out { 0%, 80% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -62%) scale(.92); } }
+.dice-roll-dice { display: flex; gap: 14px; }
+.roll-die { display: block; filter: drop-shadow(0 10px 12px rgba(5, 25, 30, .4)); }
+.roll-die svg { display: block; }
+.roll-die.d1 { animation: tumble-a 600ms cubic-bezier(.2, .7, .3, 1) both; }
+.roll-die.d2 { animation: tumble-b 600ms cubic-bezier(.2, .7, .3, 1) both; }
+.dice-roll.settled .roll-die { animation: die-land 300ms cubic-bezier(.3, 1.6, .5, 1) both; }
+.roll-die.d3 { animation: die-land 300ms cubic-bezier(.3, 1.6, .5, 1) both; }
+@keyframes tumble-a { 0% { transform: translate(-130px, -90px) rotate(-300deg) scale(.55); opacity: 0; } 55% { transform: translate(8px, 6px) rotate(22deg) scale(1.06); opacity: 1; } 78% { transform: translate(-3px, -8px) rotate(-8deg); } 100% { transform: translate(0, 0) rotate(4deg); } }
+@keyframes tumble-b { 0% { transform: translate(130px, -100px) rotate(320deg) scale(.55); opacity: 0; } 55% { transform: translate(-8px, 7px) rotate(-24deg) scale(1.06); opacity: 1; } 78% { transform: translate(3px, -7px) rotate(7deg); } 100% { transform: translate(0, 0) rotate(-4deg); } }
+@keyframes die-land { 0% { transform: scale(1.14); } 100% { transform: none; } }
+.roll-sum {
+  min-width: 56px; height: 56px; padding: 0 12px; border-radius: 28px; display: grid; place-items: center;
+  background: #f7f0dd; color: var(--ink); border: 2px solid #c4b388; box-shadow: 0 8px 18px rgba(5, 25, 30, .38);
+  font: 800 30px/1 var(--font-display); animation: sum-pop 420ms cubic-bezier(.3, 1.6, .5, 1) both;
+}
+.roll-sum.seven { background: #c8402c; color: #fff; border-color: #6e2214; }
+@keyframes sum-pop { from { transform: scale(.2); opacity: 0; } to { transform: none; opacity: 1; } }
+
+.turn-banner {
+  position: absolute; left: 50%; top: 12px; z-index: 6; display: inline-flex; align-items: center; gap: 10px; max-width: calc(100% - 24px);
+  padding: 10px 20px 10px 14px; border-radius: var(--r-pill); background: rgba(247, 240, 221, .97); color: var(--ink);
+  font: 750 18px/1.2 var(--font-display); box-shadow: 0 10px 26px rgba(5, 25, 30, .35); pointer-events: none; white-space: nowrap;
+  transform: translateX(-50%); animation: banner 1700ms cubic-bezier(.2, .8, .2, 1) both;
+}
+.turn-banner span { overflow: hidden; text-overflow: ellipsis; }
+.turn-banner.mine { background: var(--highlight); color: var(--on-highlight); }
+@keyframes banner { 0% { opacity: 0; transform: translate(-50%, -24px) scale(.94); } 14% { opacity: 1; transform: translate(-50%, 0) scale(1); } 80% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; transform: translate(-50%, -12px); } }
 
 /* lugares elegibles */
 .target { cursor: pointer; }
 .target:focus-visible { outline: none; }
 .target-vertex .hit { fill: transparent; }
 .target-vertex .mark { fill: rgba(255, 255, 255, .9); stroke: var(--ink); stroke-width: 2; }
+.target-vertex .mark { animation: mark-pulse 1500ms ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes mark-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.28); } }
 .target-vertex:hover .mark, .target-vertex:focus-visible .mark, .target-vertex.selected .mark { fill: var(--highlight); }
 .target-edge .hit { stroke: transparent; stroke-width: 26; stroke-linecap: round; }
+.target-edge .hit-dot { fill: transparent; }
 .target-edge .mark { stroke: #fff; stroke-width: 5; stroke-linecap: round; filter: drop-shadow(0 0 1.6px rgba(38, 50, 56, .95)); }
+.target-edge .mark { animation: edge-pulse 1500ms ease-in-out infinite; }
+@keyframes edge-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
 .target-edge:hover .mark, .target-edge:focus-visible .mark, .target-edge.selected .mark { stroke: var(--highlight); }
 .target-hex polygon { fill: rgba(255, 255, 255, .06); stroke: #fff; stroke-width: 3.5; stroke-dasharray: 7 5; }
+.target-hex polygon { animation: hex-march 1200ms linear infinite; }
+@keyframes hex-march { to { stroke-dashoffset: -24; } }
 .target-hex:hover polygon, .target-hex:focus-visible polygon, .target-hex.selected polygon { fill: rgba(215, 168, 74, .38); stroke: var(--highlight); }
 
 /* jugadores */
@@ -315,15 +391,6 @@ input, select {
 .btn-badge { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--ink); color: #fff; font-size: 12px; font-weight: 750; align-items: center; justify-content: center; }
 .mobile-only { display: none; }
 
-.card-icon .bg { stroke: rgba(38, 50, 56, .25); stroke-width: 1; }
-.card-icon.t-forest .bg { fill: var(--terrain-forest); }
-.card-icon.t-hills .bg { fill: var(--terrain-hills); }
-.card-icon.t-pasture .bg { fill: var(--terrain-pasture); }
-.card-icon.t-fields .bg { fill: var(--terrain-fields); }
-.card-icon.t-mountains .bg { fill: var(--terrain-mountains); }
-.card-icon.t-paper .bg { fill: var(--com-paper); }
-.card-icon.t-cloth .bg { fill: var(--com-cloth); }
-.card-icon.t-coin .bg { fill: var(--com-coin); }
 .card-chip { display: inline-flex; align-items: center; gap: 2px; vertical-align: middle; }
 .card-chip .n { font-weight: 750; font-size: 14px; }
 .hand-line { display: inline-flex; flex-wrap: wrap; gap: 8px; vertical-align: middle; }
@@ -472,6 +539,8 @@ input, select {
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 1ms !important; animation-delay: 0ms !important; transition-duration: 1ms !important; }
+  .target-vertex .mark, .target-edge .mark, .target-hex polygon, .turn-banner, .lit-glow, .lit-ring { animation: none !important; }
+  .lit-glow, .lit-ring { display: none; }
 }
 
 .sound-icon path { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }

@@ -2,7 +2,7 @@ import { useT } from '../../app/i18n';
 import * as C from '../../engine/core';
 import * as Guild from '../../engine/guilds';
 import { COST, type Action, type GameState, type Hand } from '../../engine/types';
-import { CityShape, KnightShape, SettlementShape, ShipShape } from '../art';
+import { CardBack, CityShape, KnightShape, SettlementShape, ShipShape } from '../art';
 import { HandLine, Modal } from '../common';
 import type { Mode } from './plan';
 
@@ -28,10 +28,10 @@ export function BuildMenu({ view, me, send, setMode, onClose }: { view: GameStat
     onClose();
   };
   const damaged = Object.values(view.buildings).some((b) => b.owner === me && b.damaged);
-  const icon = (node: React.ReactNode) => <svg width={34} height={34} viewBox="-17 -17 34 34" aria-hidden="true">{node}</svg>;
+  const icon = (node: React.ReactNode) => <svg width={38} height={38} viewBox="-20 -23 40 40" aria-hidden="true">{node}</svg>;
   const items: Item[] = [
     { id: 'road', label: t('piece.road'), cost: COST.road, left: left.road, ok: can(COST.road) && left.road > 0 && C.legalRoads(view, me).length > 0,
-      icon: icon(<path d="M-12 8 L12 -8" className={`road-fill pstroke p${color}`} />), run: pick({ k: 'build', what: 'road' }) },
+      icon: icon(<g className={`road p${color}`}><path d="M-12 7 L12 -7" className="road-outline" /><path d="M-12 7 L12 -7" className="road-fill" /><path d="M-12 5.7 L12 -8.3" className="road-shine" /></g>), run: pick({ k: 'build', what: 'road' }) },
   ];
   if (view.settings.openSea) {
     items.push({ id: 'ship', label: t('piece.ship'), cost: COST.ship, left: left.ship, ok: can(COST.ship) && left.ship > 0 && C.legalShips(view, me).length > 0,
@@ -58,7 +58,7 @@ export function BuildMenu({ view, me, send, setMode, onClose }: { view: GameStat
     );
   } else {
     items.push({ id: 'dev', label: t('act.buyDev'), cost: COST.dev, left: view.decks.dev, ok: can(COST.dev) && view.decks.dev > 0,
-      icon: icon(<rect x={-8} y={-11} width={16} height={22} rx={3} className="devcard" />), run: () => { send({ t: 'buyDev' }); onClose(); } });
+      icon: icon(<g transform="translate(-16 -19)"><CardBack size={32} kind="dev" /></g>), run: () => { send({ t: 'buyDev' }); onClose(); } });
   }
   return (
     <Modal title={t('act.build')} onClose={onClose}>
