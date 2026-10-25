@@ -23,6 +23,9 @@ const configs: [string, Partial<Settings>, number[]][] = [
   ['ríos de oro', { shire: 'rivers' }, [3, 4, 5]],
   ['ruta de camellos', { shire: 'caravans' }, [3, 4, 6]],
   ['pesca + sucesos + muelles', { shire: 'fishers', chronicle: true, harbormaster: true }, [4]],
+  ['invasión en la costa', { shire: 'raid' }, [3, 4, 5, 6]],
+  ['invasión en pareja', { shire: 'raid', turnMode: 'paired' }, [5]],
+  ['invasión + sucesos + muelles', { shire: 'raid', chronicle: true, harbormaster: true }, [4]],
   // Mar Abierto: escenarios especiales
   ['pueblo isleño', { openSea: true, scenario: 'tribe' }, [3, 4, 6]],
   ['aldeas tejedoras', { openSea: true, scenario: 'looms' }, [3, 4, 5]],

@@ -584,7 +584,7 @@ const book: ManualBook = {
     shires: {
       id: 'shires',
       title: 'Landstriche',
-      summary: 'Varianten und Szenarien für die Grundinsel: Häfen, die Ansehen bringen, Chronik-Karten statt Würfeln, Regeln für zwei und Szenarien mit Fischfang, Flüssen und Karawanen.',
+      summary: 'Varianten und Szenarien für die Grundinsel: Häfen, die Ansehen bringen, Chronik-Karten statt Würfeln, Regeln für zwei und Szenarien mit Fischfang, Flüssen, Karawanen und einem Überfall vom Meer.',
       meta: ['2–6 Personen', '60–120 Minuten', 'Ziel: 10 bis 12 je nach Szenario'],
       sections: [
         {
@@ -685,6 +685,25 @@ const book: ManualBook = {
               'Wer gewinnt, setzt ein **Kamel** ans Ende einer Karawane, auf eine Landkante, ohne zur Oase zurückzukehren oder eine andere Karawane zu kreuzen. Es gibt 22 Kamele (28 bei 5 oder 6 Personen).',
               'Jedes Gebäude an einer Kreuzung zwischen **zwei Kamelen** zählt **1 Punkt mehr**.',
               'Eine Straße unter einem Kamel zählt **doppelt** für die längste Handelsstraße.',
+            ] },
+          ],
+        },
+        {
+          id: 'raid',
+          title: 'Szenario: Überfall an der Küste',
+          blocks: [
+            { t: 'p', text: 'Am Rand der Insel steht eine Burg, daneben die Wüste. Die übrigen Randfelder bilden die Küste, mit jeder Zahl von 2 bis 12 genau einmal (bei 5 oder 6 Personen kommen vier doppelt vor). Es gibt keinen Räuber. Ziel: 12 Punkte.' },
+            { t: 'fig', id: 'raid', caption: 'Drei Barbaren haben die 10 erobert: Sie bringt keinen Ertrag, und die Stadt an ihrem Ufer zählt nicht. An der 5 siegen drei Ritter über zwei Barbaren, sobald der Zug endet.' },
+            { t: 'list', items: [
+              'In der Gründungsphase ist das zweite Gebäude eine **Stadt**. Zu Beginn steht schon je ein Barbar auf der 2 und auf der 12.',
+              '**Landung**: Immer wenn jemand eine Siedlung gründet oder eine Stadt baut, wird dreimal gewürfelt, ohne dieselbe Zahl zweimal und mit neuem Wurf bei 7. Für jede Zahl landet ein Barbar auf dem Küstenfeld mit dieser Zahl (gibt es zwei, auf dem mit weniger Barbaren). Es gibt 30 Barbaren (40 bei 5 oder 6 Personen); sind sie aufgebraucht, landen keine mehr.',
+              'Mit **drei Barbaren** ist das Feld **erobert**: Es bringt keinen Ertrag, nimmt keine Barbaren mehr auf, und daneben werden weder Siedlungen noch Straßen gebaut. Ein Gebäude, dessen Landfelder alle erobert sind, zählt keine Punkte und nutzt seinen Hafen nicht, solange das so bleibt.',
+              '**Karten** kosten wie immer und wirken sofort beim Kauf. **Ritterschlag** (14) setzt einen deiner Ritter auf eine freie Kante an der Burg; **schneller Ritter** (4) auf eine beliebige freie Kante; **Intrige** (4) nimmt einen Barbaren von der Küste gefangen; **Verrat** (4) bringt 2 Gold und versetzt zwei Barbaren auf andere, nicht eroberte Küstenfelder. Ist der Stapel leer, wird neu gemischt.',
+              '**Ritter**: Alle haben 6. In deinem Zug darf jeder Ritter einmal bis zu 3 Kanten weit ziehen, gegen 1 Getreide bis zu 5, aber weder auf einer besetzten Kante noch an der Burg enden. Du darfst den Zug nicht beenden, solange ein Ritter von dir an der Burg steht und wegziehen kann.',
+              '**Kampf**: Am Ende deines Zuges werden auf jedem Küstenfeld mit Barbaren die Ritter auf seinen sechs Kanten gezählt, in allen Farben. Sind es mehr als Barbaren, siegen sie: Jeder Barbar wird Gefangener einer Person mit Rittern dort, einer nach dem anderen, beginnend bei der mit den meisten; übrige behält dieselbe Person, und wer leer ausgeht, erhält 3 Gold. Danach bestimmt ein Würfel ein Paar gegenüberliegender Kanten: Die Ritter dort gehen an ihre Besitzer zurück, die je 3 Gold erhalten.',
+              'Je **zwei Gefangene** zählen **1 Punkt**.',
+              '**Gold** ist kein Rohstoff: Es wird bei einer 7 nicht abgeworfen und kann nicht gestohlen werden. In deinem Zug kaufen 2 Gold einen Rohstoff nach Wahl, bis zu zweimal; und 4 gleiche Karten (3 mit einem 3:1-Hafen) werden gegen 1 Gold getauscht.',
+              'Bei einer 7 wird wie immer abgeworfen, und wer gewürfelt hat, zieht bei einer beliebigen Person eine Karte.',
             ] },
           ],
         },

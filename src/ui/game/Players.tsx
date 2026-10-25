@@ -1,6 +1,7 @@
 import { useT } from '../../app/i18n';
 import * as C from '../../engine/core';
 import * as Bastions from '../../engine/mods/bastions';
+import * as Raid from '../../engine/mods/raid';
 import * as Works from '../../engine/mods/works';
 import { TRACKS, type GameState } from '../../engine/types';
 import type { LobbyState } from '../../net/protocol';
@@ -72,7 +73,7 @@ export function Players({ view, me, lobby, compact }: { view: GameState; me: num
             </div>
             <div className="pstats">
               <span>{t('player.cards', { n: p.handCount ?? 0 })}</span>
-              {!view.settings.guilds && <span>{t('player.dev', { n: p.devCount ?? 0 })}</span>}
+              {!view.settings.guilds && !view.raid && <span>{t('player.dev', { n: p.devCount ?? 0 })}</span>}
               {!view.settings.guilds && !view.bastions && p.soldiers > 0 && <span>{t('player.soldiers', { n: p.soldiers })}</span>}
               {view.settings.guilds && <span>{t('player.progress', { n: p.progressCount ?? 0 })}</span>}
               {view.settings.guilds && <span>{t('player.knights', { n: `${strength}/${knights.reduce((a, k) => a + k.level, 0)}` })}</span>}
@@ -84,6 +85,9 @@ export function Players({ view, me, lobby, compact }: { view: GameState; me: num
               {p.tokens !== undefined && <span>{t('player.tokens', { n: p.tokens })}</span>}
               {view.fish && <span>{t('player.fish', { n: p.fish?.length || p.fishCount || 0 })}</span>}
               {view.river && <span>{t('player.coins', { n: view.river.coins[seat] ?? 0 })}</span>}
+              {view.raid && <span>{t('player.guards', { n: Raid.knightsOf(view, seat).length })}</span>}
+              {view.raid && <span>{t('player.prisoners', { n: view.raid.prisoners[seat] ?? 0 })}</span>}
+              {view.gold && <span>{t('player.gold', { n: view.gold[seat] ?? 0 })}</span>}
               {view.settings.guilds && (
                 <span className="tracks" aria-label={t('guild.title')}>
                   {TRACKS.map((tr) => <span key={tr} className={`lvl tr-${tr}`} title={`${t(`track.${tr}`)} ${p.improvements[tr]}`}>{p.improvements[tr]}</span>)}

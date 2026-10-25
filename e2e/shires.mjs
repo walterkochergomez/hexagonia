@@ -205,6 +205,58 @@ try {
     log('camellos: votación y camello nuevo');
   }
 
+  // invasión: sacar al caballero del castillo, comprar con oro y una carta que trae un caballero
+  {
+    const { c, pg } = await scene('raid');
+    const game = () => pg.evaluate(() => JSON.parse(localStorage.getItem('hexagonia.local')).game);
+    assert.ok((await pg.locator('.raid-hex').count()) >= 2, 'bárbaros en la costa');
+    assert.ok((await pg.locator('.raid-hex.taken').count()) >= 1, 'una casilla tomada');
+    const end = pg.locator('[data-act="end"]');
+    assert.ok(await end.isDisabled(), 'no se termina con un caballero junto al castillo');
+    assert.equal(await end.getAttribute('title'), 'Mueve tus caballeros del castillo antes de terminar.');
+    await pg.locator('[data-act="guard"]').click();
+    assert.equal(await pg.locator('.layer-targets .target-edge').count(), 1, 'un caballero para mover');
+    await pg.locator('.layer-targets .target-edge').first().click({ force: true });
+    await pg.getByRole('radio', { name: '5 lados (1 trigo)' }).click();
+    const far = await pg.locator('.layer-targets .target-edge').count();
+    await pg.getByRole('radio', { name: '3 lados' }).click();
+    assert.ok(far > (await pg.locator('.layer-targets .target-edge').count()), 'con trigo llega más lejos');
+    await pg.locator('.layer-targets .target-edge').first().click({ force: true });
+    await pg.waitForTimeout(400);
+    assert.ok(!(await end.isDisabled()), 'ya se puede terminar');
+    // oro: dos por un recurso
+    await pg.locator('[data-act="gold"]').click();
+    const sheet = pg.locator('.modal', { hasText: 'Tienes 5 de oro.' });
+    await sheet.getByRole('button', { name: 'Comprar un recurso' }).click();
+    const pick = pg.locator('.modal', { hasText: 'Oro: elige un recurso.' });
+    await pick.locator('.step-btn', { hasText: '+' }).first().click();
+    await pick.getByRole('button', { name: 'Confirmar' }).click();
+    await pg.waitForTimeout(400);
+    assert.equal((await game()).gold[0], 3, 'quedan 3 de oro');
+    // carta veloz: un caballero en cualquier lado libre
+    await pg.locator('[data-act="cards"]').click();
+    const cards = pg.locator('.modal', { hasText: 'Investidura' });
+    await cards.getByRole('button', { name: /Comprar carta/ }).click();
+    await pg.waitForTimeout(300);
+    assert.ok((await pg.locator('.layer-targets .target-edge').count()) > 20, 'lados libres en todo el mapa');
+    const before = await pg.locator('[data-guard]').count();
+    await pg.locator('.layer-targets .target-edge').nth(5).click({ force: true });
+    await pg.waitForTimeout(400);
+    assert.equal(await pg.locator('[data-guard]').count(), before + 1, 'un caballero más');
+    if (shots) await pg.screenshot({ path: 'e2e/out/shires-raid.png' });
+    // si cayó junto al castillo, hay que sacarlo antes de terminar
+    if (await end.isDisabled()) {
+      await pg.locator('[data-act="guard"]').click();
+      await pg.locator('.layer-targets .target-edge').first().click({ force: true });
+      await pg.locator('.layer-targets .target-edge').first().click({ force: true });
+      await pg.waitForTimeout(300);
+    }
+    await end.click();
+    await pg.waitForTimeout(400);
+    await c.close();
+    log('invasión: caballeros, oro y cartas');
+  }
+
   // celular: la partida de duelo entra en pantalla
   const phone = await browser.newContext({ viewport: { width: 360, height: 740 }, isMobile: true, hasTouch: true });
   await phone.addInitScript(() => localStorage.setItem('hexagonia.prefs', JSON.stringify({ name: 'Walter', lang: 'es', clientId: 'w', sound: false })));

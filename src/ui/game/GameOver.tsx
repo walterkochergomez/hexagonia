@@ -4,7 +4,7 @@ import type { GameState } from '../../engine/types';
 import { PlayerMark } from '../art';
 import { Modal } from '../common';
 
-const PARTS = ['settlements', 'cities', 'metropolis', 'road', 'army', 'harbor', 'camels', 'wealth', 'gifts', 'cloth', 'cards', 'defender', 'merchant', 'bonus'] as const;
+const PARTS = ['settlements', 'cities', 'metropolis', 'road', 'army', 'harbor', 'camels', 'wealth', 'gifts', 'cloth', 'prisoners', 'cards', 'defender', 'merchant', 'bonus'] as const;
 
 export function GameOver({ view, me, onHome, onRematch, onClose }: { view: GameState; me: number | null; onHome: () => void; onRematch?: () => void; onClose: () => void }) {
   const t = useT();

@@ -3,8 +3,9 @@ import { graphOf } from '../engine/geometry';
 import type { GameState } from '../engine/types';
 import { useT } from '../app/i18n';
 import { prefs, usePrefs } from '../app/prefs';
-import { CamelShape, CardIcon, CityShape, FleetShape, FortShape, GiftToken, Huts, KnightShape, LandingFlag, MerchantShape, RobberShape, SettlementShape, ShipShape, VillageShape } from './art';
+import { BarbarianShape, CamelShape, CardIcon, CityShape, FleetShape, FortShape, GiftToken, GuardShape, Huts, KnightShape, LandingFlag, MerchantShape, RobberShape, SettlementShape, ShipShape, VillageShape } from './art';
 import { portName } from './format';
+import { raidFallen } from '../engine/core';
 import { Coast, NumberToken, Palm, R, SX, SY, SeaFace, TOP_POINTS, TileDefs, TileFace, hexPoints, turn, type LandTerrain } from './tiles';
 import type { FishGround } from '../engine/types';
 import { reducedMotion } from './fx';
@@ -270,6 +271,7 @@ export function Board({ view, targets, onPick, flash, children, still = false, l
     ...Object.keys(view.ships).map((e) => `s:${e}`),
     ...Object.entries(view.knights).map(([v, k]) => `k:${v}:${k.level}:${k.active ? 1 : 0}`),
     ...(view.caravan?.routes.flat() ?? []).map((e) => `c:${e}`),
+    ...Object.keys(view.raid?.knights ?? {}).map((e) => `g:${e}`),
   ];
   const fresh = useFresh(pieceKeys);
 
@@ -533,9 +535,30 @@ export function Board({ view, targets, onPick, flash, children, still = false, l
       })}
     </>
   );
-  /** Regalos, aldeas, bastiones y desembarcos: cambian durante la partida. */
+  /** Regalos, aldeas, bastiones, desembarcos y bárbaros: cambian durante la partida. */
   const marks = () => (
     <>
+      {view.raid?.coast.map((h) => {
+        const n = view.raid!.barbs[h] ?? 0;
+        if (!n) return null;
+        const [x, y] = hpos(h);
+        const taken = n >= 3;
+        return (
+          <g key={`b${h}`} className={taken ? 'raid-hex taken' : 'raid-hex'} data-barbs={n}>
+            <title>{t(taken ? 'raid.takenTitle' : 'raid.barbsTitle', { n })}</title>
+            {taken && <polygon points={TOP_POINTS} transform={`translate(${x} ${y})`} className="conquered-shade" />}
+            {taken && (
+              <g transform={`translate(${x} ${y + 8})`}>
+                <circle r={14} className="conquered-token" />
+                <path d="M-5 -5 L5 5 M5 -5 L-5 5" className="conquered-token-x" />
+              </g>
+            )}
+            {Array.from({ length: Math.min(n, 3) }, (_, i) => (
+              <g key={i} transform={`translate(${x + (i - (Math.min(n, 3) - 1) / 2) * 14} ${y - 22})`}><g transform={stand}><g transform="scale(1.15)"><BarbarianShape /></g></g></g>
+            ))}
+          </g>
+        );
+      })}
       {view.tribe?.gifts.map((gf) => {
         const ed = g.edges[gf.edge];
         const sea = ed.hexes.find((h) => view.board.hexes[h]?.terrain === 'sea') ?? ed.hexes[0];
@@ -588,11 +611,21 @@ export function Board({ view, targets, onPick, flash, children, still = false, l
   );
   const pieces = () => (
     <>
+      {Object.entries(view.raid?.knights ?? {}).map(([e, k]) => {
+        const [x, y] = at(g.edges[e].X, g.edges[e].Y);
+        return (
+          <g key={`g${e}`} transform={`translate(${x} ${y})`} data-guard={e}>
+            <title>{t('raid.guardTitle', { name: view.players[k.owner]?.name ?? '' })}</title>
+            <g transform={stand}><g className={fresh.has(`g:${e}`) ? 'fresh-drop' : undefined}><GuardShape color={colorOf(k.owner)} moved={k.moved} /></g></g>
+          </g>
+        );
+      })}
       {Object.entries(view.buildings).map(([v, b]) => {
         const [x, y] = vpos(v);
         const isNew = fresh.has(`b:${v}:${b.kind}:${b.wall ? 'w' : ''}:${b.metro ?? ''}`);
+        const down = !!view.raid && raidFallen(view, v);
         return (
-          <g key={v} transform={`translate(${x} ${y})`}>
+          <g key={v} transform={`translate(${x} ${y})`} className={down ? 'fallen' : undefined}>
             {isNew && <ellipse cx={1} cy={8} rx={13} ry={4} className="dust" />}
             <g transform={stand}>
               <g className={isNew ? 'fresh-drop' : undefined}>

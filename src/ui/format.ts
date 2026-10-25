@@ -1,6 +1,6 @@
 import type { T } from '../app/i18n';
 import { prefs } from '../app/prefs';
-import { CARDS, isCard, type GameState, type Hand, type LogEntry } from '../engine/types';
+import { CARDS, RAID_CARDS, isCard, type GameState, type Hand, type LogEntry, type RaidCard } from '../engine/types';
 import type { Params } from '../i18n';
 
 const SEAT_KEYS = ['seat', 'victim', 'with', 'to', 'owner'];
@@ -13,6 +13,7 @@ export function lower(s: string): string {
 export function cardName(c: string, t: T): string {
   if (isCard(c)) return t(`res.${c}`);
   if (['soldier', 'roads', 'plenty', 'monopoly', 'point'].includes(c)) return t(`dev.${c}`);
+  if (RAID_CARDS.includes(c as RaidCard)) return t(`raidcard.${c}`);
   return t(`progress.${c}`);
 }
 

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useT } from '../../app/i18n';
 import * as C from '../../engine/core';
 import * as Guild from '../../engine/guilds';
+import * as Raid from '../../engine/mods/raid';
 import { CARDS, COMMODITIES, PROGRESS_TRACK, RESOURCES, TRACKS, handTotal, type Action, type Card, type DevType, type GameState, type ProgressType, type Track } from '../../engine/types';
 import { CardIcon, PlayerMark } from '../art';
 import { Modal } from '../common';
@@ -15,6 +16,27 @@ export function CardsSheet({ view, me, send, setMode, onClose }: { view: GameSta
   const turn = view.turn;
   const [asking, setAsking] = useState<ProgressType | null>(null);
   if (asking) return <ProgressDialog view={view} me={me} card={asking} send={(a) => { send(a); setAsking(null); onClose(); }} onClose={() => setAsking(null)} />;
+
+  if (view.raid) {
+    // invasión: las cartas se resuelven al comprarlas; aquí solo se ve el mazo
+    const canBuy = ['main', 'specialBuild', 'paired'].includes(turn.phase) && C.actorOf(view) === me && C.hasCards(p.hand, { wool: 1, grain: 1, ore: 1 }) && !view.steps.length;
+    return (
+      <Modal title={t('cards.title')} onClose={onClose} wide
+        actions={<button type="button" className="btn secondary" disabled={!canBuy} onClick={() => { send({ t: 'buyDev' }); onClose(); }}>{t('act.buyDev')} · <span className="muted">{t('cards.deck', { n: view.decks.dev })}</span></button>}>
+        <p className="muted">{t('raid.cardsHint')}</p>
+        <ul className="card-list">
+          {Raid.DECK.map(([c, n]) => (
+            <li key={c} className={`dev-card r-${c}`}>
+              <div>
+                <h3>{t(`raidcard.${c}`)} <span className="muted">×{n}</span></h3>
+                <p>{t(`raidcard.${c}.d`)}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </Modal>
+    );
+  }
 
   if (!view.settings.guilds) {
     const myTurn = ((turn.phase === 'preRoll' || turn.phase === 'main') && turn.current === me) || (turn.phase === 'paired' && turn.partner === me);

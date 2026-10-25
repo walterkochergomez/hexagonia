@@ -58,8 +58,22 @@ export const hasBrokenRoad = (s: GameState, seat: number) => Object.values(s.roa
 /** Ríos: lados donde el agua cruza; sólo se pasa con un puente. */
 export const isCrossing = (s: GameState, e: string) => !!s.river?.crossings.includes(e);
 
+// ---------- invasión en la costa ----------
+
+/** Casilla tomada por los bárbaros (tres o más). */
+export const raidConquered = (s: GameState, hex: string) => (s.raid?.barbs[hex] ?? 0) >= 3;
+
+/** Edificio caído: todas sus casillas de tierra están tomadas (el castillo y el desierto nunca caen). */
+export function raidFallen(s: GameState, v: string): boolean {
+  if (!s.raid) return false;
+  const land = G(s).vertices[v].hexes.filter((h) => hexIsLand(s, h));
+  return land.length > 0 && land.every((h) => raidConquered(s, h));
+}
+
 export function canRoad(s: GameState, seat: number, e: string): boolean {
   if (!G(s).edges[e] || s.roads[e] || s.ships[e] || isCrossing(s, e)) return false;
+  // junto a una casilla tomada no se construyen caminos
+  if (s.raid && G(s).edges[e].hexes.some((h) => raidConquered(s, h))) return false;
   if (s.bastions?.forts.some((f) => f.plan.includes(e))) return false; // los carriles de barcos no llevan caminos
   return edgeRoadable(s, e) && routeConnects(s, seat, e, s.roads) && !hasBrokenRoad(s, seat);
 }
@@ -160,6 +174,7 @@ function scenarioSettleOk(s: GameState, seat: number, v: string): boolean {
   if (s.looms && land.every((h) => s.looms!.hexes.includes(h))) return false;
   if (s.bastions && !land.some((h) => s.board.hexes[h].region === 0)) return fortOf(s, seat)?.landing === v;
   if (s.bastions && laneOfOthers(s, seat, v)) return false;
+  if (s.raid && G(s).vertices[v].hexes.some((h) => raidConquered(s, h))) return false;
   return true;
 }
 
@@ -283,8 +298,8 @@ export function handText(h: Partial<Hand>): string {
 export function vpOf(s: GameState, seat: number, hidden = true): number {
   const p = s.players[seat];
   let vp = 0;
-  for (const b of Object.values(s.buildings)) {
-    if (b.owner !== seat) continue;
+  for (const [v, b] of Object.entries(s.buildings)) {
+    if (b.owner !== seat || raidFallen(s, v)) continue;
     vp += b.kind === 'city' && !b.damaged ? 2 : 1;
     if (b.metro) vp += 2;
   }
@@ -292,7 +307,7 @@ export function vpOf(s: GameState, seat: number, hidden = true): number {
   if (!s.settings.guilds && s.awards.army.owner === seat) vp += 2;
   if (s.awards.harbor?.owner === seat) vp += 2;
   vp += camelBonus(s, seat) + wealthBonus(s, seat);
-  vp += (s.tribe?.vp[seat] ?? 0) + clothPoints(s, seat);
+  vp += (s.tribe?.vp[seat] ?? 0) + clothPoints(s, seat) + Math.floor((s.raid?.prisoners[seat] ?? 0) / 2);
   vp += p.vpCards.length + p.defender;
   if (s.board.merchant?.owner === seat) vp += 1;
   for (const b of p.bonus) vp += b.vp;
@@ -303,8 +318,8 @@ export function vpOf(s: GameState, seat: number, hidden = true): number {
 export function vpBreakdown(s: GameState, seat: number) {
   const p = s.players[seat];
   let settlements = 0, cities = 0, metros = 0;
-  for (const b of Object.values(s.buildings)) {
-    if (b.owner !== seat) continue;
+  for (const [v, b] of Object.entries(s.buildings)) {
+    if (b.owner !== seat || raidFallen(s, v)) continue;
     if (b.kind === 'city' && !b.damaged) cities++;
     else settlements++;
     if (b.metro) metros++;
@@ -322,6 +337,7 @@ export function vpBreakdown(s: GameState, seat: number) {
     wealth: wealthBonus(s, seat),
     gifts: s.tribe?.vp[seat] ?? 0,
     cloth: clothPoints(s, seat),
+    prisoners: Math.floor((s.raid?.prisoners[seat] ?? 0) / 2),
   };
 }
 
@@ -335,7 +351,8 @@ export function harborKinds(s: GameState, seat: number): Set<Resource | 'any'> {
   const out = new Set<Resource | 'any'>();
   for (const h of s.board.harbors) {
     const e = g.edges[h.edge];
-    if (s.buildings[e.a]?.owner === seat || s.buildings[e.b]?.owner === seat) out.add(h.kind);
+    // un edificio caído no usa su puerto
+    if ((s.buildings[e.a]?.owner === seat && !raidFallen(s, e.a)) || (s.buildings[e.b]?.owner === seat && !raidFallen(s, e.b))) out.add(h.kind);
   }
   return out;
 }
@@ -659,7 +676,7 @@ export function defaultCity(s: GameState, seat: number): string[] {
 
 export function decksOf(s: GameState) {
   return {
-    dev: s.hidden.devDeck.length + (s.hidden.devDiscard?.length ?? 0),
+    dev: s.raid ? s.hidden.raidDeck?.length ?? 0 : s.hidden.devDeck.length + (s.hidden.devDiscard?.length ?? 0),
     science: s.hidden.progress.science.length,
     trade: s.hidden.progress.trade.length,
     politics: s.hidden.progress.politics.length,

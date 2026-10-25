@@ -26,9 +26,11 @@ import { CoinsSheet, FishSheet } from './Shires';
 import * as Duel from '../../engine/mods/duel';
 import * as Bastions from '../../engine/mods/bastions';
 import { AssaultSheet, WorksSheet } from './Works';
+import { GoldSheet } from './Gold';
+import * as Raid from '../../engine/mods/raid';
 import { IncomingTrade, TradeSheet } from './Trade';
 
-type Sheet = null | 'build' | 'trade' | 'cards' | 'guild' | 'log' | 'players' | 'duel' | 'fish' | 'coins' | 'works' | 'assault';
+type Sheet = null | 'build' | 'trade' | 'cards' | 'guild' | 'log' | 'players' | 'duel' | 'fish' | 'coins' | 'works' | 'assault' | 'gold';
 
 function stepKey(n: number, st: { k: string; reason?: string; waiting?: unknown }, me: number): string {
   const w = st.waiting && !Array.isArray(st.waiting) ? (st.waiting as Record<number, number>)[me] : '';
@@ -106,6 +108,7 @@ export function Game({ session, snap, onHome }: { session: Session; snap: Snapsh
   if (view.winner !== null) status = t('phase.over');
   else if (p.hint) status = t(p.hint, translateParams(p.hintParams));
   else if (myStep) status = '';
+  else if (view.raid && me !== null && actor === me && view.turn.phase === 'main' && !mode && Raid.stuckAtCastle(view, me).length) status = t('raid.leaveCastle');
   else if (waiting.length) status = t('step.waiting', { names: waiting.map(nameOf).join(', ') });
   else {
     const ph = view.turn.phase;
@@ -146,9 +149,16 @@ export function Game({ session, snap, onHome }: { session: Session; snap: Snapsh
     }
   }
   if (view.works) buttons.push({ id: 'works', label: t('act.wonders'), onClick: () => setSheet('works') });
+  // invasión: mover caballeros y oro
+  const stuck = view.raid && me !== null && myTurn && ph === 'main' ? Raid.stuckAtCastle(view, me) : [];
+  if (view.raid && myTurn && ph === 'main') {
+    const free = Raid.knightsOf(view, me!).filter((e) => !view.raid!.knights[e].moved).length;
+    buttons.push({ id: 'guard', label: t('act.guards'), badge: free, disabled: !free, onClick: () => setMode({ k: 'guard' }) });
+  }
+  if (view.gold && myTurn && ph === 'main') buttons.push({ id: 'gold', label: t('act.gold'), badge: view.gold[me!] ?? 0, onClick: () => setSheet('gold') });
   buttons.push({ id: 'cards', label: t('act.cards'), badge: myCards, onClick: () => setSheet('cards') });
   if (guilds && !buttons.some((b) => b.id === 'guild')) buttons.push({ id: 'guild', label: t('act.improve'), onClick: () => setSheet('guild') });
-  if (myTurn && (ph === 'main' || ph === 'paired')) buttons.push({ id: 'end', label: t('act.end'), primary: true, onClick: () => send({ t: 'endTurn' }) });
+  if (myTurn && (ph === 'main' || ph === 'paired')) buttons.push({ id: 'end', label: t('act.end'), primary: true, disabled: stuck.length > 0, title: stuck.length ? t('raid.leaveCastle') : undefined, onClick: () => send({ t: 'endTurn' }) });
   if (myTurn && ph === 'specialBuild') buttons.push({ id: 'pass', label: t('act.pass'), primary: true, onClick: () => send({ t: 'endTurn' }) });
   // la acción principal siempre al final: en el celular queda abajo a la derecha
   buttons.sort((a, b) => Number(!!a.primary) - Number(!!b.primary));
@@ -205,6 +215,12 @@ export function Game({ session, snap, onHome }: { session: Session; snap: Snapsh
                 <button type="button" role="radio" aria-checked={routeKind === 'ship'} className={routeKind === 'ship' ? 'on' : ''} onClick={() => setRouteKind('ship')}>{t('piece.ship')}</button>
               </span>
             )}
+            {p.far && (
+              <span className="segmented sm" role="radiogroup" aria-label={t('act.guards')}>
+                <button type="button" role="radio" aria-checked={!p.far.on} className={!p.far.on ? 'on' : ''} onClick={() => setMode(p.far!.set(false))}>{t('raid.near')}</button>
+                <button type="button" role="radio" aria-checked={p.far.on} className={p.far.on ? 'on' : ''} disabled={!p.far.can} onClick={() => setMode(p.far!.set(true))}>{t('raid.far')}</button>
+              </span>
+            )}
             {p.chase?.robber && <button type="button" className="btn secondary sm" onClick={() => { send({ t: 'chase', from: p.chase!.from, target: 'robber' }); setMode(null); }}>{t('act.chaseRobber')}</button>}
             {p.chase?.pirate && <button type="button" className="btn secondary sm" onClick={() => { send({ t: 'chase', from: p.chase!.from, target: 'pirate' }); setMode(null); }}>{t('act.chasePirate')}</button>}
             {p.confirm && <button type="button" className="btn primary sm" onClick={() => { send(p.confirm!); setMode(null); }}>{t('pick.done')}</button>}
@@ -223,7 +239,7 @@ export function Game({ session, snap, onHome }: { session: Session; snap: Snapsh
         </aside>
       </main>
       <footer className="dock">
-        <Hand view={view} me={me} onCards={() => setSheet('cards')} />
+        <Hand view={view} me={me} onCards={() => setSheet('cards')} onGold={() => setSheet('gold')} />
         <nav className="actions" aria-label={t('act.build')}>
           {buttons.map((b) => (
             <button key={b.id} type="button" data-act={b.id} className={`btn ${b.primary ? 'primary' : 'secondary'}`} disabled={b.disabled} title={b.title} onClick={b.onClick}>
@@ -243,6 +259,7 @@ export function Game({ session, snap, onHome }: { session: Session; snap: Snapsh
       {sheet === 'coins' && me !== null && <CoinsSheet view={view} me={me} send={send} onClose={() => setSheet(null)} />}
       {sheet === 'works' && <WorksSheet view={view} me={me} send={send} onClose={() => setSheet(null)} />}
       {sheet === 'assault' && me !== null && <AssaultSheet view={view} me={me} send={send} onClose={() => setSheet(null)} />}
+      {sheet === 'gold' && me !== null && <GoldSheet view={view} me={me} send={send} onClose={() => setSheet(null)} />}
       {sheet === 'log' && (
         <div className="overlay" onClick={(e) => e.target === e.currentTarget && setSheet(null)}>
           <div className="modal wide" role="dialog" aria-modal="true" aria-label={t('act.log')}>

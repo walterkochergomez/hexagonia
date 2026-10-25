@@ -6,7 +6,7 @@ Juego de colonización y comercio en una isla de hexágonos, para jugar en líne
 - **Mar Abierto**: barcos, pirata, campos de oro, islas que dan puntos extra, mar de niebla y nueve escenarios con mapas generados en cada partida, cuatro de ellos con reglas especiales (pueblo isleño, aldeas tejedoras, bastiones corsarios y grandes obras).
 - **Gremios y Guardianes**: mercancías, mejoras de ciudad con metrópolis, caballeros, ataques bárbaros y 54 cartas de progreso.
 - Los dos módulos se pueden **combinar**.
-- **Comarcas**: tres escenarios con su propio mapa (aguas de pesca, ríos de oro y ruta de camellos) y variantes que se suman a cualquier partida: señor de los muelles, mazo de sucesos en vez de dados y duelo para 2 jugadores con colores neutrales.
+- **Comarcas**: cuatro escenarios con su propio mapa (aguas de pesca, ríos de oro, ruta de camellos e invasión en la costa) y variantes que se suman a cualquier partida: señor de los muelles, mazo de sucesos en vez de dados y duelo para 2 jugadores con colores neutrales.
 - **Salas con código**: quien crea la sala comparte un link y los demás entran desde cualquier navegador (también desde el celular).
 - **Partida en un solo dispositivo** pasándolo de mano en mano, o contra bots.
 
@@ -47,7 +47,7 @@ npm run e2e:a11y   # revisión de accesibilidad
 npm run e2e:fit    # que nada se salga de la pantalla en celulares (320–430 px, tres idiomas)
 npm run e2e:fx     # animaciones: dados, cartas que viajan, piezas que caen, ladrón, aviso de turno y «reducir movimiento»
 npm run e2e:manual # manuales: cada uno en tres idiomas, figuras dibujadas, celular, accesibilidad e impresión
-npm run e2e:shires # Comarcas en la interfaz: neutrales, sucesos, fichas, pesca, puentes y monedas, puja de camellos
+npm run e2e:shires # Comarcas en la interfaz: neutrales, sucesos, fichas, pesca, puentes y monedas, puja de camellos, caballeros y oro
 npm run e2e:seas   # escenarios especiales del mar: regalos, telas, ataque al bastión y obras
 ```
 

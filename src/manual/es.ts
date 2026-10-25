@@ -580,7 +580,7 @@ const book: ManualBook = {
     shires: {
       id: 'shires',
       title: 'Comarcas',
-      summary: 'Variantes y escenarios para la isla base: puertos que dan prestigio, un mazo de sucesos en vez de dados, reglas para dos, y escenarios con pesca, ríos y caravanas.',
+      summary: 'Variantes y escenarios para la isla base: puertos que dan prestigio, un mazo de sucesos en vez de dados, reglas para dos, y escenarios con pesca, ríos, caravanas y una invasión desde el mar.',
       meta: ['2–6 jugadores', '60–120 minutos', 'Meta: 10 a 12 según el escenario'],
       sections: [
         {
@@ -681,6 +681,25 @@ const book: ManualBook = {
               'Quien gana pone un **camello** al final de una caravana, en un lado de tierra, sin volver al oasis ni cruzarse con otra caravana. Hay 22 camellos (28 con 5 o 6 jugadores).',
               'Cada edificio en un cruce entre **dos camellos** vale **1 punto más**.',
               'Un camino bajo un camello cuenta **doble** para la ruta comercial más larga.',
+            ] },
+          ],
+        },
+        {
+          id: 'raid',
+          title: 'Escenario: invasión en la costa',
+          blocks: [
+            { t: 'p', text: 'En el borde de la isla hay un castillo con el desierto al lado. Las demás casillas del borde son la costa, con un número de cada uno del 2 al 12 (con 5 o 6 jugadores se repiten cuatro). No hay ladrón. Meta: 12 puntos.' },
+            { t: 'fig', id: 'raid', caption: 'Tres bárbaros tomaron el 10: no produce y la ciudad de su orilla no vale. En el 5, tres caballeros contra dos bárbaros ganan la batalla al terminar el turno.' },
+            { t: 'list', items: [
+              'En la preparación la segunda pieza es una **ciudad**. Al empezar ya espera un bárbaro en el 2 y otro en el 12.',
+              '**Desembarco**: cada vez que alguien funda un poblado o hace una ciudad se tiran los dados tres veces, sin repetir número y volviendo a tirar los 7. Por cada número llega un bárbaro a la casilla de la costa que lo tiene (si hay dos, a la que tiene menos). Hay 30 bárbaros (40 con 5 o 6 jugadores); cuando se acaban, no llegan más.',
+              'Con **tres bárbaros** la casilla queda **tomada**: no produce, no recibe más bárbaros y junto a ella no se fundan poblados ni se hacen caminos. Un edificio con todas sus casillas de tierra tomadas no vale puntos ni usa su puerto mientras sigan así.',
+              '**Cartas**: cuestan lo de siempre y se resuelven al comprarlas. **Investidura** (14) pone un caballero tuyo en un lado libre junto al castillo; **caballero veloz** (4), en cualquier lado libre; **intriga** (4) se lleva un bárbaro de la costa como prisionero; **traición** (4) da 2 de oro y mueve dos bárbaros a otras casillas de la costa sin tomar. El mazo se vuelve a mezclar cuando se acaba.',
+              '**Caballeros**: cada uno tiene 6. En tu turno cada caballero puede moverse una vez hasta 3 lados, o hasta 5 pagando un trigo, sin terminar en un lado ocupado ni junto al castillo. No puedes terminar el turno con un caballero junto al castillo si puede salir.',
+              '**Batalla**: al terminar tu turno, en cada casilla de la costa con bárbaros se cuentan los caballeros de sus seis lados, de cualquier color. Si son más que los bárbaros, ganan: cada bárbaro pasa a ser prisionero de un jugador con caballeros allí, de a uno y empezando por quien tiene más; si sobran, se los queda ese mismo, y quienes se quedan sin prisionero cobran 3 de oro. Después un dado elige un par de lados opuestos: los caballeros que estén ahí vuelven a su dueño, que cobra 3 de oro por cada uno.',
+              'Cada **dos prisioneros** valen **1 punto**.',
+              '**Oro**: no es un recurso, así que no se descarta con un 7 ni se roba. En tu turno, 2 de oro compran un recurso a elección, hasta dos veces; y 4 cartas iguales (3 con un puerto 3:1) se cambian por 1 de oro.',
+              'Con un 7 se descarta como siempre y quien tiró le roba una carta a quien quiera.',
             ] },
           ],
         },

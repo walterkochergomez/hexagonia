@@ -8,10 +8,10 @@ export const COMMODITIES: readonly Commodity[] = ['paper', 'cloth', 'coin'];
 export const CARDS: readonly Card[] = [...RESOURCES, ...COMMODITIES];
 export type Hand = Record<Card, number>;
 
-export type Terrain = 'forest' | 'hills' | 'pasture' | 'fields' | 'mountains' | 'desert' | 'gold' | 'sea' | 'lake' | 'swamp';
-export const LAND: readonly Terrain[] = ['forest', 'hills', 'pasture', 'fields', 'mountains', 'desert', 'gold', 'lake', 'swamp'];
+export type Terrain = 'forest' | 'hills' | 'pasture' | 'fields' | 'mountains' | 'desert' | 'gold' | 'sea' | 'lake' | 'swamp' | 'castle' | 'quarry' | 'glassworks';
+export const LAND: readonly Terrain[] = ['forest', 'hills', 'pasture', 'fields', 'mountains', 'desert', 'gold', 'lake', 'swamp', 'castle', 'quarry', 'glassworks'];
 /** Terrenos sin ficha de número. */
-export const BARREN: readonly Terrain[] = ['desert', 'lake', 'swamp'];
+export const BARREN: readonly Terrain[] = ['desert', 'lake', 'swamp', 'castle', 'quarry', 'glassworks'];
 export const TERRAIN_RESOURCE: Partial<Record<Terrain, Resource>> = {
   forest: 'lumber', hills: 'brick', pasture: 'wool', fields: 'grain', mountains: 'ore',
 };
@@ -69,7 +69,13 @@ export interface Wonder { id: WonderId; owner: number | null; level: number }
 
 /** Escenarios de la caja Comarcas (se juegan sobre la isla base). */
 export type Shire = 'fishers' | 'rivers' | 'caravans' | 'raid' | 'traders';
-export const SHIRES: readonly Shire[] = ['fishers', 'rivers', 'caravans'];
+export const SHIRES: readonly Shire[] = ['fishers', 'rivers', 'caravans', 'raid'];
+
+/** Invasión en la costa: cartas propias, que se resuelven al comprarlas. */
+export type RaidCard = 'knighthood' | 'swift' | 'intrigue' | 'treason';
+export const RAID_CARDS: readonly RaidCard[] = ['knighthood', 'swift', 'intrigue', 'treason'];
+/** Resultado de la última batalla contra los bárbaros. */
+export interface RaidBattle { n: number; hex: string; barbs: number; knights: number; prisoners: Record<number, number>; die: number; lost: number[] }
 
 export interface Settings {
   seats: number; // 2..6
@@ -170,7 +176,7 @@ export type Step =
   | { k: 'discard'; reason: 'seven' | 'saboteur'; waiting: Record<number, number> }
   | { k: 'robber'; seat: number; robber: boolean; pirate: boolean; mode: 'steal1' | 'stealAll' }
   | { k: 'steal'; seat: number; hex: string; on: 'robber' | 'pirate' | 'event'; from: number[] }
-  | { k: 'pick'; reason: 'gold' | 'aqueduct' | 'plenty' | 'fog' | 'harvest' | 'joust' | 'calm' | 'fish' | 'coins' | 'fleet'; waiting: Record<number, number> }
+  | { k: 'pick'; reason: 'gold' | 'aqueduct' | 'plenty' | 'fog' | 'harvest' | 'joust' | 'calm' | 'fish' | 'coins' | 'fleet' | 'gold2'; waiting: Record<number, number> }
   | { k: 'monopoly'; seat: number }
   | { k: 'freeRoutes'; seat: number; left: number; source: 'dev' | 'progress' | 'diplomat' | 'fish' }
   | { k: 'pillage'; waiting: number[] }
@@ -194,6 +200,10 @@ export type Step =
   // Mar Abierto: escenarios especiales
   | { k: 'placeHarbor'; seat: number; kind: Resource | 'any' }
   | { k: 'fleet' }
+  // Comarcas: invasión en la costa
+  | { k: 'raidKnight'; seat: number; anywhere: boolean }
+  | { k: 'raidTake'; seat: number }
+  | { k: 'raidShift'; seat: number; left: number; from: string | null; used: string[] }
   | { k: 'produce' }
   | { k: 'duelRoll' };
 
@@ -234,6 +244,8 @@ export interface TurnState {
   tokenUsed?: boolean;
   /** ríos: monedas cambiadas por recursos este turno */
   coinTrades?: number;
+  /** oro: recursos comprados con oro este turno */
+  goldBuys?: number;
   /** camellos: alguien construyó poblado o ciudad este turno (al empezar el siguiente se vota) */
   built?: boolean;
 }
@@ -272,6 +284,8 @@ export interface GameState {
     fishPile?: number[];
     /** pueblo isleño: cartas de desarrollo boca abajo en las costas (en el orden de los regalos de carta) */
     tribeDev?: DevType[];
+    /** invasión en la costa: mazo propio */
+    raidDeck?: RaidCard[];
   };
   buildings: Record<string, Building>;
   roads: Record<string, { owner: number; broken?: boolean; bridge?: boolean }>;
@@ -307,6 +321,10 @@ export interface GameState {
   bastions?: { rock: string[]; loop: string[]; fleet: number | null; forts: Fort[]; last: FleetResult | null };
   /** grandes obras: las cinco obras y los lugares especiales */
   works?: { wonders: Wonder[]; strait: string[]; waste: string[] };
+  /** invasión: castillo, costa en sentido horario, bárbaros por casilla, reserva, caballeros en lados y prisioneros */
+  raid?: { castle: string; coast: string[]; barbs: Record<string, number>; supply: number; knights: Record<string, { owner: number; moved: boolean }>; prisoners: number[]; last: RaidBattle | null };
+  /** oro de cada jugador (invasión y carretas): no es un recurso */
+  gold?: number[];
   winner: number | null;
   redacted?: boolean; // vista para un asiento
   viewer?: number | null;
@@ -385,7 +403,14 @@ export type Action =
   // Mar Abierto: escenarios especiales
   | { t: 'placeHarbor'; edge: string }
   | { t: 'assault' }
-  | { t: 'wonder'; id: WonderId };
+  | { t: 'wonder'; id: WonderId }
+  // Comarcas: invasión en la costa y oro
+  | { t: 'raidPlace'; edge: string }
+  | { t: 'raidTake'; hex: string }
+  | { t: 'raidShift'; hex: string }
+  | { t: 'raidMove'; from: string; to: string; far?: boolean }
+  | { t: 'gold'; use: 'buy' }
+  | { t: 'sellGold'; give: Resource };
 
 export interface ProgressArg {
   dice?: [number, number];

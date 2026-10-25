@@ -278,6 +278,36 @@ export function ShipShape({ color, war }: { color?: number; war?: boolean }) {
   );
 }
 
+/** Bárbaro: guerrero con casco de cuernos (en las casillas de la costa). */
+export function BarbarianShape() {
+  return (
+    <g className="barbarian">
+      <ellipse cx={0.8} cy={9.4} rx={6.4} ry={1.8} className="piece-shadow" />
+      <path d="M-4.6 9 L-4.2 1 Q0 -2.4 4.2 1 L4.6 9 Z" className="barb-body" />
+      <path d="M-4.4 4.4 L4.4 4.4" className="barb-belt" />
+      <circle cx={0} cy={-3.4} r={3.4} className="barb-head" />
+      <path d="M-3.6 -4.4 Q0 -8.6 3.6 -4.4 Z" className="barb-helm" />
+      <path d="M-3.4 -5.4 Q-6.6 -7 -6.2 -10.4 M3.4 -5.4 Q6.6 -7 6.2 -10.4" className="barb-horn" />
+      <path d="M5.6 9 L7.6 -4" className="barb-axe-handle" />
+      <path d="M7.4 -3.4 Q11 -4.6 10.4 -0.2 Z" className="barb-axe" />
+    </g>
+  );
+}
+
+/** Caballero de la invasión: escudo del color del jugador, parado en un lado. */
+export function GuardShape({ color, moved }: { color: number; moved?: boolean }) {
+  return (
+    <g className={`piece guard p${color}${moved ? ' moved' : ''}`}>
+      <ellipse cx={1.2} cy={8.6} rx={8} ry={2.2} className="piece-shadow" />
+      <path d="M-6.4 -7 L6.4 -7 L6.4 0 Q6.4 5.8 0 8.6 Q-6.4 5.8 -6.4 0 Z" className="pfill" />
+      <path d="M-6.4 -7 L6.4 -7 L6.4 -3.6 L-6.4 -3.6 Z" className="pfill-d" />
+      <g transform="translate(0 1.4)"><SymbolShape color={color} r={2.4} className="sym" /></g>
+      <path d="M0 -7 L0 -12.4" className="guard-plume-stem" />
+      <path d="M0 -12.4 Q4 -14 5.4 -10.6 Q2.6 -11.6 0 -10.2 Z" className="guard-plume" />
+    </g>
+  );
+}
+
 /** La flota corsaria: dos barcos oscuros juntos. */
 export function FleetShape() {
   return (

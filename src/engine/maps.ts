@@ -698,7 +698,52 @@ export function shireMap(rng: Rng, shire: string, big: boolean): MapResult {
     case 'caravans':
       // el oasis (desierto) en el centro: de él salen las caravanas
       return standardMap(rng, big, { terrains: big ? [...base, 'desert', 'desert'] : [...base, 'desert'], center: 'desert' });
+    case 'raid':
+      return raidMap(rng, big);
     default:
       return standardMap(rng, big);
   }
+}
+
+/**
+ * Invasión en la costa: el castillo y un desierto juntos en la costa de arriba. Las casillas de la costa llevan
+ * cada número del 2 al 12 (sin el 7) una vez —con 5-6 se repiten algunos— porque los bárbaros desembarcan por número.
+ */
+function raidMap(rng: Rng, big: boolean): MapResult {
+  const m = standardMap(rng, big);
+  const land = Object.values(m.hexes).filter((h) => h.terrain !== 'sea');
+  const ids = new Set(land.map((h) => h.id));
+  const ring = land.filter((h) => neighbors(h.id).some((n) => !ids.has(n)));
+  const inner = land.filter((h) => !ring.includes(h));
+  const pos = (h: HexTile) => [Math.sqrt(3) * (h.q + h.r / 2), 1.5 * h.r];
+  const cx = land.reduce((a, h) => a + pos(h)[0], 0) / land.length;
+  const cy = land.reduce((a, h) => a + pos(h)[1], 0) / land.length;
+  // en sentido horario, empezando arriba
+  const ang = (h: HexTile) => (Math.atan2(pos(h)[1] - cy, pos(h)[0] - cx) + Math.PI * 2.5) % (Math.PI * 2);
+  ring.sort((a, b) => ang(a) - ang(b));
+  const castle = ring[0];
+  const desert = ring[1];
+  const coast = [...ring.slice(2)];
+  const producing: Terrain[] = big
+    ? [...rep<Terrain>('forest', 6), ...rep<Terrain>('pasture', 6), ...rep<Terrain>('fields', 6), ...rep<Terrain>('hills', 5), ...rep<Terrain>('mountains', 5)]
+    : [...rep<Terrain>('forest', 3), ...rep<Terrain>('pasture', 4), ...rep<Terrain>('fields', 4), ...rep<Terrain>('hills', 3), ...rep<Terrain>('mountains', 3)];
+  rng.shuffle(producing);
+  for (const h of land) h.number = null;
+  castle.terrain = 'castle';
+  desert.terrain = 'desert';
+  [...coast, ...inner].forEach((h, i) => { h.terrain = producing[i]; });
+  // números de la costa: uno de cada (con 5-6, cuatro más); el resto de las fichas, adentro
+  const once = [2, 3, 4, 5, 6, 8, 9, 10, 11, 12];
+  const pool = [...(big ? NUMBERS_56 : NUMBERS_34)];
+  const coastNums = [...once];
+  for (const n of once) pool.splice(pool.indexOf(n), 1);
+  rng.shuffle(pool);
+  while (coastNums.length < coast.length) coastNums.push(pool.pop()!);
+  const cn = assignNumbers(rng, coast.map((h) => h.id), coastNums);
+  for (const [c, n] of cn) m.hexes[c].number = n;
+  const innerNums = pool.slice(0, inner.length);
+  const hotNear = (c: string) => neighbors(c).some((x) => hot(m.hexes[x]?.number));
+  const inn = assignNumbers(rng, inner.map((h) => h.id), innerNums, (c, n) => hot(n) && hotNear(c));
+  for (const [c, n] of inn) m.hexes[c].number = n;
+  return { ...m, robber: null, marks: { rock: [castle.id], loop: coast.map((h) => h.id) } };
 }

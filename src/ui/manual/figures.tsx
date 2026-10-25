@@ -47,6 +47,8 @@ interface Scene {
   /** bastiones: peñón (su anillo de mar es el recorrido de la flota) y bastiones */
   bastions?: { rock: string; fleet: number; forts: { seat: number; v: string; landing: string; chips: number; plan?: string[] }[] };
   works?: { strait: string[]; waste: string[] };
+  /** invasión: castillo, costa, bárbaros por casilla y caballeros [lado, dueño] */
+  raid?: { castle: string; coast: string[]; barbs: Record<string, number>; knights: [string, number][] };
 }
 
 const FLOWER: [number, number][] = [[0, 0], [1, -1], [1, 0], [0, 1], [-1, 1], [-1, 0], [0, -1]];
@@ -87,6 +89,8 @@ function stateOf(sc: Scene): GameState {
       return { rock: [sc.bastions.rock], loop, fleet: sc.bastions.fleet, forts: sc.bastions.forts.map((f) => ({ plan: [], ...f, start: '', taken: false })), last: null };
     })(),
     works: sc.works && { ...sc.works, wonders: [] },
+    raid: sc.raid && { castle: sc.raid.castle, coast: sc.raid.coast, barbs: sc.raid.barbs, supply: 0, prisoners: [], last: null,
+      knights: Object.fromEntries(sc.raid.knights.map(([e, owner]) => [e, { owner, moved: false }])) },
     roads: { ...own(sc.roads), ...Object.fromEntries((sc.bridges ?? []).map(([e, owner]) => [e, { owner, bridge: true }])) },
     ships: Object.fromEntries((sc.ships ?? []).map(([e, owner, war]) => [e, war ? { owner, war } : { owner }])),
     buildings: Object.fromEntries((sc.buildings ?? []).map(([v, kind, owner, x]) => [v, { owner, kind, ...x }])),
@@ -333,6 +337,22 @@ export function Figure({ id, caption }: { id: FigureId; caption: string }) {
           roads: [[side(0, -1, 1), 2], [side(1, -1, 5), 2]],
           robber: 'h0,0',
         }} overlay={(at) => <Badge at={[at.v(corner(0, -1, 1))[0] - 30, at.v(corner(0, -1, 1))[1] - 12]} text="+1" />} />
+      );
+      break;
+    case 'raid':
+      // el 10 está tomado (la ciudad de su orilla no vale); en el 5, tres caballeros contra dos bárbaros
+      body = (
+        <Still label={caption} scene={{
+          hexes: [[0, 0, 'fields', 6], [0, -1, 'castle'], [1, -1, 'forest', 5], [1, 0, 'pasture', 10], [0, 1, 'hills', 3], [-1, 1, 'fields', 9], [-1, 0, 'mountains', 8]],
+          raid: {
+            castle: 'h0,-1', coast: ['h1,-1', 'h1,0', 'h0,1', 'h-1,1', 'h-1,0'], barbs: { 'h1,-1': 2, 'h1,0': 3, 'h-1,1': 1 },
+            knights: [[side(1, -1, 1), 0], [side(1, -1, 2), 0], [side(1, -1, 3), 1], [side(0, -1, 4), 2]],
+          },
+          buildings: [[corner(1, 0, 2), 'city', 3], [corner(0, 0, 5), 'settlement', 1], [corner(-1, 1, 3), 'settlement', 2]],
+          roads: [[side(0, 0, 4), 1], [side(-1, 1, 2), 2]],
+        }} overlay={(at) => <>
+          <Badge at={[at.e(side(1, -1, 1))[0] + 26, at.e(side(1, -1, 1))[1] - 4]} text="3>2" />
+        </>} />
       );
       break;
     case 'tribe': {

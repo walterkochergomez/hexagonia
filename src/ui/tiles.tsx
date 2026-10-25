@@ -21,7 +21,7 @@ const BEVEL_DARK = (() => {
   return [[1, -1], [1, 1], [0, 2], [-1, 1]].map(([x, y]) => `${(x * SX * k).toFixed(2)},${(y * SY * k).toFixed(2)}`).join(' ');
 })();
 
-export type LandTerrain = 'forest' | 'hills' | 'pasture' | 'fields' | 'mountains' | 'desert' | 'gold' | 'fog' | 'lake' | 'swamp';
+export type LandTerrain = 'forest' | 'hills' | 'pasture' | 'fields' | 'mountains' | 'desert' | 'gold' | 'fog' | 'lake' | 'swamp' | 'castle' | 'quarry' | 'glassworks';
 
 export const PALETTE: Record<LandTerrain, { base: string; side: string; clearing?: string }> = {
   forest: { base: '#3d7a54', side: '#22482f', clearing: '#4c8c60' },
@@ -34,6 +34,9 @@ export const PALETTE: Record<LandTerrain, { base: string; side: string; clearing
   fog: { base: '#c2cdd1', side: '#86959b' },
   lake: { base: '#a2cf8b', side: '#5f8a4c' },
   swamp: { base: '#7f9160', side: '#4a5634', clearing: '#8d9f6c' },
+  castle: { base: '#8fc27a', side: '#577f44' },
+  quarry: { base: '#b9b5ab', side: '#77736a' },
+  glassworks: { base: '#e3cf98', side: '#a08a4f' },
 };
 
 /** Variante estable por casilla, para que no se repita el mismo dibujo. */
@@ -451,7 +454,106 @@ function swamp(v: number): ReactNode {
   );
 }
 
-const ART: Record<LandTerrain, (v: number) => ReactNode> = { forest, hills, pasture, fields, mountains, desert, gold, fog, lake, swamp };
+
+function Keep({ x, y, s = 1, flag = '#b23a28' }: { x: number; y: number; s?: number; flag?: string }) {
+  return (
+    <g transform={`translate(${x} ${y}) scale(${s})`}>
+      <Shadow y={15} rx={24} ry={5} o={0.35} />
+      {/* muralla */}
+      <path d="M-22 15 L-22 0 L-19 0 L-19 -3 L-15 -3 L-15 0 L-10 0 L-10 -3 L-6 -3 L-6 0 L6 0 L6 -3 L10 -3 L10 0 L15 0 L15 -3 L19 -3 L19 0 L22 0 L22 15 Z" fill="#b7b0a2" stroke="#4f4a43" strokeWidth={1} strokeLinejoin="round" />
+      <path d="M-4 15 L-4 7 Q0 3 4 7 L4 15 Z" fill="#4a3a2c" />
+      {/* torres */}
+      {[-17, 17].map((tx) => (
+        <g key={tx} transform={`translate(${tx} 0)`}>
+          <path d="M-5 15 L-5 -12 L5 -12 L5 15 Z" fill="#c9c2b4" stroke="#4f4a43" strokeWidth={1} />
+          <path d="M-6.5 -12 L0 -21 L6.5 -12 Z" fill="#8e3b2e" stroke="#4f4a43" strokeWidth={1} strokeLinejoin="round" />
+          <rect x={-1.4} y={-6} width={2.8} height={4} rx={1.2} fill="#3d3a36" />
+        </g>
+      ))}
+      {/* torre del homenaje */}
+      <path d="M-7 4 L-7 -20 L7 -20 L7 4 Z" fill="#d6cfc1" stroke="#4f4a43" strokeWidth={1} />
+      <path d="M-8 -20 L-8 -24 L-5 -24 L-5 -21.5 L-1.5 -21.5 L-1.5 -24 L1.5 -24 L1.5 -21.5 L5 -21.5 L5 -24 L8 -24 L8 -20 Z" fill="#d6cfc1" stroke="#4f4a43" strokeWidth={1} strokeLinejoin="round" />
+      <rect x={-1.6} y={-14} width={3.2} height={5} rx={1.4} fill="#3d3a36" />
+      <path d="M0 -24 L0 -33" stroke="#4f4a43" strokeWidth={1} />
+      <path d="M0 -33 L8 -30.6 L0 -28.2 Z" fill={flag} stroke="#4f4a43" strokeWidth={0.7} />
+    </g>
+  );
+}
+
+function castle(v: number): ReactNode {
+  return (
+    <>
+      <polygon points={TOP_POINTS} fill="url(#pat-grass)" />
+      <ellipse cx={0} cy={8} rx={34} ry={22} fill="#9bc982" />
+      <path d="M-8 44 C-6 30 6 26 2 16" stroke="#d9c28d" strokeWidth={6} fill="none" strokeLinecap="round" clipPath="url(#tile-clip)" />
+      <Keep x={0} y={-2} s={1.05} />
+      {pick(v, [
+        <><RoundTree x={-34} y={20} s={0.9} /><RoundTree x={33} y={-18} s={0.85} autumn /></>,
+        <><Cypress x={32} y={22} s={0.95} /><RoundTree x={-32} y={-16} s={0.85} /></>,
+        <><RoundTree x={30} y={24} s={0.9} autumn /><Cypress x={-33} y={10} s={0.9} /></>,
+      ])}
+    </>
+  );
+}
+
+function Block({ x, y, s = 1, c = '#eceae4' }: { x: number; y: number; s?: number; c?: string }) {
+  return (
+    <g transform={`translate(${x} ${y}) scale(${s})`}>
+      <path d="M-6 3 L-6 -3 L-2 -6 L8 -6 L8 0 L4 3 Z" fill="#c9c6bd" stroke="#55534d" strokeWidth={0.7} strokeLinejoin="round" />
+      <path d="M-6 -3 L-2 -6 L8 -6 L4 -3 Z" fill="#f7f6f2" stroke="#55534d" strokeWidth={0.7} strokeLinejoin="round" />
+      <rect x={-6} y={-3} width={10} height={6} fill={c} stroke="#55534d" strokeWidth={0.7} />
+    </g>
+  );
+}
+
+function quarry(v: number): ReactNode {
+  return (
+    <>
+      <polygon points={TOP_POINTS} fill="url(#pat-rock)" />
+      <path d="M-40 -6 L-24 -26 L18 -30 L38 -10 L30 4 L-30 6 Z" fill="#e3e0d8" stroke="#8d8a82" strokeWidth={1} strokeLinejoin="round" />
+      <path d="M-30 6 L30 4 L24 20 L-24 22 Z" fill="#d2cec4" stroke="#8d8a82" strokeWidth={1} strokeLinejoin="round" />
+      <path d="M-24 22 L24 20 L16 34 L-16 36 Z" fill="#c4bfb3" stroke="#8d8a82" strokeWidth={1} strokeLinejoin="round" />
+      <path d="M-22 -18 L-8 -22 M4 -24 L20 -20 M-18 12 L-2 10 M8 12 L18 11" stroke="#b3afa5" strokeWidth={1} />
+      {/* grúa de madera */}
+      <path d="M26 30 L26 -14 L4 -22" stroke="#7a5230" strokeWidth={2.2} fill="none" strokeLinecap="round" />
+      <path d="M26 -2 L14 -18" stroke="#7a5230" strokeWidth={1.4} />
+      <path d="M8 -20.6 L8 -8" stroke="#3d3a36" strokeWidth={0.8} />
+      <Block x={8} y={-4} s={0.9} />
+      {pick(v, [
+        <><Block x={-18} y={30} /><Block x={-6} y={32} s={0.9} /><Block x={-26} y={-2} s={0.8} /></>,
+        <><Block x={-14} y={28} /><Block x={-26} y={14} s={0.85} /><Block x={0} y={30} s={0.8} /></>,
+        <><Block x={-20} y={26} s={0.95} /><Block x={-10} y={-10} s={0.8} /><Block x={-2} y={32} s={0.9} /></>,
+      ])}
+    </>
+  );
+}
+
+function glassworks(v: number): ReactNode {
+  return (
+    <>
+      <polygon points={TOP_POINTS} fill="url(#pat-sand)" opacity={0.6} />
+      <ellipse cx={-22} cy={22} rx={16} ry={9} fill="#ecd9a2" />
+      <ellipse cx={-22} cy={19} rx={11} ry={6} fill="#f4e6bd" />
+      <Shadow x={8} y={18} rx={22} ry={5} o={0.35} />
+      {/* horno */}
+      <path d="M-10 18 L-10 0 Q8 -22 26 0 L26 18 Z" fill="#c96d43" stroke="#5a2a17" strokeWidth={1.1} strokeLinejoin="round" />
+      <path d="M2 18 L2 8 Q8 2 14 8 L14 18 Z" fill="#ffcf5c" stroke="#5a2a17" strokeWidth={1} />
+      <path d="M4.5 18 L4.5 10 Q8 6 11.5 10 L11.5 18 Z" fill="#ff8c2e" />
+      <path d="M16 -9 L16 -24 L22 -24 L22 -4" fill="#9a4b2b" stroke="#5a2a17" strokeWidth={1} />
+      <circle cx={21} cy={-30} r={4.4} fill="#e8e4dc" opacity={0.85} />
+      <circle cx={26} cy={-37} r={3.4} fill="#e8e4dc" opacity={0.7} />
+      {/* frascos */}
+      {pick(v, [[[-30, -14], [-22, -18], [-34, -4]], [[30, 28], [-28, -12], [-18, -20]], [[-30, -6], [34, 26], [-20, -18]]]).map(([x, y], i) => (
+        <g key={i} transform={`translate(${x} ${y})`}>
+          <path d="M-3 6 L-3 0 Q-3 -3 -1.2 -4 L-1.2 -7 L1.2 -7 L1.2 -4 Q3 -3 3 0 L3 6 Z" fill="#9fd8e6" stroke="#2d6f80" strokeWidth={0.8} opacity={0.95} />
+          <path d="M-1.6 4.5 L-1.6 0" stroke="#e6fbff" strokeWidth={0.8} />
+        </g>
+      ))}
+    </>
+  );
+}
+
+const ART: Record<LandTerrain, (v: number) => ReactNode> = { forest, hills, pasture, fields, mountains, desert, gold, fog, lake, swamp, castle, quarry, glassworks };
 
 /** Definiciones compartidas (una vez por SVG): texturas, recorte y luz. Los dibujos van en <symbol> para reutilizarlos. */
 export const TileDefs = memo(function TileDefs() {

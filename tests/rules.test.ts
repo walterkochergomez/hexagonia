@@ -15,6 +15,8 @@ import * as Tribe from '../src/engine/mods/tribe';
 import * as Looms from '../src/engine/mods/looms';
 import * as Bastions from '../src/engine/mods/bastions';
 import * as Works from '../src/engine/mods/works';
+import * as Raid from '../src/engine/mods/raid';
+import * as Gold from '../src/engine/mods/gold';
 import { otherEnd } from '../src/engine/geometry';
 import { settings, seats, totals } from './helpers';
 import {
@@ -1059,6 +1061,191 @@ describe('Comarcas: ruta de camellos', () => {
     s.roads[e1] = { owner: 2 };
     s.roads[e2] = { owner: 2 };
     expect(C.longestRoute(s, 2)).toBe(4);
+  });
+});
+
+describe('Comarcas: invasión en la costa', () => {
+  it('castillo en la costa, un bárbaro en el 2 y otro en el 12, sin ladrón; la segunda colocación es ciudad', () => {
+    let s = game({ seed: 95, shire: 'raid' }, 3);
+    const r = s.raid!;
+    expect(s.settings.vpTarget).toBe(12);
+    expect(s.board.hexes[r.castle].terrain).toBe('castle');
+    expect(r.coast.length).toBe(10);
+    expect(r.coast.map((h) => s.board.hexes[h].number!).sort((a, b) => a - b)).toEqual([2, 3, 4, 5, 6, 8, 9, 10, 11, 12]);
+    const on = (n: number) => r.coast.find((h) => s.board.hexes[h].number === n)!;
+    expect(r.barbs).toEqual({ [on(2)]: 1, [on(12)]: 1 });
+    expect(r.supply).toBe(28);
+    expect(s.board.robber).toBeNull();
+    expect(s.hidden.devDeck.length).toBe(0);
+    expect(s.hidden.raidDeck!.length).toBe(26);
+    expect(s.gold).toEqual([0, 0, 0]);
+    const order = s.turn.setupOrder;
+    for (let i = 0; i < order.length; i++) {
+      const v = C.legalSetupVertices(s)[0];
+      s = act(s, order[i], { t: 'setupBuild', vertex: v });
+      expect(s.buildings[v].kind).toBe(i < 3 ? 'settlement' : 'city');
+      s = act(s, order[i], { t: 'setupRoute', edge: C.legalSetupRoutes(s, v).roads[0] });
+    }
+    expect(s.turn.phase).toBe('preRoll');
+    expect(Object.values(s.raid!.barbs).reduce((a, b) => a + b, 0)).toBe(2); // la preparación no atrae bárbaros
+    const big = game({ seed: 96, shire: 'raid' }, 5);
+    expect(big.raid!.coast.length).toBe(14);
+    expect(big.raid!.supply).toBe(38);
+  });
+
+  it('cada edificio nuevo trae bárbaros: tres tiradas distintas sin 7', () => {
+    let s = main(game({ seed: 97, shire: 'raid' }));
+    const { vs, es } = landPath(s, 2);
+    s.buildings[vs[0]] = { owner: 0, kind: 'settlement' };
+    for (const e of es) s.roads[e] = { owner: 0 };
+    give(s, 0, { lumber: 1, brick: 1, wool: 1, grain: 3, ore: 3 });
+    const before = s.raid!.supply;
+    s = act(s, 0, { t: 'build', what: 'settlement', at: vs[2] });
+    const landed = s.log.filter((l) => l.k === 'raid.land').pop()!;
+    const rolls = String(landed.p!.rolls).split(', ').map(Number);
+    expect(new Set(rolls).size).toBe(3);
+    expect(rolls.includes(7)).toBe(false);
+    const sum = Object.values(s.raid!.barbs).reduce((a, b) => a + b, 0);
+    expect(sum).toBe(2 + Number(landed.p!.n));
+    expect(s.raid!.supply).toBe(before - Number(landed.p!.n));
+    s = act(s, 0, { t: 'build', what: 'city', at: vs[2] });
+    expect(s.log.filter((l) => l.k === 'raid.land').length).toBe(2);
+  });
+
+  it('tres bárbaros toman la casilla: no produce, no se construye al lado y los edificios rodeados no valen', () => {
+    let s = main(game({ seed: 98, shire: 'raid' }));
+    const r = s.raid!;
+    const g = C.G(s);
+    const hex = r.coast.find((h) => !r.barbs[h] && g.hexes[h].vertices.some((v) => g.vertices[v].hexes.filter((x) => C.hexIsLand(s, x)).length === 1))!;
+    const lone = g.hexes[hex].vertices.find((v) => g.vertices[v].hexes.filter((x) => C.hexIsLand(s, x)).length === 1)!;
+    s.buildings[lone] = { owner: 1, kind: 'city' };
+    expect(C.vpOf(s, 1)).toBe(2);
+    r.barbs[hex] = 3;
+    expect(Raid.conquered(s, hex)).toBe(true);
+    expect(Raid.fallen(s, lone)).toBe(true);
+    expect(C.vpOf(s, 1)).toBe(0);
+    // no produce
+    const n = s.board.hexes[hex].number!;
+    s.turn.phase = 'preRoll';
+    s.turn.alchemist = [Math.min(6, n - 1), n - Math.min(6, n - 1)];
+    s = act(s, 0, { t: 'roll' });
+    expect(handTotal(s.players[1].hand)).toBe(0);
+    // ni poblados ni caminos junto a la casilla tomada
+    const free = g.hexes[hex].vertices.filter((v) => !s.buildings[v] && !g.vertices[v].neighbors.some((x) => s.buildings[x]));
+    for (const v of free) expect(C.canSettle(s, 0, v)).toBe(false);
+  });
+
+  it('caballero: se pone junto al castillo, hay que sacarlo antes de terminar y se mueve 3 lados (5 pagando trigo)', () => {
+    let s = main(game({ seed: 99, shire: 'raid' }));
+    s.hidden.raidDeck = ['knighthood', 'knighthood'];
+    give(s, 0, { wool: 2, grain: 3, ore: 2 });
+    s = act(s, 0, { t: 'buyDev' });
+    expect(s.steps[0]).toEqual({ k: 'raidKnight', seat: 0, anywhere: false });
+    const spot = Raid.knightSpots(s, false)[0];
+    expect(Raid.castleEdges(s)).toContain(spot);
+    s = act(s, 0, { t: 'raidPlace', edge: spot });
+    expect(s.raid!.knights[spot]).toEqual({ owner: 0, moved: false });
+    expect(() => act(s, 0, { t: 'endTurn' })).toThrow('knightsAtCastle');
+    const near = Raid.reach(s, spot, false);
+    const far = Raid.reach(s, spot, true).filter((e) => !near.includes(e));
+    expect(near.length).toBeGreaterThan(0);
+    expect(far.length).toBeGreaterThan(0);
+    expect(near.some((e) => Raid.castleEdges(s).includes(e))).toBe(false);
+    const grain = s.players[0].hand.grain;
+    s = act(s, 0, { t: 'raidMove', from: spot, to: far[0], far: true });
+    expect(s.players[0].hand.grain).toBe(grain - 1);
+    expect(s.raid!.knights[far[0]]).toEqual({ owner: 0, moved: true });
+    expect(() => act(s, 0, { t: 'raidMove', from: far[0], to: Raid.reach(s, far[0], false)[0] })).toThrow();
+    s = act(s, 0, { t: 'endTurn' });
+    expect(s.raid!.knights[far[0]].moved).toBe(false);
+    expect(Raid.knightsOf(s, 0)).toEqual([far[0]]);
+  });
+
+  it('batalla al final del turno: más caballeros que bárbaros; prisioneros, oro y un par de lados cae', () => {
+    let s = main(game({ seed: 100, shire: 'raid' }));
+    const r = s.raid!;
+    const hex = r.coast.find((h) => s.board.hexes[h].number === 2)!;
+    expect(r.barbs[hex]).toBe(1);
+    const sides = C.G(s).hexes[hex].edges;
+    r.knights[sides[0]] = { owner: 0, moved: false };
+    r.knights[sides[1]] = { owner: 0, moved: false };
+    r.knights[sides[2]] = { owner: 1, moved: false };
+    s = act(s, 0, { t: 'endTurn' });
+    expect(s.raid!.barbs[hex]).toBe(0);
+    expect(s.raid!.prisoners.slice(0, 2)).toEqual([1, 0]);
+    const last = s.raid!.last!;
+    expect(last).toMatchObject({ hex, barbs: 1, knights: 3 });
+    // el dado se lleva exactamente un caballero (lados 0, 1 o 2), que paga 3 de oro a su dueño
+    expect(Object.keys(s.raid!.knights).length).toBe(2);
+    expect(last.lost.length).toBe(1);
+    const gold = [0, 0];
+    gold[1] += 3; // el que no recibe prisionero cobra 3
+    gold[last.lost[0]] += 3;
+    expect(s.gold!.slice(0, 2)).toEqual(gold);
+    // con más bárbaros que caballeros no hay batalla
+    s = main(s, 1);
+    const h12 = r.coast.find((h) => s.board.hexes[h].number === 12)!;
+    s.raid!.barbs[h12] = 2;
+    const sides12 = C.G(s).hexes[h12].edges;
+    s.raid!.knights[sides12[3]] = { owner: 1, moved: false };
+    s.raid!.knights[sides12[4]] = { owner: 1, moved: false };
+    s = act(s, 1, { t: 'endTurn' });
+    expect(s.raid!.barbs[h12]).toBe(2);
+    expect(Raid.prisonerPoints(s, 0)).toBe(0);
+    s.raid!.prisoners[0] = 5;
+    expect(C.vpBreakdown(s, 0).prisoners).toBe(2);
+  });
+
+  it('intriga y traición', () => {
+    let s = main(game({ seed: 101, shire: 'raid' }));
+    const r = s.raid!;
+    const on = (n: number) => r.coast.find((h) => s.board.hexes[h].number === n)!;
+    s.hidden.raidDeck = ['intrigue', 'treason'];
+    give(s, 0, { wool: 2, grain: 2, ore: 2 });
+    s = act(s, 0, { t: 'buyDev' });
+    expect(s.steps[0]).toEqual({ k: 'raidTake', seat: 0 });
+    expect(() => act(s, 0, { t: 'raidTake', hex: on(3) })).toThrow();
+    s = act(s, 0, { t: 'raidTake', hex: on(2) });
+    expect(s.raid!.barbs[on(2)]).toBe(0);
+    expect(s.raid!.prisoners[0]).toBe(1);
+    s = act(s, 0, { t: 'buyDev' });
+    expect(s.gold![0]).toBe(2);
+    expect(s.steps[0]).toMatchObject({ k: 'raidShift', left: 2 });
+    s = act(s, 0, { t: 'raidShift', hex: on(12) });
+    s = act(s, 0, { t: 'raidShift', hex: on(6) });
+    expect(s.raid!.barbs[on(12)]).toBe(0);
+    expect(s.raid!.barbs[on(6)]).toBe(1);
+    // el 12 ya se usó como origen: el segundo sale del 6
+    expect(() => act(s, 0, { t: 'raidShift', hex: on(12) })).toThrow();
+    s = act(s, 0, { t: 'raidShift', hex: on(6) });
+    s = act(s, 0, { t: 'raidShift', hex: on(8) });
+    expect(s.raid!.barbs[on(8)]).toBe(1);
+    expect(s.steps.length).toBe(0);
+  });
+
+  it('oro: dos compran un recurso (dos veces por turno); cuatro iguales, o tres con puerto 3:1, dan uno', () => {
+    let s = main(game({ seed: 102, shire: 'raid' }));
+    s.gold![0] = 6;
+    s = act(s, 0, { t: 'gold', use: 'buy' });
+    expect(s.steps[0]).toEqual({ k: 'pick', reason: 'gold2', waiting: { 0: 1 } });
+    s = act(s, 0, { t: 'pick', cards: { ore: 1 } });
+    s = act(s, 0, { t: 'gold', use: 'buy' });
+    s = act(s, 0, { t: 'pick', cards: { brick: 1 } });
+    expect(s.gold![0]).toBe(2);
+    expect(s.players[0].hand).toMatchObject({ ore: 1, brick: 1 });
+    expect(Gold.canBuy(s, 0)).toBe(false);
+    expect(() => act(s, 0, { t: 'gold', use: 'buy' })).toThrow();
+    give(s, 0, { wool: 7 });
+    s = act(s, 0, { t: 'sellGold', give: 'wool' });
+    expect(s.gold![0]).toBe(3);
+    expect(s.players[0].hand.wool).toBe(3);
+    const any = s.board.harbors.find((h) => h.kind === 'any')!;
+    s.buildings[C.G(s).edges[any.edge].a] = { owner: 0, kind: 'settlement' };
+    expect(Gold.sellRatio(s, 0)).toBe(3);
+    s = act(s, 0, { t: 'sellGold', give: 'wool' });
+    expect(s.players[0].hand.wool).toBe(0);
+    // el oro no se roba ni se descarta: no es un recurso
+    expect(handTotal(s.players[0].hand)).toBe(2);
   });
 });
 

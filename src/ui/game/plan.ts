@@ -5,6 +5,7 @@ import * as Duel from '../../engine/mods/duel';
 import * as River from '../../engine/mods/river';
 import * as Caravan from '../../engine/mods/caravan';
 import * as Tribe from '../../engine/mods/tribe';
+import * as Raid from '../../engine/mods/raid';
 import type { Action, GameState, ProgressType } from '../../engine/types';
 import type { Targets } from '../Board';
 
@@ -17,6 +18,7 @@ export type Mode =
   | { k: 'promote' }
   | { k: 'knight'; from?: string }
   | { k: 'ship'; from?: string }
+  | { k: 'guard'; from?: string; far?: boolean }
   | { k: 'progress'; card: ProgressType; picked: string[] };
 
 export interface Plan {
@@ -29,6 +31,8 @@ export interface Plan {
   confirm?: Action | null; // confirmar selección múltiple
   chase?: { robber: boolean; pirate: boolean; from: string };
   cancel?: boolean;
+  /** invasión: alternar entre mover 3 lados o 5 pagando trigo */
+  far?: { on: boolean; can: boolean; set: (far: boolean) => Mode };
 }
 
 const myKnights = (v: GameState, me: number) => Object.keys(v.knights).filter((k) => v.knights[k].owner === me);
@@ -79,6 +83,21 @@ export function plan(v: GameState, me: number | null, mode: Mode, routeKind: 'ro
         return { targets: { vertices: C.recruitSpots(v, me) }, hint: 'step.deserterPlace', hintParams: { n: st.level }, pick: (_k, id) => ({ act: { t: 'deserterPlace', vertex: id } }), skip: { t: 'deserterPlace', vertex: null } };
       case 'quake':
         return { targets: { edges: Object.keys(v.roads).filter((e) => v.roads[e].owner === me && !v.roads[e].broken) }, hint: 'step.quake', pick: (_k, id) => ({ act: { t: 'quake', edge: id } }) };
+      case 'raidKnight': {
+        const ids = Raid.knightSpots(v, st.anywhere);
+        return { targets: { edges: ids }, hint: st.anywhere ? 'step.raidKnightAny' : 'step.raidKnight', pick: (_k, id) => ({ act: { t: 'raidPlace', edge: id } }) };
+      }
+      case 'raidTake':
+        return { targets: { hexes: v.raid!.coast.filter((h) => Raid.barbsOn(v, h) > 0) }, hint: 'step.raidTake', pick: (_k, id) => ({ act: { t: 'raidTake', hex: id } }) };
+      case 'raidShift': {
+        const choosing = st.from === null && Raid.shiftSources(v, st).length > 0;
+        const ids = choosing ? Raid.shiftSources(v, st) : Raid.shiftTargets(v, st);
+        return {
+          targets: { hexes: ids, selected: st.from && st.from !== 'supply' ? [st.from] : [] },
+          hint: choosing ? 'step.raidShiftFrom' : 'step.raidShiftTo', hintParams: { n: st.left },
+          pick: (_k, id) => ({ act: { t: 'raidShift', hex: id } }),
+        };
+      }
       case 'placeHarbor':
         return { targets: { edges: Tribe.harborSpots(v, me) }, hint: 'step.placeHarbor', hintParams: { port: st.kind }, pick: (_k, id) => ({ act: { t: 'placeHarbor', edge: id } }) };
       case 'camelPlace':
@@ -178,6 +197,22 @@ export function plan(v: GameState, me: number | null, mode: Mode, routeKind: 'ro
       const from = mode.from;
       const ids = C.shipTargets(v, me, from);
       return { targets: { edges: ids, selected: [from] }, hint: 'pick.shipTo', cancel: true, pick: (_k, id) => ({ act: { t: 'moveShip', from, to: id }, ...done }) };
+    }
+    case 'guard': {
+      if (!mode.from) {
+        const ids = Raid.knightsOf(v, me).filter((e) => !v.raid!.knights[e].moved);
+        return { targets: { edges: ids }, hint: ids.length ? 'pick.guardFrom' : 'pick.none', cancel: true, pick: (_k, id) => ({ mode: { k: 'guard', from: id } }) };
+      }
+      const from = mode.from;
+      const far = !!mode.far;
+      const ids = Raid.reach(v, from, far);
+      return {
+        targets: { edges: ids, selected: [from] },
+        hint: 'pick.guardTo',
+        cancel: true,
+        far: { on: far, can: C.hasCards(v.players[me].hand, { grain: 1 }), set: (f) => ({ k: 'guard', from, far: f }) },
+        pick: (_k, id) => ({ act: { t: 'raidMove', from, to: id, far }, ...done }),
+      };
     }
     case 'progress':
       return progressPlan(v, me, mode);

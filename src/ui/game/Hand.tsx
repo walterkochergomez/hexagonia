@@ -2,7 +2,7 @@ import { useT } from '../../app/i18n';
 import { COMMODITIES, RESOURCES, type GameState } from '../../engine/types';
 import { CardIcon } from '../art';
 
-export function Hand({ view, me, onCards }: { view: GameState; me: number | null; onCards: () => void }) {
+export function Hand({ view, me, onCards, onGold }: { view: GameState; me: number | null; onCards: () => void; onGold: () => void }) {
   const t = useT();
   if (me === null) return <div className="hand" />;
   const p = view.players[me];
@@ -19,10 +19,18 @@ export function Hand({ view, me, onCards }: { view: GameState; me: number | null
           </li>
         ))}
       </ul>
-      <button type="button" className="hand-extra" onClick={onCards}>
-        <span className="n">{extra}</span>
-        <span>{view.settings.guilds ? t('cards.progress') : t('cards.dev')}</span>
-      </button>
+      {view.gold && (
+        <button type="button" className="hand-extra gold" onClick={onGold}>
+          <span className="n">{view.gold[me] ?? 0}</span>
+          <span>{t('gold.title')}</span>
+        </button>
+      )}
+      {!view.raid && (
+        <button type="button" className="hand-extra" onClick={onCards}>
+          <span className="n">{extra}</span>
+          <span>{view.settings.guilds ? t('cards.progress') : t('cards.dev')}</span>
+        </button>
+      )}
     </div>
   );
 }

@@ -548,6 +548,7 @@ input, select {
 .hand-card.zero { opacity: .32; }
 .hand-extra { display: grid; justify-items: center; padding: 4px 10px; border-radius: var(--r-md); border: 1px solid var(--border); background: var(--bg); cursor: pointer; font-size: 12px; }
 .hand-extra .n { font-family: var(--font-display); font-weight: 800; font-size: 18px; line-height: 1; }
+.hand-extra.gold { background: #f3e5c3; border-color: #dcc58a; color: #5c4510; }
 .actions { display: flex; flex-wrap: wrap; gap: var(--s2); justify-content: flex-end; flex: 1 1 auto; }
 .actions .btn { padding: 8px 14px; }
 .btn-badge { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--ink); color: #fff; font-size: 12px; font-weight: 750; align-items: center; justify-content: center; }
@@ -809,3 +810,19 @@ input, select {
 .assault-row p { margin: 0; }
 .scenarios-sub { margin: var(--s2) 0 0; font-weight: 700; font-size: 14px; color: var(--text-muted); }
 .lane { fill: none; stroke: var(--pc); stroke-width: 2.4; stroke-dasharray: 1.5 6; stroke-linecap: round; opacity: .75; }
+/* invasión en la costa */
+.barb-body { fill: #5b3a28; stroke: #1d140e; stroke-width: .8; stroke-linejoin: round; }
+.barb-belt { stroke: #c9a24a; stroke-width: 1.1; }
+.barb-head { fill: #e2b48a; stroke: #1d140e; stroke-width: .8; }
+.barb-helm { fill: #8c8f93; stroke: #1d140e; stroke-width: .8; stroke-linejoin: round; }
+.barb-horn { fill: none; stroke: #f1e6cf; stroke-width: 1.5; stroke-linecap: round; }
+.barb-axe-handle { stroke: #6e4a2a; stroke-width: 1.2; stroke-linecap: round; }
+.barb-axe { fill: #c6ccd1; stroke: #1d140e; stroke-width: .7; stroke-linejoin: round; }
+.guard .pfill, .guard .pfill-d { stroke: var(--ink); stroke-width: 1.1; stroke-linejoin: round; }
+.guard-plume-stem { stroke: var(--ink); stroke-width: 1; }
+.guard-plume { fill: #c4472f; stroke: var(--ink); stroke-width: .7; }
+.guard.moved { opacity: .82; }
+.conquered-shade { fill: #1c1410; opacity: .42; }
+.conquered-token { fill: #2c2420; stroke: #e7dcc6; stroke-width: 1.4; }
+.conquered-token-x { stroke: #e7dcc6; stroke-width: 2; stroke-linecap: round; }
+.fallen { opacity: .6; filter: grayscale(.85); }

@@ -13,6 +13,8 @@ import * as Tribe from './mods/tribe';
 import * as Looms from './mods/looms';
 import * as Bastions from './mods/bastions';
 import * as Works from './mods/works';
+import * as Raid from './mods/raid';
+import * as Gold from './mods/gold';
 import {
   CARDS, COST, EVENT_FACES, GameError, PROGRESS_DECKS, RESOURCES, SEA_SPECIAL, SHIRES, TERRAIN_COMMODITY, TERRAIN_RESOURCE, TRACKS,
   emptyHand, handTotal, isCard, isResource,
@@ -65,7 +67,8 @@ export function createGame(input: Settings, seats: SeatInfo[]): GameState {
   const bank: Hand = { lumber: resN, brick: resN, wool: resN, grain: resN, ore: resN, paper: comN, cloth: comN, coin: comN };
   const devDeck: DevType[] = [];
   const bastions = settings.openSea && settings.scenario === 'bastions';
-  if (!settings.guilds) {
+  // la invasión trae su propio mazo
+  if (!settings.guilds && settings.shire !== 'raid') {
     const add = (t: DevType, k: number) => { for (let i = 0; i < k; i++) devDeck.push(t); };
     // en los bastiones no hay cartas de punto: son soldiers que arman barcos
     add('soldier', (big ? 20 : 14) + (bastions ? 5 : 0));
@@ -124,6 +127,7 @@ export function createGame(input: Settings, seats: SeatInfo[]): GameState {
   if (settings.shire === 'fishers') Fish.setup(s, rng);
   if (settings.shire === 'rivers') River.setup(s, rng);
   if (settings.shire === 'caravans') Caravan.setup(s);
+  if (settings.shire === 'raid') Raid.setup(s, rng, map.marks!.rock![0], map.marks!.loop!);
   if (settings.openSea) {
     const m = map.marks ?? {};
     if (settings.scenario === 'tribe') Tribe.setup(s, rng, m.isles ?? []);
@@ -212,6 +216,12 @@ function stepDone(s: GameState, st: Step): boolean {
       return !Caravan.legalCamels(s).length;
     case 'placeHarbor':
       return Tribe.stuck(s, st);
+    case 'raidKnight':
+      return !Raid.knightSpots(s, st.anywhere).length || Raid.knightsLeft(s, st.seat) <= 0;
+    case 'raidTake':
+      return !s.raid!.coast.some((h) => Raid.barbsOn(s, h) > 0);
+    case 'raidShift':
+      return Raid.shiftDone(s, st);
     case 'steal':
       return !st.from.length;
     case 'freeRoutes':
@@ -278,6 +288,7 @@ function nextTurn(s: GameState) {
   t.plague = false;
   t.tokenUsed = false;
   t.coinTrades = 0;
+  t.goldBuys = 0;
   t.built = false;
   t.shipMoved = [];
   t.builtShips = [];
@@ -327,6 +338,7 @@ function produce(s: GameState, rng: Rng) {
   const g = C.G(s);
   for (const [id, h] of Object.entries(s.board.hexes)) {
     if (h.number !== total || id === s.board.robber || !C.isLandTerrain(h.terrain) || h.terrain === 'desert') continue;
+    if (s.raid && C.raidConquered(s, id)) continue; // casilla tomada por los bárbaros
     for (const v of g.hexes[id].vertices) {
       const b = s.buildings[v];
       if (!b || s.players[b.owner].neutral) continue;
@@ -430,7 +442,7 @@ function seven(s: GameState) {
   }
   const steps: Step[] = [];
   if (Object.keys(waiting).length) steps.push({ k: 'discard', reason: 'seven', waiting });
-  if (s.bastions) {
+  if (s.bastions || s.raid) {
     // sin ladrón: quien tira le roba una carta a quien quiera
     const from = s.players.filter((p) => p.seat !== s.turn.current && !p.neutral && handTotal(p.hand) > 0).map((p) => p.seat);
     if (from.length) steps.push({ k: 'steal', seat: s.turn.current, hex: '', on: 'event', from });
@@ -501,7 +513,7 @@ function placeRoute(s: GameState, seat: number, e: string, ship: boolean, free: 
   }
 }
 
-function build(s: GameState, seat: number, what: string, at: string) {
+function build(s: GameState, seat: number, what: string, at: string, rng: Rng) {
   const left = C.piecesLeft(s, seat);
   switch (what) {
     case 'road':
@@ -521,6 +533,7 @@ function build(s: GameState, seat: number, what: string, at: string) {
       Duel.afterBuild(s, seat, 'settlement');
       River.afterSettlement(s, seat, at);
       Tribe.offerHeld(s, seat);
+      Raid.land(s, rng, seat);
       s.turn.built = true;
       return;
     }
@@ -532,6 +545,7 @@ function build(s: GameState, seat: number, what: string, at: string) {
       b.kind = 'city';
       delete b.damaged;
       C.log(s, 'build.city', { seat });
+      Raid.land(s, rng, seat);
       s.turn.built = true;
       return;
     }
@@ -572,7 +586,8 @@ function handle(s: GameState, seat: number, a: Action, rng: Rng) {
       need(C.setupVertexOk(s, a.vertex), 'illegal');
       const round = Math.floor(t.setupIndex / s.players.length);
       const lastRound = round === t.setupOrder.length / s.players.length - 1;
-      const kind = s.settings.guilds && round === 1 ? 'city' : 'settlement';
+      // con Gremios y en la invasión, la segunda colocación es una ciudad
+      const kind = (s.settings.guilds || s.raid) && round === 1 ? 'city' : 'settlement';
       s.buildings[a.vertex] = { owner: seat, kind };
       C.log(s, 'setup.build', { seat, kind });
       // los recursos iniciales los da el último edificio de la preparación
@@ -621,11 +636,11 @@ function handle(s: GameState, seat: number, a: Action, rng: Rng) {
       return;
     }
     case 'endTurn':
-      endTurn(s, seat);
+      endTurn(s, seat, rng);
       return;
     case 'build': {
       need(BUILD_PHASES.includes(t.phase) && seat === actor, 'notYourTurn');
-      build(s, seat, a.what, a.at);
+      build(s, seat, a.what, a.at, rng);
       return;
     }
     case 'moveShip': {
@@ -646,6 +661,12 @@ function handle(s: GameState, seat: number, a: Action, rng: Rng) {
     case 'buyDev': {
       need(!s.settings.guilds, 'badAction');
       need(BUILD_PHASES.includes(t.phase) && seat === actor, 'notYourTurn');
+      if (s.raid) {
+        // invasión: la carta se resuelve al comprarla
+        C.pay(s, seat, COST.dev);
+        Raid.draw(s, seat, rng);
+        return;
+      }
       // bastiones: los soldados jugados vuelven al mazo cuando se acaba
       if (!s.hidden.devDeck.length && s.hidden.devDiscard?.length) {
         s.hidden.devDeck = rng.shuffle(s.hidden.devDiscard);
@@ -804,11 +825,21 @@ function handle(s: GameState, seat: number, a: Action, rng: Rng) {
     case 'assault': {
       Bastions.assault(s, seat, rng);
       // el ataque cierra el turno, salvo que con él gane
-      if (!wins(s, seat)) endTurn(s, seat);
+      if (!wins(s, seat)) endTurn(s, seat, rng);
       return;
     }
     case 'wonder':
       Works.build(s, seat, a.id);
+      return;
+    case 'raidMove':
+      need(!!s.raid && t.phase === 'main' && seat === t.current, 'notYourTurn');
+      Raid.move(s, seat, a.from, a.to, !!a.far);
+      return;
+    case 'gold':
+      Gold.buy(s, seat);
+      return;
+    case 'sellGold':
+      Gold.sell(s, seat, a.give);
       return;
     default:
       throw new GameError('pendingOrBad');
@@ -821,11 +852,16 @@ function clean(h: Partial<Hand>): Partial<Hand> {
   return out;
 }
 
-function endTurn(s: GameState, seat: number) {
+function endTurn(s: GameState, seat: number, rng: Rng) {
   const t = s.turn;
   const n = s.players.length;
   if (t.phase === 'main') {
     need(seat === t.current, 'notYourTurn');
+    if (s.raid) {
+      // nadie queda junto al castillo; después, las batallas contra los bárbaros
+      need(!Raid.stuckAtCastle(s, seat).length, 'knightsAtCastle');
+      Raid.battles(s, rng);
+    }
     if (s.settings.guilds && s.players[seat].progress.length > 4) {
       s.steps.push({ k: 'progressLimit', waiting: { [seat]: s.players[seat].progress.length - 4 } });
       return;
@@ -997,6 +1033,26 @@ function handleStep(s: GameState, seat: number, a: Action, st: Step, rng: Rng) {
       if (a.t !== 'camel') return;
       Caravan.place(s, seat, a.at);
       s.steps.shift();
+      return;
+    }
+    case 'raidKnight': {
+      need(a.t === 'raidPlace' && seat === st.seat, 'pending');
+      if (a.t !== 'raidPlace') return;
+      Raid.placeKnight(s, st, a.edge);
+      s.steps.shift();
+      return;
+    }
+    case 'raidTake': {
+      need(a.t === 'raidTake' && seat === st.seat, 'pending');
+      if (a.t !== 'raidTake') return;
+      Raid.take(s, seat, a.hex);
+      s.steps.shift();
+      return;
+    }
+    case 'raidShift': {
+      need(a.t === 'raidShift' && seat === st.seat, 'pending');
+      if (a.t !== 'raidShift') return;
+      if (Raid.shift(s, st, a.hex)) s.steps.shift();
       return;
     }
     case 'placeHarbor': {

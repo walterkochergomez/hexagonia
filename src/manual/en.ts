@@ -580,7 +580,7 @@ const book: ManualBook = {
     shires: {
       id: 'shires',
       title: 'Hinterlands',
-      summary: 'Variants and scenarios for the base island: harbors that bring prestige, a chronicle deck instead of dice, rules for two, and scenarios with fishing, rivers and caravans.',
+      summary: 'Variants and scenarios for the base island: harbors that bring prestige, a chronicle deck instead of dice, rules for two, and scenarios with fishing, rivers, caravans and a raid from the sea.',
       meta: ['2–6 players', '60–120 minutes', 'Goal: 10 to 12 by scenario'],
       sections: [
         {
@@ -681,6 +681,25 @@ const book: ManualBook = {
               'The winner places a **camel** at the end of a caravan, on a land edge, without turning back to the oasis or crossing another caravan. There are 22 camels (28 with 5 or 6 players).',
               'Each building on an intersection between **two camels** is worth **1 point more**.',
               'A road under a camel counts **double** toward the longest trade route.',
+            ] },
+          ],
+        },
+        {
+          id: 'raid',
+          title: 'Scenario: Raid on the Coast',
+          blocks: [
+            { t: 'p', text: 'A castle stands on the edge of the island, with the desert beside it. The other edge hexes form the coast, with each number from 2 to 12 once (with 5 or 6 players, four repeat). There is no robber. Goal: 12 points.' },
+            { t: 'fig', id: 'raid', caption: 'Three barbarians have taken the 10: it produces nothing and the city on its shore doesn’t count. On the 5, three knights beat two barbarians when the turn ends.' },
+            { t: 'list', items: [
+              'During setup your second piece is a **city**. At the start, one barbarian already waits on the 2 and another on the 12.',
+              '**Landing**: every time someone founds a settlement or builds a city, roll the dice three times, never repeating a number and rerolling 7s. For each number a barbarian lands on the coastal hex with that number (if there are two, on the one with fewer). There are 30 barbarians (40 with 5 or 6 players); once they run out, no more land.',
+              'With **three barbarians** a hex is **taken**: it produces nothing, receives no more barbarians, and no settlements or roads can be built next to it. A building whose land hexes are all taken scores no points and can’t use its harbor while that lasts.',
+              '**Cards** cost the usual and take effect as soon as you buy them. **Knighting** (14) places one of your knights on a free edge next to the castle; **swift knight** (4), on any free edge; **intrigue** (4) takes one barbarian from the coast as your prisoner; **treason** (4) gives 2 gold and moves two barbarians to other coastal hexes that aren’t taken. The deck is reshuffled when it runs out.',
+              '**Knights**: everyone has 6. On your turn each knight may move once, up to 3 edges or up to 5 for one grain, without ending on an occupied edge or next to the castle. You can’t end your turn with a knight next to the castle if it can leave.',
+              '**Battle**: at the end of your turn, on every coastal hex with barbarians, count the knights on its six edges, in any color. If they outnumber the barbarians, they win: each barbarian becomes the prisoner of a player with knights there, one at a time, starting with whoever has the most; extras go to that same player, and anyone left without one gets 3 gold. Then a die picks a pair of opposite edges: the knights there go back to their owners, who get 3 gold each.',
+              'Every **two prisoners** are worth **1 point**.',
+              '**Gold** is not a resource: it isn’t discarded on a 7 and can’t be stolen. On your turn 2 gold buys a resource of your choice, up to twice; and 4 matching cards (3 with a 3:1 harbor) trade for 1 gold.',
+              'On a 7, discard as usual, and whoever rolled draws a card from anyone they like.',
             ] },
           ],
         },

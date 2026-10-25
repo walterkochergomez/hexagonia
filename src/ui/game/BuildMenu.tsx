@@ -68,7 +68,7 @@ export function BuildMenu({ view, me, send, setMode, onClose }: { view: GameStat
         icon: icon(<KnightShape color={color} level={2} active />), run: pick({ k: 'promote' }) },
     );
   } else {
-    items.push({ id: 'dev', label: t('act.buyDev'), cost: COST.dev, left: view.decks.dev, ok: can(COST.dev) && view.decks.dev > 0,
+    items.push({ id: 'dev', label: t('act.buyDev'), cost: COST.dev, left: view.decks.dev, ok: can(COST.dev) && (view.decks.dev > 0 || !!view.raid),
       icon: icon(<g transform="translate(-16 -19)"><CardBack size={32} kind="dev" /></g>), run: () => { send({ t: 'buyDev' }); onClose(); } });
   }
   return (

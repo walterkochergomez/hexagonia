@@ -9,6 +9,8 @@ import * as Caravan from './mods/caravan';
 import * as Tribe from './mods/tribe';
 import * as Bastions from './mods/bastions';
 import * as Works from './mods/works';
+import * as Raid from './mods/raid';
+import * as Gold from './mods/gold';
 import { otherEnd } from './geometry';
 import {
   CARDS, COMMODITIES, COST, RESOURCES, TRACKS, TRACK_COMMODITY, WONDERS, WONDER_COST, emptyHand, handTotal,
@@ -68,6 +70,45 @@ function roadScore(s: GameState, e: string): number {
     }
   }
   return top;
+}
+
+/** ¿Tiene `seat` un edificio junto a la casilla? */
+function mineNear(s: GameState, seat: number, hex: string): boolean {
+  return C.G(s).hexes[hex].vertices.some((v) => s.buildings[v]?.owner === seat);
+}
+function othersNear(s: GameState, seat: number, hex: string): number {
+  return C.G(s).hexes[hex].vertices.filter((v) => s.buildings[v] && s.buildings[v].owner !== seat).length;
+}
+
+/** Invasión: a qué lado conviene llevar un caballero (junto a la casilla con bárbaros que más importa). */
+function raidKnightMove(s: GameState, seat: number, rng: Rng): Action | null {
+  const r = s.raid!;
+  const g = C.G(s);
+  const mine = Raid.knightsOf(s, seat).filter((e) => !r.knights[e].moved);
+  if (!mine.length) return null;
+  const knightsOn = (h: string) => g.hexes[h].edges.filter((e) => r.knights[e]).length;
+  // casillas con bárbaros: primero las que tocan edificios propios y las que se pueden ganar
+  const want = r.coast.filter((h) => Raid.barbsOn(s, h) > 0)
+    .sort((a, b) => (Number(mineNear(s, seat, b)) * 3 + Raid.barbsOn(s, b) - knightsOn(b)) - (Number(mineNear(s, seat, a)) * 3 + Raid.barbsOn(s, a) - knightsOn(a)));
+  const castle = new Set(Raid.castleEdges(s));
+  for (const from of rng.shuffle([...mine])) {
+    const atCastle = castle.has(from);
+    // un caballero que ya está junto a una casilla con bárbaros se queda, salvo que esté en el castillo
+    if (!atCastle && g.edges[from].hexes.some((h) => Raid.barbsOn(s, h) > 0) && rng.float() < 0.8) continue;
+    for (const far of [false, true]) {
+      if (far && !C.hasCards(s.players[seat].hand, { grain: 1 })) break;
+      const reach = new Set(Raid.reach(s, from, far));
+      for (const h of want) {
+        const spot = g.hexes[h].edges.find((e) => reach.has(e));
+        if (spot) return { t: 'raidMove', from, to: spot, far };
+      }
+    }
+    if (atCastle) {
+      const reach = Raid.reach(s, from, false);
+      if (reach.length) return { t: 'raidMove', from, to: rng.pick(reach) };
+    }
+  }
+  return null;
 }
 
 /** Escenarios con metas en el mar: a qué cruces conviene acercar los barcos (regalos o aldeas). */
@@ -196,6 +237,20 @@ export function botAction(s: GameState, seat: number, rng: Rng): Action | null {
         return { t: 'camelBid', bid: { [c]: Math.min(h[c], 1 + rng.int(2)) } };
       }
       case 'placeHarbor': return { t: 'placeHarbor', edge: rng.pick(Tribe.harborSpots(s, seat)) };
+      case 'raidKnight': return { t: 'raidPlace', edge: rng.pick(Raid.knightSpots(s, st.anywhere)) };
+      case 'raidTake': {
+        // la casilla con más bárbaros, mejor si toca edificios propios
+        const coast = s.raid!.coast.filter((h) => Raid.barbsOn(s, h) > 0);
+        return { t: 'raidTake', hex: best(rng, coast, (h) => Raid.barbsOn(s, h) * 2 + (mineNear(s, seat, h) ? 3 : 0)) };
+      }
+      case 'raidShift': {
+        if (st.from === null && Raid.shiftSources(s, st).length) {
+          const src = Raid.shiftSources(s, st);
+          return { t: 'raidShift', hex: best(rng, src, (h) => (mineNear(s, seat, h) ? 5 : 0) + Raid.barbsOn(s, h)) };
+        }
+        const to = Raid.shiftTargets(s, st);
+        return { t: 'raidShift', hex: best(rng, to, (h) => (mineNear(s, seat, h) ? -6 : 0) + othersNear(s, seat, h)) };
+      }
       case 'camelPlace': {
         const opts = Caravan.legalCamels(s);
         const g = C.G(s);
@@ -290,6 +345,13 @@ export function botAction(s: GameState, seat: number, rng: Rng): Action | null {
   if (s.bastions && can(COST.ship) && left.ship > 0 && rng.float() < 0.85) {
     const ships = C.legalShips(s, seat);
     if (ships.length) return { t: 'build', what: 'ship', at: ships[0] };
+  }
+  // invasión: mover caballeros hacia los bárbaros; comprar cartas; oro
+  if (s.raid && t.phase === 'main') {
+    const mv = rng.float() < 0.85 ? raidKnightMove(s, seat, rng) : null;
+    if (mv) return mv;
+    if (can(COST.dev) && rng.float() < 0.55) return { t: 'buyDev' };
+    if (Gold.canBuy(s, seat) && rng.float() < 0.6) return { t: 'gold', use: 'buy' };
   }
   // grandes obras: subir la obra propia, o empezar una
   if (s.works) {
@@ -399,6 +461,14 @@ export function botAction(s: GameState, seat: number, rng: Rng): Action | null {
         const get = rng.pick(missing.filter((m) => s.bank[m] > 0 && (s.settings.guilds || RESOURCES.includes(m as Resource))) as Card[]);
         if (get && get !== c) return { t: 'bank', give: c, get, count: 1 };
       }
+    }
+  }
+  // invasión: antes de terminar, sacar los caballeros del castillo
+  if (s.raid && t.phase === 'main') {
+    const stuck = Raid.stuckAtCastle(s, seat);
+    if (stuck.length) {
+      const reach = Raid.reach(s, stuck[0], false);
+      return { t: 'raidMove', from: stuck[0], to: rng.pick(reach) };
     }
   }
   // oferta entre jugadores, de vez en cuando

@@ -127,4 +127,22 @@ s = base({ openSea: true, scenario: 'works' });
   s.works!.wonders[1].level = 1;
 }
 out('works', s);
+// 15. Comarcas: invasión, con un caballero junto al castillo, oro, una casilla tomada y una carta veloz arriba del mazo
+s = base({ shire: 'raid' });
+{
+  const r = s.raid!;
+  const g = C.G(s);
+  for (const e of Object.keys(r.knights)) if (r.knights[e].owner === 0) delete r.knights[e];
+  const castle = g.hexes[r.castle].edges.filter((e) => !r.knights[e]);
+  r.knights[castle[0]] = { owner: 0, moved: false };
+  const open = r.coast.filter((h) => (r.barbs[h] ?? 0) < 3);
+  r.barbs[open[3]] = 3;
+  r.barbs[open[5]] = 2;
+  const side = g.hexes[open[5]].edges.find((e) => C.edgeRoadable(s, e) && !r.knights[e])!;
+  r.knights[side] = { owner: 1, moved: false };
+  s.gold![0] = 5;
+  s.players[0].hand = { lumber: 0, brick: 1, wool: 1, grain: 2, ore: 1, paper: 0, cloth: 0, coin: 0 };
+  s.hidden.raidDeck = ['swift', ...(s.hidden.raidDeck ?? [])];
+}
+out('raid', s);
 console.log('ok', C.vpOf(s, 0));
