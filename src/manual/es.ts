@@ -580,8 +580,8 @@ const book: ManualBook = {
     shires: {
       id: 'shires',
       title: 'Comarcas',
-      summary: 'Variantes y escenarios para la isla base: puertos que dan prestigio, un mazo de sucesos en vez de dados, reglas para dos, y escenarios con pesca, ríos, caravanas y una invasión desde el mar.',
-      meta: ['2–6 jugadores', '60–120 minutos', 'Meta: 10 a 12 según el escenario'],
+      summary: 'Variantes y escenarios para la isla base: puertos que dan prestigio, un mazo de sucesos en vez de dados, reglas para dos, y escenarios con pesca, ríos, caravanas, una invasión desde el mar y carretas que comercian.',
+      meta: ['2–6 jugadores', '60–120 minutos', 'Meta: 10 a 13 según el escenario'],
       sections: [
         {
           id: 'about',
@@ -700,6 +700,31 @@ const book: ManualBook = {
               'Cada **dos prisioneros** valen **1 punto**.',
               '**Oro**: no es un recurso, así que no se descarta con un 7 ni se roba. En tu turno, 2 de oro compran un recurso a elección, hasta dos veces; y 4 cartas iguales (3 con un puerto 3:1) se cambian por 1 de oro.',
               'Con un 7 se descarta como siempre y quien tiró le roba una carta a quien quiera.',
+            ] },
+          ],
+        },
+        {
+          id: 'traders',
+          title: 'Escenario: carretas y peajes',
+          blocks: [
+            { t: 'p', text: 'No hay desierto: en la costa hay tres mercados (seis con 5 o 6 jugadores), el castillo, la cantera y la vidriería, que no producen. Como hay menos casillas, no van las fichas 2 y 12. No hay ladrón ni premio por la ruta más larga. Meta: 13 puntos.' },
+            { t: 'fig', id: 'traders', caption: 'La carreta roja lleva mármol al castillo. Por su camino gasta 1 de movimiento por lado y por el campo 2; en el camino azul paga 1 de oro de peaje, y el bárbaro hace más caro su lado.' },
+            { t: 'list', items: [
+              'En la preparación la segunda pieza es una **ciudad**, y ahí empieza tu **carreta**. Cada uno empieza con 5 de oro.',
+              '**Mercancías**: cada mercado tiene una pila con dos clases de mercancía, y la de arriba se ve. El castillo da herramientas y arena; la cantera, mármol y arena; la vidriería, vidrio y herramientas. El mármol y el vidrio van al castillo, las herramientas a la cantera y la arena a la vidriería.',
+              '**Viajar**: en tu turno, después de tirar, la carreta gasta su movimiento lado por lado: 2 sin camino y 1 por un camino. Por cada lado de un camino ajeno le pagas 1 de oro a su dueño; sin oro no pasas. Un bárbaro en el lado cuesta 2 más. Una vez por turno, 1 trigo da 2 de movimiento más.',
+              '**Cargar y entregar**: si la carreta va vacía y termina en un cruce de un mercado con mercancías, carga la de arriba. Si lleva carga y termina en un mercado de su destino, la entrega: ganas **1 punto** y el oro de tu nivel, y carga la siguiente de ese mercado. Después de cargar o entregar, la carreta se queda quieta hasta tu próximo turno.',
+              '**Niveles**: la carreta empieza en el nivel 1 y sube pagando recursos (tabla). El nivel da movimiento, oro por entrega y la posibilidad de ahuyentar bárbaros; el nivel 5 vale 1 punto. El movimiento nuevo rinde desde tu próximo turno.',
+              '**Bárbaros**: hay tres en los lados (cuatro con 5 o 6 jugadores). Con un 7, después de los descartes, quien tiró mueve uno a cualquier lado libre; si cae en un camino ajeno, le roba una carta al dueño. Desde el nivel 2 tu carreta puede intentar ahuyentar a un bárbaro que esté en un lado de su cruce: tiras un dado y, si sale uno de los números de tu nivel, lo mueves adonde quieras (sin robar). Una vez por bárbaro y por turno.',
+              '**Cartas**: el mazo propio trae 15 caballeros (mueven un bárbaro como el 7, robo incluido), 3 de construcción de caminos, 3 de viaje rápido (la carreta recupera todo su movimiento, aunque ya haya entregado) y 3 de punto. Se juega una por turno, como siempre. Con 5 o 6 jugadores hay más.',
+              '**Oro**: no es un recurso, así que no se descarta ni se roba. En tu turno, 2 de oro compran un recurso a elección (hasta dos veces), y 4 cartas iguales (3 con un puerto 3:1) se cambian por 1 de oro.',
+            ] },
+            { t: 'table', head: ['Nivel', 'Para subir', 'Movimiento', 'Oro por entrega', 'Ahuyenta con'], rows: [
+              ['1', '—', '4', '1', '—'],
+              ['2', '1 madera, 1 lana y 1 trigo', '5', '2', '6'],
+              ['3', '1 madera, 1 ladrillo y 1 mineral', '6', '2', '5 o 6'],
+              ['4', '1 lana, 1 trigo y 2 minerales', '7', '3', '4 a 6'],
+              ['5', '2 ladrillos, 1 trigo y 2 minerales', '7', '4', '3 a 6 (y vale 1 punto)'],
             ] },
           ],
         },

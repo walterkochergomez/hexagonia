@@ -15,6 +15,7 @@ import * as Bastions from './mods/bastions';
 import * as Works from './mods/works';
 import * as Raid from './mods/raid';
 import * as Gold from './mods/gold';
+import * as Traders from './mods/traders';
 import {
   CARDS, COST, EVENT_FACES, GameError, PROGRESS_DECKS, RESOURCES, SEA_SPECIAL, SHIRES, TERRAIN_COMMODITY, TERRAIN_RESOURCE, TRACKS,
   emptyHand, handTotal, isCard, isResource,
@@ -67,15 +68,24 @@ export function createGame(input: Settings, seats: SeatInfo[]): GameState {
   const bank: Hand = { lumber: resN, brick: resN, wool: resN, grain: resN, ore: resN, paper: comN, cloth: comN, coin: comN };
   const devDeck: DevType[] = [];
   const bastions = settings.openSea && settings.scenario === 'bastions';
+  const traders = settings.shire === 'traders';
   // la invasión trae su propio mazo
   if (!settings.guilds && settings.shire !== 'raid') {
     const add = (t: DevType, k: number) => { for (let i = 0; i < k; i++) devDeck.push(t); };
     // en los bastiones no hay cartas de punto: son soldiers que arman barcos
-    add('soldier', (big ? 20 : 14) + (bastions ? 5 : 0));
-    add('point', bastions ? 0 : 5);
-    add('roads', big ? 3 : 2);
-    add('plenty', big ? 3 : 2);
-    add('monopoly', big ? 3 : 2);
+    if (traders) {
+      // carretas: caballeros que mueven bárbaros, caminos, viaje rápido y puntos
+      add('soldier', big ? 19 : 15);
+      add('roads', big ? 4 : 3);
+      add('haul', big ? 4 : 3);
+      add('point', 3);
+    } else {
+      add('soldier', (big ? 20 : 14) + (bastions ? 5 : 0));
+      add('point', bastions ? 0 : 5);
+      add('roads', big ? 3 : 2);
+      add('plenty', big ? 3 : 2);
+      add('monopoly', big ? 3 : 2);
+    }
     rng.shuffle(devDeck);
   }
   const progress: Record<Track, ProgressType[]> = { science: [], trade: [], politics: [] };
@@ -128,6 +138,7 @@ export function createGame(input: Settings, seats: SeatInfo[]): GameState {
   if (settings.shire === 'rivers') River.setup(s, rng);
   if (settings.shire === 'caravans') Caravan.setup(s);
   if (settings.shire === 'raid') Raid.setup(s, rng, map.marks!.rock![0], map.marks!.loop!);
+  if (traders) Traders.setup(s, rng);
   if (settings.openSea) {
     const m = map.marks ?? {};
     if (settings.scenario === 'tribe') Tribe.setup(s, rng, m.isles ?? []);
@@ -222,6 +233,8 @@ function stepDone(s: GameState, st: Step): boolean {
       return !s.raid!.coast.some((h) => Raid.barbsOn(s, h) > 0);
     case 'raidShift':
       return Raid.shiftDone(s, st);
+    case 'barbMove':
+      return !s.traders?.barbs.length;
     case 'steal':
       return !st.from.length;
     case 'freeRoutes':
@@ -289,6 +302,7 @@ function nextTurn(s: GameState) {
   t.tokenUsed = false;
   t.coinTrades = 0;
   t.goldBuys = 0;
+  Traders.newTurn(s);
   t.built = false;
   t.shipMoved = [];
   t.builtShips = [];
@@ -316,6 +330,7 @@ function finishSetup(s: GameState) {
   s.turn.phase = 'preRoll';
   s.turn.current = s.turn.setupOrder[0];
   s.turn.n = 1;
+  Traders.newTurn(s); // las carretas salen con su movimiento
   s.stats.turns = 1;
   C.updateRoadAward(s);
   C.log(s, 'turn.start', { seat: s.turn.current });
@@ -446,7 +461,8 @@ function seven(s: GameState) {
     // sin ladrón: quien tira le roba una carta a quien quiera
     const from = s.players.filter((p) => p.seat !== s.turn.current && !p.neutral && handTotal(p.hand) > 0).map((p) => p.seat);
     if (from.length) steps.push({ k: 'steal', seat: s.turn.current, hex: '', on: 'event', from });
-  } else if (C.robberActive(s)) steps.push({ k: 'robber', seat: s.turn.current, robber: true, pirate: pirateOk(s, s.turn.current), mode: 'steal1' });
+  } else if (s.traders) steps.push({ k: 'barbMove', seat: s.turn.current, from: null, steal: true });
+  else if (C.robberActive(s)) steps.push({ k: 'robber', seat: s.turn.current, robber: true, pirate: pirateOk(s, s.turn.current), mode: 'steal1' });
   else C.log(s, 'seven.calm');
   s.steps.unshift(...steps);
 }
@@ -586,10 +602,11 @@ function handle(s: GameState, seat: number, a: Action, rng: Rng) {
       need(C.setupVertexOk(s, a.vertex), 'illegal');
       const round = Math.floor(t.setupIndex / s.players.length);
       const lastRound = round === t.setupOrder.length / s.players.length - 1;
-      // con Gremios y en la invasión, la segunda colocación es una ciudad
-      const kind = (s.settings.guilds || s.raid) && round === 1 ? 'city' : 'settlement';
+      // con Gremios, en la invasión y en las carretas, la segunda colocación es una ciudad
+      const kind = (s.settings.guilds || s.raid || s.traders) && round === 1 ? 'city' : 'settlement';
       s.buildings[a.vertex] = { owner: seat, kind };
       C.log(s, 'setup.build', { seat, kind });
+      if (kind === 'city') Traders.placeWagon(s, seat, a.vertex);
       // los recursos iniciales los da el último edificio de la preparación
       if (lastRound) {
         let picks = 0;
@@ -695,6 +712,11 @@ function handle(s: GameState, seat: number, a: Action, rng: Rng) {
       if (a.card === 'soldier' && s.bastions) {
         Bastions.arm(s, seat);
         s.hidden.devDiscard = [...(s.hidden.devDiscard ?? []), 'soldier'];
+      } else if (a.card === 'soldier' && s.traders) {
+        // carretas: el caballero mueve un bárbaro (y roba si cae en un camino ajeno)
+        s.steps.unshift({ k: 'barbMove', seat, from: null, steal: true });
+      } else if (a.card === 'haul') {
+        Traders.haul(s, seat);
       } else if (a.card === 'soldier') {
         p.soldiers++;
         C.updateArmyAward(s);
@@ -834,6 +856,18 @@ function handle(s: GameState, seat: number, a: Action, rng: Rng) {
     case 'raidMove':
       need(!!s.raid && t.phase === 'main' && seat === t.current, 'notYourTurn');
       Raid.move(s, seat, a.from, a.to, !!a.far);
+      return;
+    case 'wagon':
+      Traders.move(s, seat, a.to);
+      return;
+    case 'wagonUp':
+      Traders.upgrade(s, seat);
+      return;
+    case 'wagonBoost':
+      Traders.boost(s, seat);
+      return;
+    case 'drive':
+      Traders.drive(s, seat, a.edge, rng);
       return;
     case 'gold':
       Gold.buy(s, seat);
@@ -1053,6 +1087,15 @@ function handleStep(s: GameState, seat: number, a: Action, st: Step, rng: Rng) {
       need(a.t === 'raidShift' && seat === st.seat, 'pending');
       if (a.t !== 'raidShift') return;
       if (Raid.shift(s, st, a.hex)) s.steps.shift();
+      return;
+    }
+    case 'barbMove': {
+      need(a.t === 'barbPlace' && seat === st.seat, 'pending');
+      if (a.t !== 'barbPlace') return;
+      const r = Traders.placeBarb(s, st, a.edge);
+      if (!r.done) return;
+      s.steps.shift();
+      if (r.victim !== null) stealRandom(s, rng, seat, r.victim);
       return;
     }
     case 'placeHarbor': {

@@ -10,6 +10,7 @@ import * as Tribe from './mods/tribe';
 import * as Bastions from './mods/bastions';
 import * as Works from './mods/works';
 import * as Raid from './mods/raid';
+import * as Traders from './mods/traders';
 import * as Gold from './mods/gold';
 import { otherEnd } from './geometry';
 import {
@@ -112,6 +113,56 @@ function raidKnightMove(s: GameState, seat: number, rng: Rng): Action | null {
 }
 
 /** Escenarios con metas en el mar: a qué cruces conviene acercar los barcos (regalos o aldeas). */
+/** Carretas: movimiento que falta (sin contar peajes) desde cada cruce hasta un mercado que le sirva. */
+function wagonDistances(s: GameState, seat: number): Map<string, number> {
+  const g = C.G(s);
+  const dist = new Map<string, number>();
+  const queue: [string, number][] = [];
+  for (const h of Traders.goalHexes(s, seat)) {
+    for (const v of g.hexes[h].vertices) {
+      if (!C.vertexLand(s, v) || dist.has(v)) continue;
+      dist.set(v, 0);
+      queue.push([v, 0]);
+    }
+  }
+  while (queue.length) {
+    let bi = 0;
+    for (let i = 1; i < queue.length; i++) if (queue[i][1] < queue[bi][1]) bi = i;
+    const [v, d] = queue.splice(bi, 1)[0];
+    if (d > (dist.get(v) ?? Infinity)) continue;
+    for (const e of g.vertices[v].edges) {
+      if (!C.edgeRoadable(s, e)) continue;
+      const c = Traders.edgeCost(s, seat, e);
+      const x = otherEnd(g, e, v);
+      const nd = d + c.mp + (c.toll === null ? 0 : 0.5);
+      if (nd < (dist.get(x) ?? Infinity)) {
+        dist.set(x, nd);
+        queue.push([x, nd]);
+      }
+    }
+  }
+  return dist;
+}
+
+/** Mover la carreta al cruce alcanzable más cerca de su meta (si llega, a la meta). */
+function wagonMove(s: GameState, seat: number): Action | null {
+  const w = s.traders!.wagons[seat];
+  if (!w.at) return null;
+  const trips = Traders.trips(s, seat);
+  if (!trips.size) return null;
+  const dist = wagonDistances(s, seat);
+  let bestV: string | null = null;
+  let bestD = dist.get(w.at) ?? Infinity;
+  for (const [v, trip] of trips) {
+    const d = (dist.get(v) ?? Infinity) + trip.tolls.length * 0.25;
+    if (d < bestD - 1e-9) {
+      bestD = d;
+      bestV = v;
+    }
+  }
+  return bestV ? { t: 'wagon', to: bestV } : null;
+}
+
 function seaGoals(s: GameState, seat: number): string[] {
   const g = C.G(s);
   if (s.tribe) return s.tribe.gifts.flatMap((x) => [g.edges[x.edge].a, g.edges[x.edge].b]);
@@ -238,6 +289,19 @@ export function botAction(s: GameState, seat: number, rng: Rng): Action | null {
       }
       case 'placeHarbor': return { t: 'placeHarbor', edge: rng.pick(Tribe.harborSpots(s, seat)) };
       case 'raidKnight': return { t: 'raidPlace', edge: rng.pick(Raid.knightSpots(s, st.anywhere)) };
+      case 'barbMove': {
+        const spots = Traders.barbSpots(s, st);
+        const g = C.G(s);
+        const w = s.traders!.wagons[seat];
+        const nearMe = (e: string) => (w.at && (g.edges[e].a === w.at || g.edges[e].b === w.at) ? 1 : 0);
+        if (st.from === null) return { t: 'barbPlace', edge: best(rng, spots, (e) => (s.roads[e]?.owner === seat ? 6 : 0) + nearMe(e) * 4) };
+        // adónde: un camino ajeno de alguien con cartas, lejos de mi carreta
+        return { t: 'barbPlace', edge: best(rng, spots, (e) => {
+          const r = s.roads[e];
+          const foe = r && r.owner !== seat ? (st.steal && C.resourcesIn(s.players[r.owner].hand) > 0 ? 6 : 2) : 0;
+          return foe - (r?.owner === seat ? 8 : 0) - nearMe(e) * 6;
+        }) };
+      }
       case 'raidTake': {
         // la casilla con más bárbaros, mejor si toca edificios propios
         const coast = s.raid!.coast.filter((h) => Raid.barbsOn(s, h) > 0);
@@ -353,6 +417,21 @@ export function botAction(s: GameState, seat: number, rng: Rng): Action | null {
     if (can(COST.dev) && rng.float() < 0.55) return { t: 'buyDev' };
     if (Gold.canBuy(s, seat) && rng.float() < 0.6) return { t: 'gold', use: 'buy' };
   }
+  // carretas: ahuyentar, mejorar, viajar hacia el mercado, trigo y oro
+  if (s.traders && t.phase === 'main') {
+    const w = s.traders.wagons[seat];
+    const drv = Traders.drivable(s, seat);
+    if (drv.length && rng.float() < 0.75) return { t: 'drive', edge: drv[0] };
+    if (Traders.canUpgrade(s, seat) && rng.float() < 0.55) return { t: 'wagonUp' };
+    const mv = wagonMove(s, seat);
+    if (mv) return mv;
+    if (Traders.canBoost(s, seat) && w.at && rng.float() < 0.5) {
+      // el trigo sirve si con 2 más llega a la meta
+      const d = wagonDistances(s, seat).get(w.at) ?? Infinity;
+      if (d > 0 && d <= w.mp + Traders.BOOST) return { t: 'wagonBoost' };
+    }
+    if (Gold.canBuy(s, seat) && (s.gold![seat] ?? 0) >= 4 && rng.float() < 0.6) return { t: 'gold', use: 'buy' };
+  }
   // grandes obras: subir la obra propia, o empezar una
   if (s.works) {
     const mine = Works.wonderOf(s, seat);
@@ -409,7 +488,7 @@ export function botAction(s: GameState, seat: number, rng: Rng): Action | null {
   if (!s.settings.guilds && p.devPlayedTurn !== t.n) {
     const playable = p.dev.filter((d) => d.turn !== t.n && d.type !== 'point' && (d.type !== 'soldier' || !s.bastions || Bastions.canArm(s, seat))).map((d) => d.type);
     if (playable.length && rng.float() < 0.5) {
-      const card = rng.pick(playable) as 'soldier' | 'roads' | 'plenty' | 'monopoly';
+      const card = rng.pick(playable) as 'soldier' | 'roads' | 'plenty' | 'monopoly' | 'haul';
       return { t: 'playDev', card } as Action;
     }
   }
@@ -448,6 +527,7 @@ export function botAction(s: GameState, seat: number, rng: Rng): Action | null {
   if (s.bastions && C.legalShips(s, seat).length) goals.push(COST.ship);
   if (left.city > 0 && C.legalCities(s, seat).length) goals.push(COST.city);
   if (left.settlement > 0 && C.legalSettlements(s, seat).length) goals.push(COST.settlement);
+  if (s.traders && s.traders.wagons[seat].level < Traders.MAX_LEVEL) goals.push(Traders.LEVELS[s.traders.wagons[seat].level].cost);
   goals.push(COST.road);
   if (!s.settings.guilds) goals.push(COST.dev);
   else goals.push(COST.knight);

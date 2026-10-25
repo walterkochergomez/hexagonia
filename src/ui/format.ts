@@ -12,7 +12,7 @@ export function lower(s: string): string {
 
 export function cardName(c: string, t: T): string {
   if (isCard(c)) return t(`res.${c}`);
-  if (['soldier', 'roads', 'plenty', 'monopoly', 'point'].includes(c)) return t(`dev.${c}`);
+  if (['soldier', 'roads', 'plenty', 'monopoly', 'point', 'haul'].includes(c)) return t(`dev.${c}`);
   if (RAID_CARDS.includes(c as RaidCard)) return t(`raidcard.${c}`);
   return t(`progress.${c}`);
 }
@@ -40,8 +40,11 @@ export function formatLog(e: { k: string; p?: LogEntry['p'] }, view: GameState, 
     else if (k === 'ev') p[k] = t(`chronicle.ev.${v}`);
     else if (k === 'port') p[k] = portName(String(v), t);
     else if (k === 'id') p[k] = t(`wonder.${v}`);
+    else if (k === 'goods') p[k] = lower(t(`goods.${v}`));
     else p[k] = v as string | number;
   }
+  // carretas: el movimiento con peaje tiene su propio texto
+  if (e.k === 'wagon.move' && Number(e.p?.n) > 0) return t('log.wagon.toll', p);
   return t(`log.${e.k}`, p);
 }
 
@@ -53,6 +56,16 @@ export function portName(kind: string, t: T): string {
 export function errorText(code: string, t: T): string {
   const s = t(`err.${code}`);
   return s === `err.${code}` ? t('err.default') : s;
+}
+
+/** «5 o 6», «4, 5 o 6» en el idioma elegido. */
+export function orList(items: (string | number)[]): string {
+  const xs = items.map(String);
+  try {
+    return new Intl.ListFormat(prefs.get().lang, { type: 'disjunction' }).format(xs);
+  } catch {
+    return xs.join(', ');
+  }
 }
 
 export function drawRange(level: number): string {

@@ -8,7 +8,7 @@ import { CardIcon, PlayerMark } from '../art';
 import { Modal } from '../common';
 import { BOARD_PROGRESS, type Mode } from './plan';
 
-const DEV_ORDER: DevType[] = ['soldier', 'roads', 'plenty', 'monopoly', 'point'];
+const DEV_ORDER: DevType[] = ['soldier', 'roads', 'haul', 'plenty', 'monopoly', 'point'];
 
 export function CardsSheet({ view, me, send, setMode, onClose }: { view: GameState; me: number; send: (a: Action) => void; setMode: (m: Mode) => void; onClose: () => void }) {
   const t = useT();
@@ -57,7 +57,7 @@ export function CardsSheet({ view, me, send, setMode, onClose }: { view: GameSta
               <li key={type} className={`dev-card d-${type}`}>
                 <div>
                   <h3>{t(`dev.${type}`)} {cards.length > 1 && <span className="muted">×{cards.length}</span>}</h3>
-                  <p>{t(type === 'soldier' && view.bastions ? 'dev.soldier.dFort' : `dev.${type}.d`)}</p>
+                  <p>{t(type === 'soldier' && view.bastions ? 'dev.soldier.dFort' : type === 'soldier' && view.traders ? 'dev.soldier.dBarb' : `dev.${type}.d`)}</p>
                   {!ready && <p className="muted small">{t('cards.new')}</p>}
                 </div>
                 {type !== 'point' && (

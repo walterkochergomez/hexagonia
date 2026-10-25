@@ -2,7 +2,7 @@
 import type { ReactNode } from 'react';
 import { useT } from '../../app/i18n';
 import { CORNERS, edgeId, graphOf, hexId, vertexId } from '../../engine/geometry';
-import { WONDERS, type Card, type GameState, type Harbor, type HexTile, type Resource, type Terrain, type TribeGift } from '../../engine/types';
+import { WONDERS, type Card, type GameState, type Goods, type Market, type Harbor, type HexTile, type Resource, type Terrain, type TribeGift } from '../../engine/types';
 import { Board, type BoardPos } from '../Board';
 import { CardBack, CardIcon, ChronicleFace, CityShape, ShipShape, WonderArt } from '../art';
 import { TileFace, type LandTerrain } from '../tiles';
@@ -49,6 +49,8 @@ interface Scene {
   works?: { strait: string[]; waste: string[] };
   /** invasión: castillo, costa, bárbaros por casilla y caballeros [lado, dueño] */
   raid?: { castle: string; coast: string[]; barbs: Record<string, number>; knights: [string, number][] };
+  /** carretas: mercados con su mercancía de arriba, bárbaros en lados y carretas [cruce, dueño, nivel, carga] */
+  traders?: { markets: [string, Market, Goods | null, number][]; barbs: string[]; wagons: [string, number, number, Goods | null][] };
 }
 
 const FLOWER: [number, number][] = [[0, 0], [1, -1], [1, 0], [0, 1], [-1, 1], [-1, 0], [0, -1]];
@@ -89,6 +91,18 @@ function stateOf(sc: Scene): GameState {
       return { rock: [sc.bastions.rock], loop, fleet: sc.bastions.fleet, forts: sc.bastions.forts.map((f) => ({ plan: [], ...f, start: '', taken: false })), last: null };
     })(),
     works: sc.works && { ...sc.works, wonders: [] },
+    traders: sc.traders && {
+      markets: Object.fromEntries(sc.traders.markets.map(([h, m]) => [h, m])),
+      next: Object.fromEntries(sc.traders.markets.map(([h, , g]) => [h, g])),
+      left: Object.fromEntries(sc.traders.markets.map(([h, , , n]) => [h, n])),
+      barbs: sc.traders.barbs,
+      // una carreta por color: las que no aparecen quedan fuera del tablero
+      wagons: [0, 1, 2, 3, 4, 5].map((seat) => {
+        const w = sc.traders!.wagons.find((x) => x[1] === seat);
+        return { at: w ? w[0] : null, level: w ? w[2] : 1, cargo: w ? w[3] : null, mp: 0, boosted: false, stopped: false, tried: [] };
+      }),
+      delivered: [],
+    },
     raid: sc.raid && { castle: sc.raid.castle, coast: sc.raid.coast, barbs: sc.raid.barbs, supply: 0, prisoners: [], last: null,
       knights: Object.fromEntries(sc.raid.knights.map(([e, owner]) => [e, { owner, moved: false }])) },
     roads: { ...own(sc.roads), ...Object.fromEntries((sc.bridges ?? []).map(([e, owner]) => [e, { owner, bridge: true }])) },
@@ -355,6 +369,31 @@ export function Figure({ id, caption }: { id: FigureId; caption: string }) {
         </>} />
       );
       break;
+    case 'traders': {
+      // la carreta roja lleva mármol al castillo: su camino, el camino azul (peaje) y un bárbaro en el otro rumbo
+      const c3 = corner(0, 0, 3), c4 = corner(0, 0, 4), c5 = corner(0, 0, 5);
+      body = (
+        <Still label={caption} scene={{
+          hexes: [[0, 0, 'fields', 9], [0, -1, 'castle'], [1, -1, 'forest', 5], [1, 0, 'pasture', 10], [0, 1, 'hills', 3], [-1, 1, 'mountains', 8], [-1, 0, 'forest', 4]],
+          traders: { markets: [['h0,-1', 'castle', 'tools', 9]], barbs: [side(0, 0, 1)], wagons: [[c3, 0, 2, 'marble']] },
+          buildings: [[corner(0, 0, 2), 'city', 0], [c5, 'settlement', 1]],
+          roads: [[side(0, 0, 2), 0], [side(0, 0, 3), 0], [side(0, 0, 4), 1]],
+        }} overlay={(at) => {
+          // el recorrido, un poco hacia adentro de los caminos para que se vea
+          const [hx, hy] = at.h('h0,0');
+          const p = (v: string) => { const [x, y] = at.v(v); return [x + (hx - x) * 0.3, y + (hy - y) * 0.3]; };
+          const [ax, ay] = p(c3), [bx, by] = p(c4), [cx, cy] = p(c5);
+          const ang = (Math.atan2(cy - by, cx - bx) * 180) / Math.PI;
+          const [rx, ry] = at.e(side(0, 0, 4));
+          return <>
+            <path d={`M${ax} ${ay} L${bx} ${by} L${cx} ${cy}`} className="fig-arrow" />
+            <path d="M2 0 L-7 -5 L-7 5 Z" transform={`translate(${cx} ${cy}) rotate(${ang})`} className="fig-arrow-head" />
+            <g transform={`translate(${rx - 17} ${ry})`} className="fig-coin"><circle r={7.5} /><text y={3.2} textAnchor="middle">1</text></g>
+          </>;
+        }} />
+      );
+      break;
+    }
     case 'tribe': {
       // la isla grande a la izquierda; a la derecha, una islita del pueblo isleño con sus regalos
       body = (

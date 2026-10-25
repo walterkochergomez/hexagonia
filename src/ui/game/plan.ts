@@ -6,6 +6,7 @@ import * as River from '../../engine/mods/river';
 import * as Caravan from '../../engine/mods/caravan';
 import * as Tribe from '../../engine/mods/tribe';
 import * as Raid from '../../engine/mods/raid';
+import * as Traders from '../../engine/mods/traders';
 import type { Action, GameState, ProgressType } from '../../engine/types';
 import type { Targets } from '../Board';
 
@@ -19,6 +20,7 @@ export type Mode =
   | { k: 'knight'; from?: string }
   | { k: 'ship'; from?: string }
   | { k: 'guard'; from?: string; far?: boolean }
+  | { k: 'wagon' }
   | { k: 'progress'; card: ProgressType; picked: string[] };
 
 export interface Plan {
@@ -98,6 +100,14 @@ export function plan(v: GameState, me: number | null, mode: Mode, routeKind: 'ro
           pick: (_k, id) => ({ act: { t: 'raidShift', hex: id } }),
         };
       }
+      case 'barbMove': {
+        const ids = Traders.barbSpots(v, st);
+        return {
+          targets: { edges: ids, selected: st.from ? [st.from] : [] },
+          hint: st.from === null ? 'step.barbFrom' : st.steal ? 'step.barbToSteal' : 'step.barbTo',
+          pick: (_k, id) => ({ act: { t: 'barbPlace', edge: id } }),
+        };
+      }
       case 'placeHarbor':
         return { targets: { edges: Tribe.harborSpots(v, me) }, hint: 'step.placeHarbor', hintParams: { port: st.kind }, pick: (_k, id) => ({ act: { t: 'placeHarbor', edge: id } }) };
       case 'camelPlace':
@@ -118,7 +128,7 @@ export function plan(v: GameState, me: number | null, mode: Mode, routeKind: 'ro
       const round2 = t.setupIndex >= v.players.length;
       return {
         targets: { vertices: C.legalSetupVertices(v) },
-        hint: v.settings.guilds && round2 ? 'phase.setupCity' : 'phase.setupBuilding',
+        hint: (v.settings.guilds || v.raid || v.traders) && round2 ? 'phase.setupCity' : 'phase.setupBuilding',
         pick: (_k, id) => ({ act: { t: 'setupBuild', vertex: id } }),
       };
     }
@@ -213,6 +223,11 @@ export function plan(v: GameState, me: number | null, mode: Mode, routeKind: 'ro
         far: { on: far, can: C.hasCards(v.players[me].hand, { grain: 1 }), set: (f) => ({ k: 'guard', from, far: f }) },
         pick: (_k, id) => ({ act: { t: 'raidMove', from, to: id, far }, ...done }),
       };
+    }
+    case 'wagon': {
+      const ids = [...Traders.trips(v, me).keys()];
+      const at = v.traders?.wagons[me].at;
+      return { targets: { vertices: ids, selected: at ? [at] : [] }, hint: ids.length ? 'pick.wagon' : 'pick.none', cancel: true, pick: (_k, id) => ({ act: { t: 'wagon', to: id }, ...done }) };
     }
     case 'progress':
       return progressPlan(v, me, mode);

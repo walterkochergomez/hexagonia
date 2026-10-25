@@ -308,6 +308,7 @@ export function vpOf(s: GameState, seat: number, hidden = true): number {
   if (s.awards.harbor?.owner === seat) vp += 2;
   vp += camelBonus(s, seat) + wealthBonus(s, seat);
   vp += (s.tribe?.vp[seat] ?? 0) + clothPoints(s, seat) + Math.floor((s.raid?.prisoners[seat] ?? 0) / 2);
+  vp += (s.traders?.delivered[seat] ?? 0) + (s.traders?.wagons[seat].level === 5 ? 1 : 0);
   vp += p.vpCards.length + p.defender;
   if (s.board.merchant?.owner === seat) vp += 1;
   for (const b of p.bonus) vp += b.vp;
@@ -338,6 +339,8 @@ export function vpBreakdown(s: GameState, seat: number) {
     gifts: s.tribe?.vp[seat] ?? 0,
     cloth: clothPoints(s, seat),
     prisoners: Math.floor((s.raid?.prisoners[seat] ?? 0) / 2),
+    goods: s.traders?.delivered[seat] ?? 0,
+    wagon: s.traders?.wagons[seat].level === 5 ? 1 : 0,
   };
 }
 
@@ -442,7 +445,7 @@ export function longestRoute(s: GameState, seat: number): number {
 }
 
 export function updateRoadAward(s: GameState) {
-  if (s.looms || s.bastions) return; // sin premio por la ruta más larga en estos escenarios
+  if (s.looms || s.bastions || s.traders) return; // sin premio por la ruta más larga en estos escenarios
   const n = s.players.length;
   const lens = Array.from({ length: n }, (_, i) => (isNeutral(s, i) ? 0 : longestRoute(s, i)));
   const max = Math.max(...lens);
@@ -464,7 +467,7 @@ export function updateRoadAward(s: GameState) {
 }
 
 export function updateArmyAward(s: GameState) {
-  if (s.settings.guilds || s.bastions) return;
+  if (s.settings.guilds || s.bastions || s.traders) return;
   const holder = s.awards.army.owner;
   const best = holder === null ? 2 : s.players[holder].soldiers;
   let next = holder;

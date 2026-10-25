@@ -17,6 +17,7 @@ import * as Bastions from '../src/engine/mods/bastions';
 import * as Works from '../src/engine/mods/works';
 import * as Raid from '../src/engine/mods/raid';
 import * as Gold from '../src/engine/mods/gold';
+import * as Traders from '../src/engine/mods/traders';
 import { otherEnd } from '../src/engine/geometry';
 import { settings, seats, totals } from './helpers';
 import {
@@ -1246,6 +1247,210 @@ describe('Comarcas: invasión en la costa', () => {
     expect(s.players[0].hand.wool).toBe(0);
     // el oro no se roba ni se descarta: no es un recurso
     expect(handTotal(s.players[0].hand)).toBe(2);
+  });
+});
+
+describe('Comarcas: carretas y peajes', () => {
+  it('mercados en la costa sin número, sin 2 ni 12, sin ladrón; ciudad en la segunda colocación con la carreta', () => {
+    let s = game({ seed: 120, shire: 'traders' }, 3);
+    const tr = s.traders!;
+    expect(s.settings.vpTarget).toBe(13);
+    const markets = Object.keys(tr.markets);
+    expect(markets.length).toBe(3);
+    expect(new Set(Object.values(tr.markets)).size).toBe(3);
+    for (const h of markets) {
+      expect(s.board.hexes[h].number).toBeNull();
+      expect(C.G(s).hexes[h].neighbors.some((n) => !n || s.board.hexes[n]?.terrain === 'sea')).toBe(true);
+      expect(tr.left[h]).toBe(12);
+      expect(tr.next[h]).toBe(s.hidden.goods![h][0]);
+    }
+    const nums = Object.values(s.board.hexes).map((h) => h.number).filter((n): n is number => n !== null);
+    expect(nums.length).toBe(16);
+    expect(nums.includes(2) || nums.includes(12)).toBe(false);
+    expect(Object.values(s.board.hexes).some((h) => h.terrain === 'desert')).toBe(false);
+    expect(s.board.robber).toBeNull();
+    expect(tr.barbs.length).toBe(3);
+    expect(s.gold).toEqual([5, 5, 5]);
+    expect(s.hidden.devDeck.length).toBe(24);
+    expect(s.hidden.devDeck.filter((d) => d === 'haul').length).toBe(3);
+    const order = s.turn.setupOrder;
+    for (let i = 0; i < order.length; i++) {
+      const v = C.legalSetupVertices(s).find((x) => !Traders.marketAt(s, x))!;
+      s = act(s, order[i], { t: 'setupBuild', vertex: v });
+      if (i >= 3) {
+        expect(s.buildings[v].kind).toBe('city');
+        expect(s.traders!.wagons[order[i]].at).toBe(v);
+      }
+      s = act(s, order[i], { t: 'setupRoute', edge: C.legalSetupRoutes(s, v).roads[0] });
+    }
+    expect(s.turn.phase).toBe('preRoll');
+    expect(s.traders!.wagons.every((w) => w.mp === 4)).toBe(true);
+    const big = game({ seed: 121, shire: 'traders' }, 6);
+    expect(Object.keys(big.traders!.markets).length).toBe(6);
+    expect(big.traders!.barbs.length).toBe(4);
+    const bigNums = Object.values(big.board.hexes).map((h) => h.number).filter((n) => n !== null);
+    expect(bigNums.length).toBe(24);
+  });
+
+  it('viaje: 2 por lado sin camino, 1 por camino, peaje en caminos ajenos y +2 con bárbaro', () => {
+    const s = main(game({ seed: 122, shire: 'traders' }));
+    const tr = s.traders!;
+    const g = C.G(s);
+    tr.barbs = [];
+    const { vs, es } = landPath(s, 3);
+    const w = tr.wagons[0];
+    w.at = vs[0];
+    w.mp = 4;
+    expect(Traders.edgeCost(s, 0, es[0])).toEqual({ mp: 2, toll: null });
+    s.roads[es[0]] = { owner: 0 };
+    s.roads[es[1]] = { owner: 1 };
+    expect(Traders.edgeCost(s, 0, es[0])).toEqual({ mp: 1, toll: null });
+    expect(Traders.edgeCost(s, 0, es[1])).toEqual({ mp: 1, toll: 1 });
+    tr.barbs = [es[2]];
+    expect(Traders.edgeCost(s, 0, es[2]).mp).toBe(4);
+    const trips = Traders.trips(s, 0);
+    expect(trips.get(vs[2])).toMatchObject({ mp: 2, tolls: [1] });
+    expect(trips.has(vs[3])).toBe(false); // 2 + 4 > 4
+    // sin oro no hay peaje que pagar
+    s.gold![0] = 0;
+    expect(Traders.trips(s, 0).has(vs[2])).toBe(false);
+    s.gold![0] = 3;
+    const before = s.gold![1];
+    const t2 = act(s, 0, { t: 'wagon', to: vs[2] });
+    expect(t2.traders!.wagons[0]).toMatchObject({ at: vs[2], mp: 2 });
+    expect(t2.gold![0]).toBe(2);
+    expect(t2.gold![1]).toBe(before + 1);
+    void g;
+  });
+
+  it('cargar en un mercado, entregar en el destino (punto y oro) y quedarse quieta hasta el turno siguiente', () => {
+    let s = main(game({ seed: 123, shire: 'traders' }));
+    const tr = s.traders!;
+    const g = C.G(s);
+    tr.barbs = [];
+    const [h0] = Object.keys(tr.markets);
+    // un cruce a un lado de un cruce del mercado
+    const mv = g.hexes[h0].vertices.find((v) => C.vertexLand(s, v) && g.vertices[v].edges.some((e) => C.edgeRoadable(s, e) && !g.hexes[h0].vertices.includes(otherEnd(g, e, v))))!;
+    const e = g.vertices[mv].edges.find((x) => C.edgeRoadable(s, x) && !g.hexes[h0].vertices.includes(otherEnd(g, x, mv)))!;
+    const w = tr.wagons[0];
+    w.at = otherEnd(g, e, mv);
+    w.mp = 4;
+    const top = tr.next[h0]!;
+    s = act(s, 0, { t: 'wagon', to: mv });
+    expect(s.traders!.wagons[0]).toMatchObject({ cargo: top, stopped: true });
+    expect(s.traders!.left[h0]).toBe(11);
+    expect(Traders.trips(s, 0).size).toBe(0);
+    expect(() => act(s, 0, { t: 'wagonBoost' })).toThrow();
+    // entrega: un mercado del destino
+    const dest = Object.keys(tr.markets).find((h) => tr.markets[h] === Traders.DEST[top])!;
+    const dv = g.hexes[dest].vertices.find((v) => C.vertexLand(s, v) && g.vertices[v].edges.some((x) => C.edgeRoadable(s, x)))!;
+    const de = g.vertices[dv].edges.find((x) => C.edgeRoadable(s, x))!;
+    s = main(s, 0);
+    Traders.newTurn(s);
+    const w2 = s.traders!.wagons[0];
+    w2.at = otherEnd(g, de, dv);
+    const gold = s.gold![0];
+    const vp = C.vpOf(s, 0);
+    s = act(s, 0, { t: 'wagon', to: dv });
+    expect(s.traders!.delivered[0]).toBe(1);
+    expect(s.gold![0]).toBe(gold + 1);
+    expect(C.vpOf(s, 0)).toBe(vp + 1);
+    expect(C.vpBreakdown(s, 0).goods).toBe(1);
+    expect(s.traders!.wagons[0].cargo).not.toBeNull();
+    expect(Traders.DEST[s.traders!.wagons[0].cargo!]).not.toBe(tr.markets[dest]);
+  });
+
+  it('niveles: el costo, el oro por entrega y el movimiento desde el turno siguiente; el nivel 5 vale un punto', () => {
+    let s = main(game({ seed: 124, shire: 'traders' }));
+    const w = s.traders!.wagons[0];
+    w.at = landVertex(s);
+    Traders.newTurn(s);
+    expect(w.mp).toBe(4);
+    give(s, 0, { lumber: 2, wool: 2, grain: 3, brick: 3, ore: 5 });
+    s = act(s, 0, { t: 'wagonUp' });
+    expect(s.traders!.wagons[0]).toMatchObject({ level: 2, mp: 4 });
+    s = act(s, 0, { t: 'wagonUp' });
+    s = act(s, 0, { t: 'wagonUp' });
+    const vp = C.vpOf(s, 0);
+    s = act(s, 0, { t: 'wagonUp' });
+    expect(s.traders!.wagons[0].level).toBe(5);
+    expect(C.vpOf(s, 0)).toBe(vp + 1);
+    expect(() => act(s, 0, { t: 'wagonUp' })).toThrow();
+    expect(s.players[0].hand).toMatchObject({ lumber: 0, wool: 0, grain: 0, brick: 0, ore: 0 });
+    Traders.newTurn(s);
+    expect(s.traders!.wagons[0].mp).toBe(7);
+    // trigo: +2 una vez por turno
+    give(s, 0, { grain: 2 });
+    s = act(s, 0, { t: 'wagonBoost' });
+    expect(s.traders!.wagons[0].mp).toBe(9);
+    expect(() => act(s, 0, { t: 'wagonBoost' })).toThrow();
+  });
+
+  it('bárbaros: el 7 mueve uno y roba en un camino ajeno; ahuyentar con el dado del nivel', () => {
+    let s = main(game({ seed: 125, shire: 'traders' }));
+    const tr = s.traders!;
+    const g = C.G(s);
+    // el 7: descartes y mover un bárbaro
+    s.turn.phase = 'preRoll';
+    s.turn.alchemist = [3, 4];
+    const road = Object.keys(g.edges).find((e) => C.edgeRoadable(s, e) && !tr.barbs.includes(e))!;
+    s.roads[road] = { owner: 2 };
+    give(s, 2, { ore: 1 });
+    s = act(s, 0, { t: 'roll' });
+    expect(s.steps[0]).toEqual({ k: 'barbMove', seat: 0, from: null, steal: true });
+    const from = s.traders!.barbs[0];
+    s = act(s, 0, { t: 'barbPlace', edge: from });
+    s = act(s, 0, { t: 'barbPlace', edge: road });
+    expect(s.traders!.barbs).toContain(road);
+    expect(s.traders!.barbs).not.toContain(from);
+    expect(s.players[0].hand.ore).toBe(1);
+    expect(s.players[2].hand.ore).toBe(0);
+    // ahuyentar: la carreta en un cruce del lado del bárbaro, nivel 5 (3 a 6)
+    s = main(s, 1);
+    Traders.newTurn(s);
+    const w = s.traders!.wagons[1];
+    w.level = 1;
+    w.at = g.edges[road].a;
+    expect(Traders.drivable(s, 1)).toEqual([]); // el nivel 1 no ahuyenta
+    w.level = 5;
+    expect(Traders.drivable(s, 1)).toEqual([road]);
+    s = act(s, 1, { t: 'drive', edge: road });
+    expect(s.traders!.wagons[1].tried).toEqual([road]);
+    const log = s.log[s.log.length - 1];
+    expect(['wagon.driveOk', 'wagon.driveFail']).toContain(log.k);
+    if (log.k === 'wagon.driveOk') {
+      expect(s.steps[0]).toEqual({ k: 'barbMove', seat: 1, from: road, steal: false });
+      const to = Traders.barbSpots(s, s.steps[0] as Extract<GameState['steps'][number], { k: 'barbMove' }>)[0];
+      s = act(s, 1, { t: 'barbPlace', edge: to });
+      expect(s.traders!.barbs).toContain(to);
+    }
+    expect(() => act(s, 1, { t: 'drive', edge: road })).toThrow();
+  });
+
+  it('cartas: el caballero mueve un bárbaro sin mayor ejército; viaje rápido; sin ruta más larga', () => {
+    let s = main(game({ seed: 126, shire: 'traders' }));
+    const p = s.players[0];
+    p.dev = [{ type: 'soldier', turn: 1 }, { type: 'haul', turn: 1 }];
+    s = act(s, 0, { t: 'playDev', card: 'soldier' });
+    expect(s.steps[0]).toMatchObject({ k: 'barbMove', steal: true });
+    expect(s.players[0].soldiers).toBe(0);
+    const from = s.traders!.barbs[0];
+    s = act(s, 0, { t: 'barbPlace', edge: from });
+    const to = Object.keys(C.G(s).edges).find((e) => C.edgeRoadable(s, e) && !s.traders!.barbs.includes(e))!;
+    s = act(s, 0, { t: 'barbPlace', edge: to });
+    s.turn.n++;
+    s.players[0].devPlayedTurn = -1;
+    const w = s.traders!.wagons[0];
+    w.at = landVertex(s);
+    w.mp = 0;
+    w.stopped = true;
+    s = act(s, 0, { t: 'playDev', card: 'haul' });
+    expect(s.traders!.wagons[0]).toMatchObject({ mp: 4, stopped: false });
+    // sin premio por la ruta más larga
+    const { es } = landPath(s, 6);
+    for (const e of es) s.roads[e] = { owner: 0 };
+    C.updateRoadAward(s);
+    expect(s.awards.road.owner).toBeNull();
   });
 });
 

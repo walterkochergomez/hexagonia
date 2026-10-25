@@ -826,3 +826,31 @@ input, select {
 .conquered-token { fill: #2c2420; stroke: #e7dcc6; stroke-width: 1.4; }
 .conquered-token-x { stroke: #e7dcc6; stroke-width: 2; stroke-linecap: round; }
 .fallen { opacity: .6; filter: grayscale(.85); }
+
+/* carretas y peajes */
+.wagon-pole { stroke: #5a3d22; stroke-width: 1.8; stroke-linecap: round; }
+.wagon-wheel { fill: #6b4a2b; stroke: var(--ink); stroke-width: 1; }
+.wagon-hub { fill: #e6d3a8; }
+.wagon-level { font-family: var(--font-display); font-weight: 800; font-size: 6.6px; fill: #fff; paint-order: stroke; stroke: var(--ink); stroke-width: 1.3px; }
+.goods-disc { fill: #fbf6ea; stroke: var(--ink); stroke-width: .9; }
+.goods-marble { fill: #eceae4; stroke: #5d5a52; stroke-width: .7; stroke-linejoin: round; }
+.goods-edge { fill: none; stroke: #8b877c; stroke-width: .6; }
+.goods-vein { fill: none; stroke: #9aa3ad; stroke-width: .6; }
+.goods-glass { fill: #8ccbd8; stroke: #1e5664; stroke-width: .7; stroke-linejoin: round; }
+.goods-shine { stroke: #e8fbff; stroke-width: 1; stroke-linecap: round; }
+.goods-handle { stroke: #7a5230; stroke-width: 2; stroke-linecap: round; }
+.goods-head { fill: #8d959c; stroke: #2e3338; stroke-width: .7; stroke-linejoin: round; }
+.goods-sack { fill: #d8b77a; stroke: #6b4f22; stroke-width: .7; stroke-linejoin: round; }
+.goods-sack-top { fill: #c49e5c; stroke: #6b4f22; stroke-width: .6; stroke-linejoin: round; }
+.goods-sand { fill: none; stroke: #a8854a; stroke-width: .6; }
+.market-goal { fill: none; stroke: #fff6d8; stroke-width: 3; stroke-dasharray: 7 5; opacity: .9; }
+.market-left circle { fill: var(--ink); stroke: #fff; stroke-width: 1; }
+.market-left text { font-family: var(--font-display); font-weight: 750; font-size: 8.4px; fill: #fff; }
+.wagon-head { display: flex; gap: 12px; align-items: center; }
+.wagon-head p { margin: 2px 0; }
+.wagon-levels { width: 100%; border-collapse: collapse; font-size: 13px; margin: 10px 0 6px; }
+.wagon-levels th, .wagon-levels td { padding: 4px 6px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: middle; }
+.wagon-levels tr.on td { background: #f3e5c3; }
+.fig-coin circle { fill: #e2b33c; stroke: #6e5212; stroke-width: 1.2; }
+.fig-coin text { font-family: var(--font-display); font-weight: 800; font-size: 9px; fill: #4a360a; }
+.fig-arrow-head { fill: #fff; }

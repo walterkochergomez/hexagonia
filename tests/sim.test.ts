@@ -26,6 +26,9 @@ const configs: [string, Partial<Settings>, number[]][] = [
   ['invasión en la costa', { shire: 'raid' }, [3, 4, 5, 6]],
   ['invasión en pareja', { shire: 'raid', turnMode: 'paired' }, [5]],
   ['invasión + sucesos + muelles', { shire: 'raid', chronicle: true, harbormaster: true }, [4]],
+  ['carretas y peajes', { shire: 'traders' }, [3, 4, 5, 6]],
+  ['carretas en pareja', { shire: 'traders', turnMode: 'paired' }, [6]],
+  ['carretas + sucesos + muelles', { shire: 'traders', chronicle: true, harbormaster: true }, [4]],
   // Mar Abierto: escenarios especiales
   ['pueblo isleño', { openSea: true, scenario: 'tribe' }, [3, 4, 6]],
   ['aldeas tejedoras', { openSea: true, scenario: 'looms' }, [3, 4, 5]],

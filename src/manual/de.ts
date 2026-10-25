@@ -584,8 +584,8 @@ const book: ManualBook = {
     shires: {
       id: 'shires',
       title: 'Landstriche',
-      summary: 'Varianten und Szenarien für die Grundinsel: Häfen, die Ansehen bringen, Chronik-Karten statt Würfeln, Regeln für zwei und Szenarien mit Fischfang, Flüssen, Karawanen und einem Überfall vom Meer.',
-      meta: ['2–6 Personen', '60–120 Minuten', 'Ziel: 10 bis 12 je nach Szenario'],
+      summary: 'Varianten und Szenarien für die Grundinsel: Häfen, die Ansehen bringen, Chronik-Karten statt Würfeln, Regeln für zwei und Szenarien mit Fischfang, Flüssen, Karawanen, einem Überfall vom Meer und Handelskarren.',
+      meta: ['2–6 Personen', '60–120 Minuten', 'Ziel: 10 bis 13 je nach Szenario'],
       sections: [
         {
           id: 'about',
@@ -704,6 +704,31 @@ const book: ManualBook = {
               'Je **zwei Gefangene** zählen **1 Punkt**.',
               '**Gold** ist kein Rohstoff: Es wird bei einer 7 nicht abgeworfen und kann nicht gestohlen werden. In deinem Zug kaufen 2 Gold einen Rohstoff nach Wahl, bis zu zweimal; und 4 gleiche Karten (3 mit einem 3:1-Hafen) werden gegen 1 Gold getauscht.',
               'Bei einer 7 wird wie immer abgeworfen, und wer gewürfelt hat, zieht bei einer beliebigen Person eine Karte.',
+            ] },
+          ],
+        },
+        {
+          id: 'traders',
+          title: 'Szenario: Karren und Zölle',
+          blocks: [
+            { t: 'p', text: 'Es gibt keine Wüste: An der Küste liegen drei Märkte (sechs bei 5 oder 6 Personen), Burg, Steinbruch und Glashütte, die keinen Ertrag bringen. Weil es weniger Felder gibt, fallen die Zahlen 2 und 12 weg. Es gibt keinen Räuber und keinen Bonus für die längste Handelsstraße. Ziel: 13 Punkte.' },
+            { t: 'fig', id: 'traders', caption: 'Der rote Karren bringt Marmor zur Burg. Auf seiner Straße kostet jede Kante 1 Bewegung, im Gelände 2; auf der blauen Straße zahlt er 1 Gold Zoll, und der Barbar verteuert seine Kante.' },
+            { t: 'list', items: [
+              'In der Gründungsphase ist das zweite Gebäude eine **Stadt**, und dort startet dein **Karren**. Alle beginnen mit 5 Gold.',
+              '**Waren**: Jeder Markt hat einen Stapel mit zwei Warenarten; die oberste ist sichtbar. Die Burg liefert Werkzeug und Sand, der Steinbruch Marmor und Sand, die Glashütte Glas und Werkzeug. Marmor und Glas gehen zur Burg, Werkzeug zum Steinbruch und Sand zur Glashütte.',
+              '**Fahren**: In deinem Zug, nach dem Würfeln, verbraucht der Karren seine Bewegung Kante für Kante: 2 ohne Straße, 1 auf einer Straße. Für jede Kante einer fremden Straße zahlst du ihrem Besitzer 1 Gold; ohne Gold geht es nicht weiter. Ein Barbar auf der Kante kostet 2 mehr. Einmal pro Zug bringt 1 Getreide 2 Bewegung mehr.',
+              '**Laden und liefern**: Endet der leere Karren an einer Kreuzung eines Marktes mit Waren, lädt er die oberste. Endet er mit Ladung an einem Markt seines Ziels, liefert er sie: Du erhältst **1 Punkt** und das Gold deiner Stufe und lädst die nächste Ware dieses Marktes. Nach dem Laden oder Liefern bleibt der Karren bis zu deinem nächsten Zug stehen.',
+              '**Stufen**: Der Karren beginnt auf Stufe 1 und steigt gegen Rohstoffe auf (Tabelle). Die Stufe bestimmt Bewegung, Gold je Lieferung und ob du Barbaren vertreiben kannst; Stufe 5 zählt 1 Punkt. Die neue Bewegung gilt ab deinem nächsten Zug.',
+              '**Barbaren**: Drei stehen auf Kanten (vier bei 5 oder 6 Personen). Bei einer 7 versetzt, nach dem Abwerfen, wer gewürfelt hat, einen davon auf eine beliebige freie Kante; landet er auf einer fremden Straße, zieht er dem Besitzer eine Karte. Ab Stufe 2 kann dein Karren versuchen, einen Barbaren auf einer Kante seiner Kreuzung zu vertreiben: Du würfelst, und zeigt der Würfel eine Zahl deiner Stufe, versetzt du ihn, wohin du willst (ohne zu ziehen). Einmal pro Barbar und Zug.',
+              '**Karten**: Der eigene Stapel hat 15 Ritter (versetzen einen Barbaren wie die 7, mit Ziehen), 3 Straßenbau, 3 Eilfahrt (der Karren erhält seine ganze Bewegung zurück, auch nach einer Lieferung) und 3 Siegpunkte. Wie immer eine pro Zug. Bei 5 oder 6 Personen sind es mehr.',
+              '**Gold** ist kein Rohstoff: Es wird weder abgeworfen noch gestohlen. In deinem Zug kaufen 2 Gold einen Rohstoff nach Wahl (bis zu zweimal), und 4 gleiche Karten (3 mit einem 3:1-Hafen) werden gegen 1 Gold getauscht.',
+            ] },
+            { t: 'table', head: ['Stufe', 'Zum Aufsteigen', 'Bewegung', 'Gold je Lieferung', 'Vertreibt mit'], rows: [
+              ['1', '—', '4', '1', '—'],
+              ['2', '1 Holz, 1 Wolle und 1 Getreide', '5', '2', '6'],
+              ['3', '1 Holz, 1 Lehm und 1 Erz', '6', '2', '5 oder 6'],
+              ['4', '1 Wolle, 1 Getreide und 2 Erz', '7', '3', '4 bis 6'],
+              ['5', '2 Lehm, 1 Getreide und 2 Erz', '7', '4', '3 bis 6 (und zählt 1 Punkt)'],
             ] },
           ],
         },

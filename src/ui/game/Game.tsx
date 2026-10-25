@@ -27,10 +27,11 @@ import * as Duel from '../../engine/mods/duel';
 import * as Bastions from '../../engine/mods/bastions';
 import { AssaultSheet, WorksSheet } from './Works';
 import { GoldSheet } from './Gold';
+import { WagonSheet } from './Wagon';
 import * as Raid from '../../engine/mods/raid';
 import { IncomingTrade, TradeSheet } from './Trade';
 
-type Sheet = null | 'build' | 'trade' | 'cards' | 'guild' | 'log' | 'players' | 'duel' | 'fish' | 'coins' | 'works' | 'assault' | 'gold';
+type Sheet = null | 'build' | 'trade' | 'cards' | 'guild' | 'log' | 'players' | 'duel' | 'fish' | 'coins' | 'works' | 'assault' | 'gold' | 'wagon';
 
 function stepKey(n: number, st: { k: string; reason?: string; waiting?: unknown }, me: number): string {
   const w = st.waiting && !Array.isArray(st.waiting) ? (st.waiting as Record<number, number>)[me] : '';
@@ -155,6 +156,8 @@ export function Game({ session, snap, onHome }: { session: Session; snap: Snapsh
     const free = Raid.knightsOf(view, me!).filter((e) => !view.raid!.knights[e].moved).length;
     buttons.push({ id: 'guard', label: t('act.guards'), badge: free, disabled: !free, onClick: () => setMode({ k: 'guard' }) });
   }
+  // carretas: la hoja de la carreta (mover, mejorar, trigo, bárbaros)
+  if (view.traders && me !== null && view.traders.wagons[me].at) buttons.push({ id: 'wagon', label: t('act.wagon'), badge: myTurn && ph === 'main' ? view.traders.wagons[me].mp : 0, onClick: () => setSheet('wagon') });
   if (view.gold && myTurn && ph === 'main') buttons.push({ id: 'gold', label: t('act.gold'), badge: view.gold[me!] ?? 0, onClick: () => setSheet('gold') });
   buttons.push({ id: 'cards', label: t('act.cards'), badge: myCards, onClick: () => setSheet('cards') });
   if (guilds && !buttons.some((b) => b.id === 'guild')) buttons.push({ id: 'guild', label: t('act.improve'), onClick: () => setSheet('guild') });
@@ -260,6 +263,7 @@ export function Game({ session, snap, onHome }: { session: Session; snap: Snapsh
       {sheet === 'works' && <WorksSheet view={view} me={me} send={send} onClose={() => setSheet(null)} />}
       {sheet === 'assault' && me !== null && <AssaultSheet view={view} me={me} send={send} onClose={() => setSheet(null)} />}
       {sheet === 'gold' && me !== null && <GoldSheet view={view} me={me} send={send} onClose={() => setSheet(null)} />}
+      {sheet === 'wagon' && me !== null && view.traders && <WagonSheet view={view} me={me} send={send} setMode={setMode} onClose={() => setSheet(null)} />}
       {sheet === 'log' && (
         <div className="overlay" onClick={(e) => e.target === e.currentTarget && setSheet(null)}>
           <div className="modal wide" role="dialog" aria-modal="true" aria-label={t('act.log')}>

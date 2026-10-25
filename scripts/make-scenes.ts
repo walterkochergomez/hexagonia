@@ -145,4 +145,22 @@ s = base({ shire: 'raid' });
   s.hidden.raidDeck = ['swift', ...(s.hidden.raidDeck ?? [])];
 }
 out('raid', s);
+// 16. Comarcas: carretas, con la carreta en nivel 2, oro, recursos para mejorar y un bárbaro en su cruce
+s = base({ shire: 'traders' });
+{
+  const tr = s.traders!;
+  const g = C.G(s);
+  const w = tr.wagons[0];
+  w.level = 2;
+  w.mp = 5;
+  w.stopped = false;
+  w.boosted = false;
+  w.tried = [];
+  const e = g.vertices[w.at!].edges.find((x) => C.edgeRoadable(s, x) && !tr.barbs.includes(x))!;
+  tr.barbs[0] = e;
+  s.gold![0] = 6;
+  s.players[0].hand = { lumber: 1, brick: 1, wool: 0, grain: 2, ore: 1, paper: 0, cloth: 0, coin: 0 };
+  s.players[0].dev = [{ type: 'haul', turn: 1 }];
+}
+out('traders', s);
 console.log('ok', C.vpOf(s, 0));

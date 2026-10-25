@@ -580,8 +580,8 @@ const book: ManualBook = {
     shires: {
       id: 'shires',
       title: 'Hinterlands',
-      summary: 'Variants and scenarios for the base island: harbors that bring prestige, a chronicle deck instead of dice, rules for two, and scenarios with fishing, rivers, caravans and a raid from the sea.',
-      meta: ['2–6 players', '60–120 minutes', 'Goal: 10 to 12 by scenario'],
+      summary: 'Variants and scenarios for the base island: harbors that bring prestige, a chronicle deck instead of dice, rules for two, and scenarios with fishing, rivers, caravans, a raid from the sea and trading wagons.',
+      meta: ['2–6 players', '60–120 minutes', 'Goal: 10 to 13 by scenario'],
       sections: [
         {
           id: 'about',
@@ -700,6 +700,31 @@ const book: ManualBook = {
               'Every **two prisoners** are worth **1 point**.',
               '**Gold** is not a resource: it isn’t discarded on a 7 and can’t be stolen. On your turn 2 gold buys a resource of your choice, up to twice; and 4 matching cards (3 with a 3:1 harbor) trade for 1 gold.',
               'On a 7, discard as usual, and whoever rolled draws a card from anyone they like.',
+            ] },
+          ],
+        },
+        {
+          id: 'traders',
+          title: 'Scenario: Wagons and Tolls',
+          blocks: [
+            { t: 'p', text: 'There is no desert: three markets stand on the coast (six with 5 or 6 players), the castle, the quarry and the glassworks, and they produce nothing. With fewer hexes, the 2 and 12 number tokens are left out. There is no robber and no award for the longest trade route. Goal: 13 points.' },
+            { t: 'fig', id: 'traders', caption: 'The red wagon is taking marble to the castle. On its own road each edge costs 1 movement and across country 2; on the blue road it pays 1 gold in tolls, and the barbarian makes its edge dearer.' },
+            { t: 'list', items: [
+              'During setup your second piece is a **city**, and your **wagon** starts there. Everyone starts with 5 gold.',
+              '**Goods**: each market has a stack with two kinds of goods, and the top one is visible. The castle supplies tools and sand; the quarry, marble and sand; the glassworks, glass and tools. Marble and glass go to the castle, tools to the quarry and sand to the glassworks.',
+              '**Travel**: on your turn, after rolling, the wagon spends its movement edge by edge: 2 without a road and 1 along a road. For each edge of someone else’s road you pay its owner 1 gold; without gold you can’t pass. A barbarian on the edge costs 2 more. Once per turn, 1 grain gives 2 more movement.',
+              '**Loading and delivering**: if the wagon is empty and ends on an intersection of a market with goods, it loads the top one. If it carries goods and ends at a market of their destination, it delivers them: you earn **1 point** and your level’s gold, and load the next goods of that market. After loading or delivering, the wagon stays put until your next turn.',
+              '**Levels**: the wagon starts at level 1 and moves up by paying resources (table). The level sets movement, gold per delivery and the chance to drive off barbarians; level 5 is worth 1 point. New movement applies from your next turn.',
+              '**Barbarians**: three stand on edges (four with 5 or 6 players). On a 7, after discarding, whoever rolled moves one to any free edge; if it lands on someone else’s road, they draw a card from its owner. From level 2 your wagon may try to drive off a barbarian on an edge of its intersection: roll a die and, if it shows one of your level’s numbers, move it wherever you like (without drawing). Once per barbarian per turn.',
+              '**Cards**: the scenario’s own deck has 15 knights (they move a barbarian like a 7, card included), 3 road building, 3 fast haul (the wagon gets all its movement back, even after delivering) and 3 victory points. One per turn, as usual. With 5 or 6 players there are more.',
+              '**Gold** is not a resource, so it is never discarded or stolen. On your turn, 2 gold buys a resource of your choice (up to twice), and 4 matching cards (3 with a 3:1 harbor) trade for 1 gold.',
+            ] },
+            { t: 'table', head: ['Level', 'To move up', 'Movement', 'Gold per delivery', 'Drives off on'], rows: [
+              ['1', '—', '4', '1', '—'],
+              ['2', '1 lumber, 1 wool and 1 grain', '5', '2', '6'],
+              ['3', '1 lumber, 1 brick and 1 ore', '6', '2', '5 or 6'],
+              ['4', '1 wool, 1 grain and 2 ore', '7', '3', '4 to 6'],
+              ['5', '2 brick, 1 grain and 2 ore', '7', '4', '3 to 6 (and worth 1 point)'],
             ] },
           ],
         },

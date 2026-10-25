@@ -23,7 +23,7 @@ export type Track = 'science' | 'trade' | 'politics';
 export const TRACKS: readonly Track[] = ['science', 'trade', 'politics'];
 export const TRACK_COMMODITY: Record<Track, Commodity> = { science: 'paper', trade: 'cloth', politics: 'coin' };
 
-export type DevType = 'soldier' | 'roads' | 'plenty' | 'monopoly' | 'point';
+export type DevType = 'soldier' | 'roads' | 'plenty' | 'monopoly' | 'point' | 'haul';
 
 export type ProgressType =
   | 'alchemist' | 'crane' | 'engineer' | 'inventor' | 'irrigation' | 'medicine' | 'mining' | 'printer' | 'roadBuilding' | 'smith'
@@ -69,11 +69,28 @@ export interface Wonder { id: WonderId; owner: number | null; level: number }
 
 /** Escenarios de la caja Comarcas (se juegan sobre la isla base). */
 export type Shire = 'fishers' | 'rivers' | 'caravans' | 'raid' | 'traders';
-export const SHIRES: readonly Shire[] = ['fishers', 'rivers', 'caravans', 'raid'];
+export const SHIRES: readonly Shire[] = ['fishers', 'rivers', 'caravans', 'raid', 'traders'];
 
 /** Invasión en la costa: cartas propias, que se resuelven al comprarlas. */
 export type RaidCard = 'knighthood' | 'swift' | 'intrigue' | 'treason';
 export const RAID_CARDS: readonly RaidCard[] = ['knighthood', 'swift', 'intrigue', 'treason'];
+/** Carretas y peajes: mercados de la costa, mercancías y la carreta de cada jugador. */
+export type Market = 'castle' | 'quarry' | 'glassworks';
+export const MARKETS: readonly Market[] = ['castle', 'quarry', 'glassworks'];
+export type Goods = 'marble' | 'glass' | 'tools' | 'sand';
+export interface Wagon {
+  /** cruce donde está (null antes de la ciudad de la preparación) */
+  at: string | null;
+  level: number;
+  cargo: Goods | null;
+  /** movimiento que le queda en este turno */
+  mp: number;
+  boosted: boolean;
+  /** ya cargó o entregó en este turno */
+  stopped: boolean;
+  /** bárbaros (lados) que ya intentó ahuyentar en este turno */
+  tried: string[];
+}
 /** Resultado de la última batalla contra los bárbaros. */
 export interface RaidBattle { n: number; hex: string; barbs: number; knights: number; prisoners: Record<number, number>; die: number; lost: number[] }
 
@@ -204,6 +221,7 @@ export type Step =
   | { k: 'raidKnight'; seat: number; anywhere: boolean }
   | { k: 'raidTake'; seat: number }
   | { k: 'raidShift'; seat: number; left: number; from: string | null; used: string[] }
+  | { k: 'barbMove'; seat: number; from: string | null; steal: boolean }
   | { k: 'produce' }
   | { k: 'duelRoll' };
 
@@ -286,6 +304,8 @@ export interface GameState {
     tribeDev?: DevType[];
     /** invasión en la costa: mazo propio */
     raidDeck?: RaidCard[];
+    /** carretas: pila de mercancías de cada mercado (casilla) */
+    goods?: Record<string, Goods[]>;
   };
   buildings: Record<string, Building>;
   roads: Record<string, { owner: number; broken?: boolean; bridge?: boolean }>;
@@ -323,6 +343,8 @@ export interface GameState {
   works?: { wonders: Wonder[]; strait: string[]; waste: string[] };
   /** invasión: castillo, costa en sentido horario, bárbaros por casilla, reserva, caballeros en lados y prisioneros */
   raid?: { castle: string; coast: string[]; barbs: Record<string, number>; supply: number; knights: Record<string, { owner: number; moved: boolean }>; prisoners: number[]; last: RaidBattle | null };
+  /** carretas: mercados (casilla → tipo), mercancía de arriba y cuántas quedan, bárbaros en lados, carretas y entregas */
+  traders?: { markets: Record<string, Market>; next: Record<string, Goods | null>; left: Record<string, number>; barbs: string[]; wagons: Wagon[]; delivered: number[] };
   /** oro de cada jugador (invasión y carretas): no es un recurso */
   gold?: number[];
   winner: number | null;
@@ -351,7 +373,7 @@ export type Action =
   | { t: 'build'; what: 'road' | 'ship' | 'settlement' | 'city' | 'wall' | 'repair'; at: string }
   | { t: 'moveShip'; from: string; to: string }
   | { t: 'buyDev' }
-  | { t: 'playDev'; card: 'soldier' | 'roads' }
+  | { t: 'playDev'; card: 'soldier' | 'roads' | 'haul' }
   | { t: 'playDev'; card: 'plenty' }
   | { t: 'playDev'; card: 'monopoly' }
   | { t: 'discard'; cards: Partial<Hand> }
@@ -410,7 +432,12 @@ export type Action =
   | { t: 'raidShift'; hex: string }
   | { t: 'raidMove'; from: string; to: string; far?: boolean }
   | { t: 'gold'; use: 'buy' }
-  | { t: 'sellGold'; give: Resource };
+  | { t: 'sellGold'; give: Resource }
+  | { t: 'wagon'; to: string }
+  | { t: 'wagonUp' }
+  | { t: 'wagonBoost' }
+  | { t: 'drive'; edge: string }
+  | { t: 'barbPlace'; edge: string };
 
 export interface ProgressArg {
   dice?: [number, number];

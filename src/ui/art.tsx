@@ -1,6 +1,6 @@
 // Ilustraciones propias en SVG: cartas de recursos, piezas de madera con volumen, dados y símbolos de jugador.
 // Luz desde arriba a la izquierda, como en las fichas del tablero.
-import type { Card, ChronicleCard, Terrain } from '../engine/types';
+import type { Card, ChronicleCard, Goods, Terrain } from '../engine/types';
 export { Pips } from './tiles';
 
 export const RES_TERRAIN: Record<Card, string> = {
@@ -274,6 +274,59 @@ export function ShipShape({ color, war }: { color?: number; war?: boolean }) {
         ? <path d="M0 -15 L8.6 -14.4 L6.4 -12.9 L8.6 -11.4 L0 -11.4 Z" className="war-pennant" />
         : <path d="M0 -15 L5.4 -13.6 L0 -12.2 Z" className={pirate ? 'pennant' : 'pfill'} />}
       {pirate && <path d="M3 -8.4 L6.4 -4.6 M6.4 -8.4 L3 -4.6" className="mark" />}
+    </g>
+  );
+}
+
+/** Mercancías de las carretas: mármol, vidrio, herramientas y arena, sobre una ficha redonda. */
+export function GoodsIcon({ goods, size = 16 }: { goods: Goods; size?: number }) {
+  return (
+    <g className={`goods g-${goods}`} transform={`scale(${size / 16})`}>
+      <circle r={8} className="goods-disc" />
+      {goods === 'marble' && (
+        <>
+          <path d="M-5 -1.6 L0.8 -4.6 L5.2 -2 L5.2 3 L-0.6 5.8 L-5 3.4 Z" className="goods-marble" />
+          <path d="M-5 -1.6 L-0.6 1 L5.2 -2 M-0.6 1 L-0.6 5.8" className="goods-edge" />
+          <path d="M1.6 -2.4 Q2.6 0 1.4 1.6" className="goods-vein" />
+        </>
+      )}
+      {goods === 'glass' && (
+        <>
+          <path d="M-1.8 -5.6 L1.8 -5.6 L1.8 -3 Q4.6 -1.6 4.6 1.6 L4.6 4.6 Q4.6 5.6 3.6 5.6 L-3.6 5.6 Q-4.6 5.6 -4.6 4.6 L-4.6 1.6 Q-4.6 -1.6 -1.8 -3 Z" className="goods-glass" />
+          <path d="M-2.6 0.6 L-2.6 3.8" className="goods-shine" />
+        </>
+      )}
+      {goods === 'tools' && (
+        <>
+          <path d="M-4.6 4.6 L1.4 -1.4" className="goods-handle" />
+          <path d="M-0.6 -3.4 L2.4 -6.4 L6 -2.8 L3 0.2 Z" className="goods-head" />
+        </>
+      )}
+      {goods === 'sand' && (
+        <>
+          <path d="M-5.4 5 Q-5.4 -2.6 -1.8 -3.6 L1.8 -3.6 Q5.4 -2.6 5.4 5 Z" className="goods-sack" />
+          <path d="M-1.8 -3.6 L-2.6 -5.6 L2.6 -5.6 L1.8 -3.6" className="goods-sack-top" />
+          <path d="M-3.4 2.4 Q0 1 3.4 2.4" className="goods-sand" />
+        </>
+      )}
+    </g>
+  );
+}
+
+/** Carreta: caja del color del jugador sobre dos ruedas, con el nivel en la caja y la mercancía encima. */
+export function WagonShape({ color, level, cargo }: { color: number; level: number; cargo: Goods | null }) {
+  return (
+    <g className={`piece wagon p${color}`}>
+      <ellipse cx={1} cy={9.4} rx={12.5} ry={2.4} className="piece-shadow" />
+      <path d="M-14 2.4 L-8 1.6" className="wagon-pole" />
+      <path d="M-8.4 -3.6 L9.4 -3.6 L8.4 4 L-7.4 4 Z" className="pfill" />
+      <path d="M-8.4 -3.6 L9.4 -3.6 L9.1 -1.6 L-8.1 -1.6 Z" className="pfill-l" />
+      <circle cx={-4.2} cy={5.6} r={3.6} className="wagon-wheel" />
+      <circle cx={5.4} cy={5.6} r={3.6} className="wagon-wheel" />
+      <circle cx={-4.2} cy={5.6} r={0.9} className="wagon-hub" />
+      <circle cx={5.4} cy={5.6} r={0.9} className="wagon-hub" />
+      <text x={0.6} y={2.8} textAnchor="middle" className="wagon-level">{level}</text>
+      {cargo && <g transform="translate(0.6 -9.6)"><GoodsIcon goods={cargo} size={12} /></g>}
     </g>
   );
 }

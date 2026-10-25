@@ -1,7 +1,7 @@
 // Generadores de mapas propios (no se usan mapas fijos de ninguna edición oficial).
 import { Rng } from './rng';
 import { buildGraph, hexId, hexNeighbors, parseHex } from './geometry';
-import { BARREN, type Harbor, type HexTile, type Resource, type SeaScenario, type Terrain } from './types';
+import { BARREN, MARKETS, type Harbor, type HexTile, type Resource, type SeaScenario, type Terrain } from './types';
 
 type Cell = string;
 type Kind = Resource | 'any';
@@ -700,6 +700,8 @@ export function shireMap(rng: Rng, shire: string, big: boolean): MapResult {
       return standardMap(rng, big, { terrains: big ? [...base, 'desert', 'desert'] : [...base, 'desert'], center: 'desert' });
     case 'raid':
       return raidMap(rng, big);
+    case 'traders':
+      return tradersMap(rng, big);
     default:
       return standardMap(rng, big);
   }
@@ -746,4 +748,37 @@ function raidMap(rng: Rng, big: boolean): MapResult {
   const inn = assignNumbers(rng, inner.map((h) => h.id), innerNums, (c, n) => hot(n) && hotNear(c));
   for (const [c, n] of inn) m.hexes[c].number = n;
   return { ...m, robber: null, marks: { rock: [castle.id], loop: coast.map((h) => h.id) } };
+}
+
+/**
+ * Carretas y peajes: sin desierto; tres mercados (castillo, cantera y vidriería) repartidos por la costa, seis con 5-6.
+ * Hay menos casillas que producen, así que se quitan las fichas 2 y 12.
+ */
+function tradersMap(rng: Rng, big: boolean): MapResult {
+  const m = standardMap(rng, big);
+  const land = Object.values(m.hexes).filter((h) => h.terrain !== 'sea');
+  const ids = new Set(land.map((h) => h.id));
+  const ring = land.filter((h) => neighbors(h.id).some((n) => !ids.has(n)));
+  const inner = land.filter((h) => !ring.includes(h));
+  const pos = (h: HexTile) => [Math.sqrt(3) * (h.q + h.r / 2), 1.5 * h.r];
+  const cx = land.reduce((a, h) => a + pos(h)[0], 0) / land.length;
+  const cy = land.reduce((a, h) => a + pos(h)[1], 0) / land.length;
+  const ang = (h: HexTile) => (Math.atan2(pos(h)[1] - cy, pos(h)[0] - cx) + Math.PI * 2.5) % (Math.PI * 2);
+  ring.sort((a, b) => ang(a) - ang(b));
+  const count = big ? 6 : 3;
+  const start = rng.int(ring.length);
+  const markets = Array.from({ length: count }, (_, i) => ring[(start + Math.round((i * ring.length) / count)) % ring.length]);
+  const kinds = rng.shuffle([...MARKETS]);
+  markets.forEach((h, i) => { h.terrain = kinds[i % 3]; h.number = null; });
+  const rest = land.filter((h) => !markets.includes(h));
+  const producing: Terrain[] = big
+    ? [...rep<Terrain>('forest', 6), ...rep<Terrain>('pasture', 4), ...rep<Terrain>('fields', 4), ...rep<Terrain>('hills', 5), ...rep<Terrain>('mountains', 5)]
+    : [...rep<Terrain>('forest', 4), ...rep<Terrain>('pasture', 3), ...rep<Terrain>('fields', 3), ...rep<Terrain>('hills', 3), ...rep<Terrain>('mountains', 3)];
+  rng.shuffle(producing);
+  rest.forEach((h, i) => { h.terrain = producing[i]; h.number = null; });
+  const numbers = (big ? NUMBERS_56 : NUMBERS_34).filter((n) => n !== 2 && n !== 12);
+  const nums = assignNumbers(rng, rest.map((h) => h.id), numbers);
+  for (const [c, n] of nums) m.hexes[c].number = n;
+  void inner;
+  return { ...m, robber: null, vpTarget: 13 };
 }

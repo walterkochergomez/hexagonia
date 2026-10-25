@@ -3,9 +3,10 @@ import { graphOf } from '../engine/geometry';
 import type { GameState } from '../engine/types';
 import { useT } from '../app/i18n';
 import { prefs, usePrefs } from '../app/prefs';
-import { BarbarianShape, CamelShape, CardIcon, CityShape, FleetShape, FortShape, GiftToken, GuardShape, Huts, KnightShape, LandingFlag, MerchantShape, RobberShape, SettlementShape, ShipShape, VillageShape } from './art';
-import { portName } from './format';
+import { BarbarianShape, CamelShape, CardIcon, CityShape, FleetShape, FortShape, GiftToken, GuardShape, Huts, KnightShape, LandingFlag, MerchantShape, RobberShape, SettlementShape, ShipShape, VillageShape, GoodsIcon, WagonShape } from './art';
+import { portName, lower } from './format';
 import { raidFallen } from '../engine/core';
+import * as Traders from '../engine/mods/traders';
 import { Coast, NumberToken, Palm, R, SX, SY, SeaFace, TOP_POINTS, TileDefs, TileFace, hexPoints, turn, type LandTerrain } from './tiles';
 import type { FishGround } from '../engine/types';
 import { reducedMotion } from './fx';
@@ -536,8 +537,32 @@ export function Board({ view, targets, onPick, flash, children, still = false, l
     </>
   );
   /** Regalos, aldeas, bastiones, desembarcos y bárbaros: cambian durante la partida. */
+  const goalSet = new Set(view.traders && typeof view.viewer === 'number' && view.traders.wagons[view.viewer]?.at ? Traders.goalHexes(view, view.viewer) : []);
   const marks = () => (
     <>
+      {view.traders && Object.entries(view.traders.markets).map(([h, m]) => {
+        const [x, y] = hpos(h);
+        const next = view.traders!.next[h];
+        const left = view.traders!.left[h];
+        const mname = t(`terrain.${m}`);
+        return (
+          <g key={`m${h}`} className={`market-goods${goalSet.has(h) ? ' goal' : ''}`} data-market={h}>
+            <title>{next ? t('traders.marketTitle', { name: mname, goods: lower(t(`goods.${next}`)), n: left }) : t('traders.marketEmpty', { name: mname })}</title>
+            {goalSet.has(h) && <polygon points={TOP_POINTS} transform={`translate(${x} ${y})`} className="market-goal" />}
+            {next && <g transform={`translate(${x + 17} ${y + 22})`}><GoodsIcon goods={next} size={22} /></g>}
+            <g transform={`translate(${x + 31} ${y + 13})`} className="market-left"><circle r={7.5} /><text y={3.2} textAnchor="middle">{left}</text></g>
+          </g>
+        );
+      })}
+      {view.traders?.barbs.map((e) => {
+        const [x, y] = at(g.edges[e].X, g.edges[e].Y);
+        return (
+          <g key={`tb${e}`} transform={`translate(${x} ${y})`} className="barb-edge" data-barb={e}>
+            <title>{t('traders.barbTitle')}</title>
+            <g transform={stand}><g transform="scale(1.25)"><BarbarianShape /></g></g>
+          </g>
+        );
+      })}
       {view.raid?.coast.map((h) => {
         const n = view.raid!.barbs[h] ?? 0;
         if (!n) return null;
@@ -635,6 +660,21 @@ export function Board({ view, targets, onPick, flash, children, still = false, l
           </g>
         );
       })}
+      {view.traders && (() => {
+        const byV = new Map<string, number[]>();
+        view.traders.wagons.forEach((w, seat) => { if (w.at) byV.set(w.at, [...(byV.get(w.at) ?? []), seat]); });
+        return [...byV.entries()].flatMap(([v, seats]) => seats.map((seat, i) => {
+          const [x, y] = vpos(v);
+          const w = view.traders!.wagons[seat];
+          const dx = (i - (seats.length - 1) / 2) * 17;
+          return (
+            <g key={`w${seat}`} transform={`translate(${x + dx} ${y + 14})`} data-wagon-seat={seat} className="wagon-spot">
+              <title>{t('traders.wagonTitle', { name: view.players[seat]?.name ?? '', n: w.level })}</title>
+              <g transform={stand}><WagonShape color={colorOf(seat)} level={w.level} cargo={w.cargo} /></g>
+            </g>
+          );
+        }));
+      })()}
       {Object.entries(view.knights).map(([v, k]) => {
         const [x, y] = vpos(v);
         const isNew = fresh.has(`k:${v}:${k.level}:${k.active ? 1 : 0}`);

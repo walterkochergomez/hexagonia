@@ -257,6 +257,42 @@ try {
     log('invasión: caballeros, oro y cartas');
   }
 
+  // carretas: mercados, carretas y bárbaros; trigo, mejora, ahuyentar y mover
+  {
+    const { c, pg } = await scene('traders');
+    const game = () => pg.evaluate(() => JSON.parse(localStorage.getItem('hexagonia.local')).game);
+    assert.equal(await pg.locator('.market-goods').count(), 3, 'tres mercados');
+    assert.equal(await pg.locator('[data-wagon-seat]').count(), 4, 'cuatro carretas');
+    assert.equal(await pg.locator('.barb-edge').count(), 3, 'tres bárbaros');
+    await pg.locator('[data-act="wagon"]').click();
+    const sheet = pg.locator('.modal', { hasText: 'Tu carreta' });
+    await sheet.locator('[data-wagon="boost"]').click();
+    await pg.waitForTimeout(300);
+    assert.equal((await game()).traders.wagons[0].mp, 7, 'trigo: +2');
+    await sheet.locator('[data-wagon="up"]').click();
+    await pg.waitForTimeout(300);
+    assert.equal((await game()).traders.wagons[0].level, 3, 'nivel 3');
+    if (shots) await pg.screenshot({ path: 'e2e/out/shires-traders-sheet.png' });
+    await sheet.locator('[data-wagon="drive"]').first().click();
+    await pg.waitForTimeout(400);
+    if ((await game()).steps[0]?.k === 'barbMove') {
+      await pg.locator('.layer-targets .target-edge').nth(10).click({ force: true });
+      await pg.waitForTimeout(300);
+    }
+    assert.equal((await game()).steps.length, 0, 'sin pasos pendientes');
+    const at = (await game()).traders.wagons[0].at;
+    await pg.locator('[data-act="wagon"]').click();
+    await pg.locator('.modal', { hasText: 'Tu carreta' }).locator('[data-wagon="move"]').click();
+    const n = await pg.locator('.layer-targets .target-vertex').count();
+    assert.ok(n > 3, `cruces al alcance ${n}`);
+    if (shots) await pg.screenshot({ path: 'e2e/out/shires-traders.png' });
+    await pg.locator('.layer-targets .target-vertex').last().click({ force: true });
+    await pg.waitForTimeout(400);
+    assert.notEqual((await game()).traders.wagons[0].at, at, 'la carreta se movió');
+    await c.close();
+    log('carretas: trigo, mejora, bárbaros y viaje');
+  }
+
   // celular: la partida de duelo entra en pantalla
   const phone = await browser.newContext({ viewport: { width: 360, height: 740 }, isMobile: true, hasTouch: true });
   await phone.addInitScript(() => localStorage.setItem('hexagonia.prefs', JSON.stringify({ name: 'Walter', lang: 'es', clientId: 'w', sound: false })));

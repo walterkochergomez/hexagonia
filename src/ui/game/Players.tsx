@@ -74,10 +74,10 @@ export function Players({ view, me, lobby, compact }: { view: GameState; me: num
             <div className="pstats">
               <span>{t('player.cards', { n: p.handCount ?? 0 })}</span>
               {!view.settings.guilds && !view.raid && <span>{t('player.dev', { n: p.devCount ?? 0 })}</span>}
-              {!view.settings.guilds && !view.bastions && p.soldiers > 0 && <span>{t('player.soldiers', { n: p.soldiers })}</span>}
+              {!view.settings.guilds && !view.bastions && !view.traders && p.soldiers > 0 && <span>{t('player.soldiers', { n: p.soldiers })}</span>}
               {view.settings.guilds && <span>{t('player.progress', { n: p.progressCount ?? 0 })}</span>}
               {view.settings.guilds && <span>{t('player.knights', { n: `${strength}/${knights.reduce((a, k) => a + k.level, 0)}` })}</span>}
-              {!view.looms && !view.bastions && <span>{t('player.route', { n: route })}</span>}
+              {!view.looms && !view.bastions && !view.traders && <span>{t('player.route', { n: route })}</span>}
               {view.looms && <span>{t('player.cloth', { n: view.looms.cloth[seat] ?? 0 })}</span>}
               {view.bastions && <span>{t('player.warships', { n: Bastions.warships(view, seat) })}</span>}
               {fort && !fort.taken && <span>{t('player.fort', { n: 3 - fort.chips })}</span>}
@@ -86,6 +86,8 @@ export function Players({ view, me, lobby, compact }: { view: GameState; me: num
               {view.fish && <span>{t('player.fish', { n: p.fish?.length || p.fishCount || 0 })}</span>}
               {view.river && <span>{t('player.coins', { n: view.river.coins[seat] ?? 0 })}</span>}
               {view.raid && <span>{t('player.guards', { n: Raid.knightsOf(view, seat).length })}</span>}
+              {view.traders && <span>{t('player.wagon', { n: view.traders.wagons[seat].level })}</span>}
+              {view.traders && <span>{t('player.goods', { n: view.traders.delivered[seat] })}</span>}
               {view.raid && <span>{t('player.prisoners', { n: view.raid.prisoners[seat] ?? 0 })}</span>}
               {view.gold && <span>{t('player.gold', { n: view.gold[seat] ?? 0 })}</span>}
               {view.settings.guilds && (
