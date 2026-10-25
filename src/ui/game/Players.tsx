@@ -3,7 +3,7 @@ import * as C from '../../engine/core';
 import * as Bastions from '../../engine/mods/bastions';
 import * as Raid from '../../engine/mods/raid';
 import * as Works from '../../engine/mods/works';
-import { TRACKS, type GameState } from '../../engine/types';
+import { TRACKS, handTotal, type GameState } from '../../engine/types';
 import type { LobbyState } from '../../net/protocol';
 import { PlayerMark } from '../art';
 
@@ -58,7 +58,12 @@ export function Players({ view, me, lobby, compact }: { view: GameState; me: num
             <li key={seat} className={cls} title={p.name} data-seat={seat}>
               <PlayerMark color={p.color} size={16} />
               <span className="pname">{p.name}</span>
-              <span className="vp">{vp}</span>
+              <span className="vp"><span aria-hidden="true">{vp}</span><span className="sr">{t('player.vp', { n: vp })}</span></span>
+              <span className="pcards" title={t('player.cards', { n: p.handCount ?? handTotal(p.hand) })}>
+                <svg width="10" height="13" viewBox="0 0 10 13" aria-hidden="true"><rect x="0.6" y="0.6" width="8.8" height="11.8" rx="1.6" /></svg>
+                <span aria-hidden="true">{p.handCount ?? handTotal(p.hand)}</span>
+                <span className="sr">{t('player.cards', { n: p.handCount ?? handTotal(p.hand) })}</span>
+              </span>
             </li>
           );
         }

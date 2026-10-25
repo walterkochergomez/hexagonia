@@ -293,7 +293,20 @@ input, select {
 .game-main { display: grid; grid-template-columns: minmax(0, 1fr) var(--rail); min-height: 0; }
 .board-area { position: relative; display: flex; flex-direction: column; min-height: 0; min-width: 0; background: #1f6370; }
 .rail { display: flex; flex-direction: column; min-height: 0; min-width: 0; border-left: 1px solid var(--border); background: var(--surface); }
-.strip { display: none; }
+.strip {
+  display: none; align-items: center; gap: 6px;
+  padding: 5px max(8px, env(safe-area-inset-right)) 5px max(8px, env(safe-area-inset-left));
+  background: var(--surface); border-bottom: 1px solid var(--border);
+}
+/* todos a la vista (si no entran en un renglón, bajan a otro): sus cartas deciden adónde va el ladrón */
+.players.compact { display: flex; flex-wrap: wrap; flex: 1 1 auto; min-width: 0; gap: 4px 6px; padding: 2px 0; }
+.players.compact .player { flex: none; display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: var(--r-pill); white-space: nowrap; }
+.players.compact .pname { max-width: 9ch; font-size: 13px; }
+/* cartas en la mano: para decidir adónde va el ladrón */
+.players.compact .pcards { display: inline-flex; align-items: center; gap: 2px; font-size: 12px; font-weight: 700; color: var(--text-muted); }
+.players.compact .pcards svg rect { fill: var(--surface-2); stroke: currentColor; stroke-width: 1.1; }
+.strip-log { flex: none; position: relative; }
+.strip-log.unread::after { content: ''; position: absolute; top: -2px; right: -2px; width: 12px; height: 12px; border-radius: 50%; background: var(--danger); border: 2px solid var(--surface); }
 .log-icon path { fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
 .rail > .players { overflow: auto; max-height: 50%; }
 
@@ -326,6 +339,12 @@ input, select {
 .board:active { cursor: grabbing; }
 .board-tools { position: absolute; right: 10px; bottom: 10px; display: grid; gap: 6px; }
 .board-view-tools { position: absolute; right: 10px; top: 10px; display: grid; gap: 6px; }
+/* tablero bajo (teléfonos chicos, muchos renglones arriba): botones más chicos para que las dos columnas no se toquen */
+.board-wrap { container: board / size; }
+@container board (max-height: 300px) {
+  .board-tools, .board-view-tools { gap: 4px; }
+  .board-tools .icon-btn, .board-view-tools .icon-btn, .cost-fab { width: 30px; height: 30px; }
+}
 .tool-icon { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 /* vista inclinada: el tablero se recuesta como sobre una mesa */
 .board-wrap { overflow: hidden; perspective: 1100px; perspective-origin: 50% 30%; }
@@ -520,7 +539,6 @@ input, select {
 .lvl.tr-trade { background: var(--track-trade); }
 .lvl.tr-politics { background: var(--track-politics); }
 .badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
-.players.compact { display: none; }
 .player-mark .sym { fill: #fff; stroke: none; }
 .player-mark .pfill { stroke: var(--ink); stroke-width: 1; }
 
@@ -660,16 +678,7 @@ input, select {
 @media (max-width: 760px) {
   .game-main { grid-template-columns: minmax(0, 1fr); }
   .rail { display: none; }
-  .strip {
-    display: flex; align-items: center; gap: 6px;
-    padding: 5px max(8px, env(safe-area-inset-right)) 5px max(8px, env(safe-area-inset-left));
-    background: var(--surface); border-bottom: 1px solid var(--border);
-  }
-  .players.compact { display: flex; flex: 1 1 auto; min-width: 0; overflow-x: auto; gap: 6px; padding: 2px 0; }
-  .players.compact .player { flex: none; display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: var(--r-pill); white-space: nowrap; }
-  .players.compact .pname { max-width: 9ch; font-size: 13px; }
-  .strip-log { flex: none; position: relative; }
-  .strip-log.unread::after { content: ''; position: absolute; top: -2px; right: -2px; width: 12px; height: 12px; border-radius: 50%; background: var(--danger); border: 2px solid var(--surface); }
+  .strip { display: flex; }
   .mobile-only { display: inline-flex; }
   .topbar { gap: 6px; }
   .topbar .net-state { order: 10; flex: 1 1 100%; text-align: center; }
@@ -690,6 +699,12 @@ input, select {
   .wordmark { font-size: clamp(48px, 16vw, 80px); }
 }
 
+@media (max-width: 480px) {
+  /* tira de jugadores: el nombre sólo para lectores de pantalla (el color lo dice) para que entren todos con sus puntos y cartas */
+  .players.compact { gap: 4px; }
+  .players.compact .player { position: relative; gap: 3px; padding: 2px 7px 2px 4px; }
+  .players.compact .pname { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
 @media (max-width: 520px) {
   /* en una sala el código importa más que el nombre: queda sólo el hexágono (con nombre accesible) */
   .topbar.with-code .brand { padding: 4px; }
@@ -885,3 +900,104 @@ input, select {
 .fleet-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .fleet-actions .btn { display: inline-flex; align-items: center; gap: 6px; }
 .missions { display: grid; gap: 6px; margin-top: 6px; padding-left: 12px; border-left: 3px solid var(--border); }
+
+/* ---------- tarjeta de costos (sobre el tablero, en cualquier momento) ---------- */
+.cost-wrap { position: absolute; left: 10px; top: 10px; z-index: 15; }
+.cost-fab { box-shadow: 0 2px 8px rgba(20, 48, 54, .18); }
+.cost-fab.on { background: var(--accent); color: #fff; }
+.cost-card {
+  position: absolute; left: 0; top: calc(100% + 8px); width: min(330px, calc(100vw - 40px)); max-height: min(72dvh, 560px); overflow: auto;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow-pop); padding: 10px 12px;
+  animation: cost-in var(--m-fast) var(--m-ease);
+}
+@keyframes cost-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+.cost-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 2px; }
+.cost-head h2 { font-size: 17px; margin: 0; }
+.cost-list { list-style: none; margin: 0; padding: 0; }
+.cost-list li { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--border); }
+.cost-list li:last-child { border-bottom: 0; }
+.cost-name { display: grid; font-weight: 650; font-size: 14px; line-height: 1.25; }
+.cost-cards .hand-line { gap: 4px; justify-content: flex-end; flex-wrap: nowrap; }
+.cost-cards .card-icon { width: 22px; height: 22px; }
+
+/* medidor de bárbaros en la columna de la mano: sólo con el teléfono en horizontal */
+.dock-barb { display: none; }
+
+/* comercio: la mano a la vista */
+.trade-hand { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; margin-bottom: var(--s3); padding: 6px 10px; border-radius: var(--r-md); background: var(--surface-2); }
+.trade-hand-label { font-weight: 700; font-size: 14px; }
+.trade-hand .hand-cards { padding-bottom: 6px; }
+.card-btn .have { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+
+/* ---------- teléfono en horizontal: el tablero a todo el ancho, la mano y los botones en una columna ---------- */
+@media (orientation: landscape) and (max-height: 560px) {
+  .game {
+    --side-w: clamp(196px, 28vw, 260px); --bar-h: 42px;
+    grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto minmax(0, 1fr);
+  }
+  /* la barra de arriba pasa a la columna derecha, a la altura de la tira de jugadores: el tablero gana todo ese alto */
+  .game > .topbar {
+    grid-column: 2; grid-row: 1; width: var(--side-w); min-width: 0; min-height: var(--bar-h); gap: 3px;
+    padding: 0 max(6px, env(safe-area-inset-right)) 0 4px; border-left: 1px solid var(--border);
+  }
+  .game > .topbar .brand { padding: 4px; }
+  .game > .topbar .brand-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .game > .topbar .room-code { font-size: 14px; padding: 3px 5px; letter-spacing: .03em; }
+  /* el idioma se elige en la portada o con el teléfono vertical */
+  .game > .topbar .lang { display: none; }
+  .game > .topbar .net-state { order: 10; flex: 1 1 100%; text-align: center; margin-bottom: 4px; }
+  .game > .topbar .icon-btn, .strip-log { width: 32px; height: 32px; }
+  .game-main { grid-column: 1; grid-row: 1 / -1; grid-template-columns: minmax(0, 1fr); }
+  .rail { display: none; }
+  /* arriba, los jugadores; el estado del turno flota sobre el tablero para no restarle alto */
+  .board-area { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .strip { display: flex; grid-column: 1; grid-row: 1; min-width: 0; height: var(--bar-h); padding-top: 0; padding-bottom: 0; padding-left: max(8px, env(safe-area-inset-left)); }
+  /* el mapa arranca bajo el aviso del turno (un renglón); con zoom puede pasar por detrás */
+  /* en horizontal la tira es un solo renglón del alto de la barra; con 4 o más, sin nombres para que entren todos */
+  .players.compact { flex-wrap: nowrap; overflow-x: auto; }
+  .players.compact:has(> .player:nth-child(4)) { gap: 4px; }
+  .players.compact:has(> .player:nth-child(4)) .player { position: relative; gap: 3px; padding: 2px 7px 2px 4px; }
+  .players.compact:has(> .player:nth-child(4)) .pname { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .board-area > .board-wrap { grid-column: 1; grid-row: 2; padding-top: 40px; }
+  .board-area > .board-wrap > .board { overflow: visible; }
+  .status-bar {
+    grid-column: 1; grid-row: 2; align-self: start; justify-self: center; z-index: 6; margin-top: 8px;
+    max-width: calc(100% - 124px); min-height: 0; padding: 4px 12px; gap: 6px 10px;
+    border: 1px solid var(--border); border-radius: var(--r-lg); background: rgba(255, 255, 255, .93); box-shadow: 0 4px 14px rgba(20, 48, 54, .18);
+  }
+  .status-text { font-size: 13px; line-height: 1.25; min-width: 0; }
+  .status-text.mine { padding-left: 8px; }
+  /* el texto junto a los dados mientras quepa en dos renglones; botones y opciones bajan de renglón */
+  .status-bar .status-text { min-width: min(14ch, 100%); }
+  .status-bar .dice svg { width: 26px; height: 26px; }
+  /* el medidor de bárbaros baja a la columna derecha: el aviso queda en uno o dos renglones */
+  .status-bar .barbarians { display: none; }
+  .dock-barb { display: flex; justify-content: center; }
+  .dock-barb .barbarians.compact { gap: 6px; }
+  .dock-barb .barb-track { gap: 3px; }
+  .dock-barb .barb-track .step { width: 12px; height: 7px; border-radius: 4px; }
+  /* con la tarjeta de costos abierta, el estado no la tapa */
+  .board-area.costs-open > .status-bar { visibility: hidden; }
+  .dock {
+    grid-column: 2; grid-row: 2; width: var(--side-w); flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 8px;
+    border-top: 0; border-left: 1px solid var(--border); overflow-y: auto;
+    padding: 6px max(8px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) 8px;
+  }
+  .hand { flex: none; flex-wrap: wrap; justify-content: center; }
+  .hand-cards { flex-wrap: wrap; justify-content: center; overflow: visible; }
+  .hand-card svg { width: 28px; height: 28px; }
+  /* el botón Cartas ya cuenta las de desarrollo; el oro sí queda a la vista */
+  .hand-extra { display: none; }
+  .hand-extra.gold { display: grid; padding: 2px 8px; }
+  /* botones en dos columnas; la acción principal (tirar, terminar) ocupa toda la fila y queda fija abajo */
+  .actions { flex: none; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .actions .btn { width: 100%; min-height: 34px; padding: 4px 6px; font-size: 14px; white-space: normal; line-height: 1.15; justify-content: center; }
+  .actions .btn.primary { grid-column: 1 / -1; position: sticky; bottom: 0; box-shadow: 0 -6px 10px var(--surface); }
+  .mobile-only { display: inline-flex; }
+  .overlay { padding: 0; place-items: end center; }
+  .modal, .modal.wide { width: min(720px, 100%); max-height: 94dvh; border-radius: var(--r-lg) var(--r-lg) 0 0; }
+  .incoming { bottom: 8px; }
+  .cost-card { max-height: calc(100dvh - 140px); }
+  /* con la muesca del teléfono a la izquierda, el botón de costos no queda debajo */
+  .cost-wrap { left: max(10px, env(safe-area-inset-left)); }
+}

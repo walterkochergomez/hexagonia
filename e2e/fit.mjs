@@ -111,11 +111,81 @@ for (const lang of LANGS) {
     await visit('reglas', { width, lang, url: '#/reglas' });
   }
 }
+// teléfono en horizontal: el tablero a lo ancho, sin la columna del registro, la acción principal a la vista,
+// la tarjeta de costos y la mano en la hoja de comercio
+for (const lang of LANGS) {
+  for (const [width, height] of [[844, 390], [740, 360], [667, 375]]) {
+    for (const n of ['base3-main', 'guilds4-main', 'combo6-main']) {
+      const name = `horizontal-${n}`;
+      const where = `${name} ${lang} ${width}x${height}`;
+      const ctx = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+      await ctx.addInitScript(([l, room]) => {
+        localStorage.setItem('hexagonia.prefs', JSON.stringify({ name: 'walter', lang: l, clientId: 'cid-walter', sound: true }));
+        localStorage.setItem('hexagonia.host', room);
+      }, [lang, JSON.stringify(rooms[n])]);
+      const page = await ctx.newPage();
+      page.on('pageerror', (e) => pageErrors.push(`${where}: ${e.message}`));
+      await page.goto(`http://localhost:${PORT}/?peer=127.0.0.1:9000&botDelay=60000#/sala/${CODE}`);
+      await page.waitForTimeout(900);
+      for (const f of await measure(page)) problems.push(`${where}: ${f}`);
+      const geo = await page.evaluate(() => {
+        const board = document.querySelector('.board-wrap')?.getBoundingClientRect();
+        const rail = document.querySelector('.rail');
+        const prim = document.querySelector('.actions .btn.primary')?.getBoundingClientRect();
+        const chips = document.querySelectorAll('.players.compact .pcards').length;
+        const bar = document.querySelector('.game > .topbar');
+        const strip = document.querySelector('.strip')?.getBoundingClientRect();
+        return {
+          W: innerWidth, H: innerHeight, bw: board?.width ?? 0, bh: board?.height ?? 0, btop: board?.top ?? 0, rail: rail ? getComputedStyle(rail).display : 'none', prim: prim ? prim.bottom : null, chips,
+          tb: bar?.getBoundingClientRect().height ?? 0, sh: strip?.height ?? 0, tbOver: bar ? bar.scrollWidth > bar.clientWidth + 1 : false,
+        };
+      });
+      if (geo.rail !== 'none') problems.push(`${where}: el registro sigue en una columna`);
+      if (geo.bw < geo.W * 0.6) problems.push(`${where}: tablero angosto (${Math.round(geo.bw)}px)`);
+      // la barra de arriba comparte renglón con la tira de jugadores: el tablero empieza justo debajo y usa casi todo el alto
+      if (geo.bh < geo.H * 0.82) problems.push(`${where}: tablero bajo (${Math.round(geo.bh)}px)`);
+      if (geo.btop > geo.sh + 1) problems.push(`${where}: el tablero empieza en ${Math.round(geo.btop)}px, no bajo la tira`);
+      if (Math.abs(geo.tb - geo.sh) > 1 || geo.tbOver) problems.push(`${where}: la barra de arriba no cabe junto a la tira (${Math.round(geo.tb)} vs ${Math.round(geo.sh)}px)`);
+      if (geo.prim !== null && geo.prim > geo.H + 1) problems.push(`${where}: la acción principal queda fuera de la vista`);
+      if (!geo.chips) problems.push(`${where}: no se ven las cartas de cada jugador`);
+      if (SHOTS && lang === 'es') await page.screenshot({ path: `e2e/out/fit-${name}-${width}x${height}.png` });
+      try {
+        await page.locator('.cost-fab').click({ timeout: 2000 });
+        await page.waitForTimeout(250);
+        if (!(await page.locator('.cost-card').isVisible())) problems.push(`${where}: no se abrió la tarjeta de costos`);
+        for (const f of await measure(page)) problems.push(`${where}/costos: ${f}`);
+        await page.locator('.cost-head .icon-btn').click();
+        await page.locator('[data-act="trade"]').click({ timeout: 2000 });
+        await page.waitForTimeout(300);
+        if ((await page.locator('.trade-hand .hand-card').count()) < 5) problems.push(`${where}: la hoja de comercio no muestra la mano`);
+        for (const f of await measure(page)) problems.push(`${where}/comerciar: ${f}`);
+      } catch (e) {
+        problems.push(`${where}: no se pudo abrir (${String(e.message).split('\n')[0]})`);
+      }
+      await ctx.close();
+    }
+  }
+}
+// celular vertical: la tira de jugadores muestra cuántas cartas tiene cada uno
+for (const width of [320, 390]) {
+  const ctx = await browser.newContext({ viewport: { width, height: 760 }, isMobile: true, hasTouch: true });
+  await ctx.addInitScript((room) => {
+    localStorage.setItem('hexagonia.prefs', JSON.stringify({ name: 'walter', lang: 'es', clientId: 'cid-walter', sound: true }));
+    localStorage.setItem('hexagonia.host', room);
+  }, JSON.stringify(rooms['guilds4-main']));
+  const page = await ctx.newPage();
+  await page.goto(`http://localhost:${PORT}/?peer=127.0.0.1:9000&botDelay=60000#/sala/${CODE}`);
+  await page.waitForTimeout(900);
+  const n = await page.locator('.players.compact .pcards').count();
+  if (n !== rooms['guilds4-main'].lobby.seats.length) problems.push(`tira vertical ${width}: ${n} contadores de cartas`);
+  await ctx.close();
+}
 // sin servidor de señalización: aparece el aviso de conexión en la barra superior
 for (const lang of LANGS) {
-  for (const width of [320, 393]) {
+  // también en horizontal, donde la barra va angosta en la columna derecha
+  for (const [width, height] of [[320, 760], [393, 760], [740, 360]]) {
     const ctxUrl = `#/sala/${CODE}`;
-    const ctx = await browser.newContext({ viewport: { width, height: 760 }, isMobile: true, hasTouch: true });
+    const ctx = await browser.newContext({ viewport: { width, height }, isMobile: true, hasTouch: true });
     await ctx.addInitScript(([l, room]) => {
       localStorage.setItem('hexagonia.prefs', JSON.stringify({ name: 'walter', lang: l, clientId: 'cid-walter', sound: true }));
       localStorage.setItem('hexagonia.host', room);

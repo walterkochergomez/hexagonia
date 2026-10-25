@@ -10,6 +10,7 @@ Juego de colonización y comercio en una isla de hexágonos, para jugar en líne
 - **Expediciones**: un mar tapado que se descubre navegando, barcos que llevan pioneros a islas lejanas y tripulaciones, con tres misiones combinables (pesca para el Consejo, especias de las aldeas y guaridas piratas).
 - **Manual de cada versión** dentro del juego, con figuras dibujadas con las mismas piezas, en los 3 idiomas.
 - **Salas con código**: quien crea la sala comparte un link y los demás entran desde cualquier navegador (también desde el celular).
+- **Celular en vertical u horizontal**: girado, el tablero ocupa casi toda la pantalla con la mano y los botones al costado; la tira de jugadores muestra puntos y cartas en la mano de cada uno, y la tarjeta de costos se abre en cualquier turno.
 - **Partida en un solo dispositivo** pasándolo de mano en mano, o contra bots.
 
 ## Cómo jugar en línea
@@ -46,7 +47,7 @@ Pruebas de punta a punta (necesitan `npm run build` y `npx vite preview` corrien
 npm run e2e        # anfitrión + invitado en dos navegadores, reconexión y recarga
 npm run e2e:soak   # partidas completas por la interfaz en cada modo
 npm run e2e:a11y   # revisión de accesibilidad
-npm run e2e:fit    # que nada se salga de la pantalla en celulares (320–430 px, tres idiomas)
+npm run e2e:fit    # que nada se salga de la pantalla en celulares (320–430 px y en horizontal, tres idiomas)
 npm run e2e:fx     # animaciones: dados, cartas que viajan, piezas que caen, ladrón, aviso de turno y «reducir movimiento»
 npm run e2e:manual # manuales: cada uno en tres idiomas, figuras dibujadas, celular, accesibilidad e impresión
 npm run e2e:shires # Comarcas en la interfaz: neutrales, sucesos, fichas, pesca, puentes y monedas, puja de camellos, caballeros y oro, carretas

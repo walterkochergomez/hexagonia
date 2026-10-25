@@ -16,6 +16,7 @@ export function TradeSheet({ view, me, send, onClose }: { view: GameState; me: n
   const [tab, setTab] = useState<'players' | 'bank'>(canPlayers ? 'players' : 'bank');
   return (
     <Modal title={t('trade.title')} onClose={onClose} wide>
+      <MyHand view={view} me={me} />
       <Segmented value={tab} onChange={setTab} label={t('trade.title')} options={[{ value: 'players', label: t('trade.players') }, { value: 'bank', label: t('trade.bank') }]} />
       {tab === 'players' ? (
         canPlayers ? <PlayerTrade view={view} me={me} send={send} /> : <p className="muted">{t('trade.waitTurn')}</p>
@@ -25,6 +26,26 @@ export function TradeSheet({ view, me, send, onClose }: { view: GameState; me: n
         <p className="muted">{t('err.notYourTurn')}</p>
       )}
     </Modal>
+  );
+}
+
+/** Las cartas que tienes, siempre a la vista mientras comercias (la hoja tapa la mano del pie). */
+function MyHand({ view, me }: { view: GameState; me: number }) {
+  const t = useT();
+  const hand = view.players[me].hand;
+  return (
+    <div className="trade-hand">
+      <span className="trade-hand-label">{t('trade.yourHand')}</span>
+      <ul className="hand-cards" aria-label={t('trade.yourHand')}>
+        {cardsFor(view).map((c) => (
+          <li key={c} className={`hand-card${hand[c] ? '' : ' zero'}`} title={t(`res.${c}`)} data-card={c}>
+            <CardIcon card={c} size={30} />
+            <span className="n">{hand[c]}</span>
+            <span className="sr">{t(`res.${c}`)}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -121,6 +142,7 @@ function BankTrade({ view, me, send }: { view: GameState; me: number; send: (a: 
             <button key={c} type="button" className={`card-btn${give === c ? ' on' : ''}`} disabled={!ok} aria-pressed={give === c} onClick={() => { setGive(c); if (get === c) setGet(null); }}>
               <CardIcon card={c} size={30} />
               <span>{t(`res.${c}`)}</span>
+              <span className="have">{t('trade.have', { n: hand[c] })}</span>
               <span className="ratio">{t('trade.ratio', { n: r })}</span>
             </button>
           );

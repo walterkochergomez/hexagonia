@@ -12,6 +12,7 @@ import { errorText, portName } from '../format';
 import { TopBar } from '../TopBar';
 import { manualFor } from '../../manual/load';
 import { BuildMenu } from './BuildMenu';
+import { CostCard } from './Costs';
 import { CardsSheet } from './Cards';
 import { GameOver } from './GameOver';
 import { BarbarianMeter, GuildSheet } from './Guild';
@@ -49,6 +50,7 @@ export function Game({ session, snap, onHome }: { session: Session; snap: Snapsh
   const [sheet, setSheet] = useState<Sheet>(null);
   const [toasts, setToasts] = useState<{ id: number; text: string; tone: 'info' | 'error' | 'turn' }[]>([]);
   const [overClosed, setOverClosed] = useState(false);
+  const [costsOpen, setCostsOpen] = useState(false);
   const toastId = useRef(0);
   const send = useCallback((a: Action) => session.act(a), [session]);
 
@@ -190,7 +192,7 @@ export function Game({ session, snap, onHome }: { session: Session; snap: Snapsh
       <TopBar manual={manualFor({ ...view.settings, seats: view.players.length })} code={snap.code ?? (snap.kind === 'local' ? '' : null)} status={snap.status} error={snap.error} onHome={() => { if (view.winner !== null || window.confirm(t('game.leaveConfirm'))) onHome(); }} />
       <main className="game-main">
         <h1 className="sr">{t('app.name')}</h1>
-        <section className="board-area">
+        <section className={`board-area${costsOpen ? ' costs-open' : ''}`}>
           <div className="strip">
             <Players view={view} me={me} lobby={snap.lobby} compact />
             <button type="button" className={`icon-btn strip-log${unread ? ' unread' : ''}`} data-act="log" onClick={openLog} aria-label={unread ? `${logLabel} (${t('act.newMessages')})` : logLabel} title={logLabel}>
@@ -235,6 +237,7 @@ export function Game({ session, snap, onHome }: { session: Session; snap: Snapsh
             {p.cancel && <button type="button" className="btn ghost sm" onClick={() => setMode(null)}>{t('act.cancel')}</button>}
           </div>
           <Board view={view} targets={p.targets} onPick={onPick} flash={flash}>
+            <CostCard view={view} me={me} onOpen={setCostsOpen} />
             {roll && <DiceOverlay roll={roll} red={guilds} event={view.turn.event ?? null} />}
             {banner && !roll && <TurnBanner view={view} me={me} banner={banner} />}
           </Board>
@@ -246,6 +249,7 @@ export function Game({ session, snap, onHome }: { session: Session; snap: Snapsh
         </aside>
       </main>
       <footer className="dock">
+        {guilds && <div className="dock-barb"><BarbarianMeter view={view} compact /></div>}
         <Hand view={view} me={me} onCards={() => setSheet('cards')} onGold={() => setSheet('gold')} />
         <nav className="actions" aria-label={t('act.build')}>
           {buttons.map((b) => (
