@@ -11,11 +11,13 @@ import * as Bastions from './mods/bastions';
 import * as Works from './mods/works';
 import * as Raid from './mods/raid';
 import * as Traders from './mods/traders';
+import * as X from './mods/expedition';
 import * as Gold from './mods/gold';
 import { otherEnd } from './geometry';
 import {
   CARDS, COMMODITIES, COST, RESOURCES, TRACKS, TRACK_COMMODITY, WONDERS, WONDER_COST, emptyHand, handTotal,
   type Action, type Card, type GameState, type Hand, type Resource,
+  type XShip,
 } from './types';
 
 /** Asiento que debe actuar ahora (paso pendiente, respuesta a oferta o jugador activo). */
@@ -161,6 +163,97 @@ function wagonMove(s: GameState, seat: number): Action | null {
     }
   }
   return bestV ? { t: 'wagon', to: bestV } : null;
+}
+
+// ---------- expediciones ----------
+
+/** Distancia en lados de mar (sin contar barcos ni movimiento) desde los lados meta. */
+function seaDistances(s: GameState, goals: string[]): Map<string, number> {
+  const g = C.G(s);
+  const dist = new Map<string, number>();
+  const queue: string[] = [];
+  for (const e of goals) if (X.seaEdge(s, e) && !dist.has(e)) { dist.set(e, 0); queue.push(e); }
+  while (queue.length) {
+    const e = queue.shift()!;
+    for (const v of [g.edges[e].a, g.edges[e].b]) {
+      for (const n of g.vertices[v].edges) {
+        if (dist.has(n) || !X.seaEdge(s, n)) continue;
+        dist.set(n, dist.get(e)! + 1);
+        queue.push(n);
+      }
+    }
+  }
+  return dist;
+}
+
+/** Lados meta de un barco según lo que lleva. */
+function shipGoals(s: GameState, sh: XShip): string[] {
+  const g = C.G(s);
+  const x = s.expedition!;
+  const sideOf = (hexes: string[]) => hexes.flatMap((h) => g.hexes[h].edges);
+  const hasRoom = sh.cargo.length < X.holdOf(s, sh.owner);
+  // entregar en el Consejo
+  if (sh.cargo.some((c) => c === 'fish' || c === 'spice') && (!hasRoom || sh.cargo.every((c) => c === 'fish' || c === 'spice'))) return sideOf([x.council]);
+  // fundar: lados de costa con un cruce libre lejos de la isla de origen
+  const foundingSpots = () => Object.keys(g.edges).filter((e) => X.seaEdge(s, e) && [g.edges[e].a, g.edges[e].b].some((v) => C.vertexLand(s, v) && !s.buildings[v] && C.distanceOk(s, v)
+    && C.regionsOfVertex(s, v).some((r) => !s.players[sh.owner].homeRegions.includes(r))));
+  if (sh.cargo.includes('pioneer')) {
+    const spots = foundingSpots();
+    if (spots.length) return spots;
+  }
+  // vacío y casi con lo de un pionero: a puerto, si ya hay dónde fundar
+  if (!sh.cargo.length && hasRoom) {
+    const h = s.players[sh.owner].hand;
+    const near = (['lumber', 'brick', 'wool', 'grain'] as const).filter((r) => h[r] > 0).length >= 3;
+    if (near && C.piecesLeft(s, sh.owner).settlement > 0 && foundingSpots().length) {
+      return Object.keys(g.edges).filter((e) => X.seaEdge(s, e) && (g.edges[e].hexes.includes(x.council) || [g.edges[e].a, g.edges[e].b].some((v) => s.buildings[v]?.owner === sh.owner)));
+    }
+  }
+  // tripulación: aldea sin visitar o guarida en pie
+  if (sh.cargo.includes('crew')) {
+    const hexes = [...Object.keys(x.villages).filter((h) => !x.villages[h].visited.includes(sh.owner)), ...Object.keys(x.lairs).filter((h) => !x.lairs[h].taken)];
+    if (hexes.length) return sideOf(hexes);
+  }
+  // pescar
+  if (hasRoom && Object.values(x.shoals).some((n) => n > 0)) {
+    const shoals = Object.keys(x.shoals).filter((h) => x.shoals[h] > 0);
+    if (rngLike(sh.id + s.turn.n) < 0.7) return sideOf(shoals);
+  }
+  // vacío: volver a puerto para cargar
+  if (!sh.cargo.length && hasRoom && rngLike(sh.id * 7 + s.turn.n) < 0.5) {
+    const port = Object.keys(g.edges).filter((e) => X.seaEdge(s, e) && (g.edges[e].hexes.includes(x.council) || [g.edges[e].a, g.edges[e].b].some((v) => s.buildings[v]?.owner === sh.owner)));
+    return port;
+  }
+  // explorar: lados de mar junto a la niebla
+  const fogSides = Object.keys(g.edges).filter((e) => X.seaEdge(s, e) && g.edges[e].hexes.some((h) => s.board.hexes[h]?.terrain === 'fog'));
+  return fogSides;
+}
+const rngLike = (n: number) => ((Math.sin(n * 12.9898) * 43758.5453) % 1 + 1) % 1;
+
+function expeditionMove(s: GameState, seat: number, rng: Rng): Action | null {
+  for (const sh of X.shipsOf(s, seat)) {
+    // primero lo que se puede hacer donde está
+    const found = X.foundSpots(s, sh.id);
+    if (found.length) return { t: 'found', ship: sh.id, at: best(rng, found, (v) => vertexScore(s, v)) };
+    if (X.canDeliver(s, sh.id)) return { t: 'xdeliver', ship: sh.id };
+    const crew = X.crewSpots(s, sh.id);
+    if (crew.length) return { t: 'xcrew', ship: sh.id, hex: crew[0] };
+    const fish = X.fishSpots(s, sh.id);
+    if (fish.length) return { t: 'xfish', ship: sh.id, hex: fish[0] };
+    if (sh.mp <= 0) continue;
+    const reach = X.reach(s, sh.id);
+    if (!reach.size) continue;
+    const dist = seaDistances(s, shipGoals(s, sh));
+    const here = dist.get(sh.at) ?? Infinity;
+    let bestE: string | null = null;
+    let bestD = here;
+    for (const [e] of reach) {
+      const d = dist.get(e) ?? Infinity;
+      if (d < bestD) { bestD = d; bestE = e; }
+    }
+    if (bestE) return { t: 'sail', ship: sh.id, to: bestE };
+  }
+  return null;
 }
 
 function seaGoals(s: GameState, seat: number): string[] {
@@ -417,6 +510,22 @@ export function botAction(s: GameState, seat: number, rng: Rng): Action | null {
     if (can(COST.dev) && rng.float() < 0.55) return { t: 'buyDev' };
     if (Gold.canBuy(s, seat) && rng.float() < 0.6) return { t: 'gold', use: 'buy' };
   }
+  // expediciones: botar barcos, subir pioneros y tripulaciones, navegar y cumplir misiones
+  if (s.expedition && t.phase === 'main') {
+    const mine = X.shipsOf(s, seat);
+    if (X.canBuildShip(s, seat) && (mine.length < 2 || rng.float() < 0.3)) {
+      const spots = X.shipSpots(s, seat);
+      return { t: 'xship', at: rng.pick(spots) };
+    }
+    const xp = s.expedition;
+    const crewWork = Object.values(xp.villages).some((v) => !v.visited.includes(seat)) || Object.values(xp.lairs).some((l) => !l.taken) || !!s.hidden.xmarks && Object.values(s.hidden.xmarks).some((m) => m.k !== 'shoal');
+    for (const sh of mine) {
+      if (X.canLoad(s, seat, sh.id, 'pioneer') && left.settlement > 0 && !sh.cargo.includes('pioneer') && rng.float() < 0.9) return { t: 'xload', ship: sh.id, what: 'pioneer' };
+      if (crewWork && X.canLoad(s, seat, sh.id, 'crew') && !sh.cargo.includes('crew') && rng.float() < 0.5) return { t: 'xload', ship: sh.id, what: 'crew' };
+    }
+    const mv = expeditionMove(s, seat, rng);
+    if (mv) return mv;
+  }
   // carretas: ahuyentar, mejorar, viajar hacia el mercado, trigo y oro
   if (s.traders && t.phase === 'main') {
     const w = s.traders.wagons[seat];
@@ -471,7 +580,8 @@ export function botAction(s: GameState, seat: number, rng: Rng): Action | null {
       if (walls.length) return { t: 'build', what: 'wall', at: rng.pick(walls) };
     }
   }
-  const wantRoad = rng.float() < (C.legalSettlements(s, seat).length ? 0.25 : 0.8);
+  // expediciones: con la isla llena, mejor juntar para pioneros que hacer caminos
+  const wantRoad = rng.float() < (C.legalSettlements(s, seat).length ? 0.25 : s.expedition ? 0.2 : 0.8);
   if (wantRoad) {
     if (s.settings.openSea && can(COST.ship) && left.ship > 0 && rng.float() < 0.5) {
       const ships = C.legalShips(s, seat);
@@ -528,6 +638,8 @@ export function botAction(s: GameState, seat: number, rng: Rng): Action | null {
   if (left.city > 0 && C.legalCities(s, seat).length) goals.push(COST.city);
   if (left.settlement > 0 && C.legalSettlements(s, seat).length) goals.push(COST.settlement);
   if (s.traders && s.traders.wagons[seat].level < Traders.MAX_LEVEL) goals.push(Traders.LEVELS[s.traders.wagons[seat].level].cost);
+  if (s.expedition && left.settlement > 0 && !C.legalSettlements(s, seat).length) goals.unshift(X.PIONEER_COST);
+  if (s.expedition && X.shipsOf(s, seat).length < 2) goals.unshift(X.SHIP_COST);
   goals.push(COST.road);
   if (!s.settings.guilds) goals.push(COST.dev);
   else goals.push(COST.knight);

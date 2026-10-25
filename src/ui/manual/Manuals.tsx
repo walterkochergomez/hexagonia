@@ -5,7 +5,7 @@ import { go } from '../../app/router';
 import { PROGRESS_DECKS, type Card, type Track } from '../../engine/types';
 import { useManualBook } from '../../manual/load';
 import { MANUAL_ORDER, type Block, type CostIcon, type CostRow, type Manual, type ManualBook, type ManualId, type Section } from '../../manual/types';
-import { CardBack, CardIcon, CityShape, KnightShape, SettlementShape, ShipShape, WonderArt } from '../art';
+import { CardBack, CardIcon, CityShape, KnightShape, SettlementShape, ShipShape, WonderArt, CargoIcon } from '../art';
 import { TileDefs } from '../tiles';
 import { TopBar } from '../TopBar';
 import { Cover, Figure } from './figures';
@@ -30,6 +30,8 @@ function PieceIcon({ icon }: { icon: CostIcon }) {
     promote: <KnightShape color={c} level={2} active />,
     dev: <g transform="translate(-16 -19)"><CardBack size={32} kind="dev" /></g>,
     progress: <g transform="translate(-16 -19)"><CardBack size={32} kind="dev" /></g>,
+    pioneer: <g transform="translate(0 -3) scale(2.6)"><CargoIcon cargo="pioneer" color={c} /></g>,
+    crew: <g transform="translate(0 -3) scale(2.6)"><CargoIcon cargo="crew" /></g>,
   }[icon as Exclude<CostIcon, `w-${string}`>];
   return <svg width={40} height={40} viewBox="-20 -23 40 40" aria-hidden="true">{node}</svg>;
 }

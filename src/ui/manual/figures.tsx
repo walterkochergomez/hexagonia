@@ -2,7 +2,7 @@
 import type { ReactNode } from 'react';
 import { useT } from '../../app/i18n';
 import { CORNERS, edgeId, graphOf, hexId, vertexId } from '../../engine/geometry';
-import { WONDERS, type Card, type GameState, type Goods, type Market, type Harbor, type HexTile, type Resource, type Terrain, type TribeGift } from '../../engine/types';
+import { WONDERS, type Card, type GameState, type Goods, type Market, type Harbor, type HexTile, type Resource, type Terrain, type TribeGift, type Advantage, type Cargo } from '../../engine/types';
 import { Board, type BoardPos } from '../Board';
 import { CardBack, CardIcon, ChronicleFace, CityShape, ShipShape, WonderArt } from '../art';
 import { TileFace, type LandTerrain } from '../tiles';
@@ -51,6 +51,8 @@ interface Scene {
   raid?: { castle: string; coast: string[]; barbs: Record<string, number>; knights: [string, number][] };
   /** carretas: mercados con su mercancía de arriba, bárbaros en lados y carretas [cruce, dueño, nivel, carga] */
   traders?: { markets: [string, Market, Goods | null, number][]; barbs: string[]; wagons: [string, number, number, Goods | null][] };
+  /** expediciones: Consejo, barcos [lado, dueño, carga], bancos, aldeas y guaridas */
+  expedition?: { council: string; ships: [string, number, Cargo[]][]; shoals?: [string, number][]; villages?: [string, Advantage, number[]][]; lairs?: [string, number[], boolean][] };
 }
 
 const FLOWER: [number, number][] = [[0, 0], [1, -1], [1, 0], [0, 1], [-1, 1], [-1, 0], [0, -1]];
@@ -91,6 +93,15 @@ function stateOf(sc: Scene): GameState {
       return { rock: [sc.bastions.rock], loop, fleet: sc.bastions.fleet, forts: sc.bastions.forts.map((f) => ({ plan: [], ...f, start: '', taken: false })), last: null };
     })(),
     works: sc.works && { ...sc.works, wonders: [] },
+    expedition: sc.expedition && {
+      council: sc.expedition.council,
+      ships: sc.expedition.ships.map(([at, owner, cargo], i) => ({ id: i + 1, owner, at, cargo, mp: 0, fished: false })),
+      nextId: 9,
+      shoals: Object.fromEntries(sc.expedition.shoals ?? []),
+      villages: Object.fromEntries((sc.expedition.villages ?? []).map(([h, adv, visited]) => [h, { adv, visited }])),
+      lairs: Object.fromEntries((sc.expedition.lairs ?? []).map(([h, crews, taken]) => [h, { crews, taken }])),
+      fish: [], spice: [], lairVp: [], adv: [],
+    },
     traders: sc.traders && {
       markets: Object.fromEntries(sc.traders.markets.map(([h, m]) => [h, m])),
       next: Object.fromEntries(sc.traders.markets.map(([h, , g]) => [h, g])),
@@ -369,6 +380,54 @@ export function Figure({ id, caption }: { id: FigureId; caption: string }) {
         </>} />
       );
       break;
+    case 'xmap':
+      // isla de origen con el Consejo; el resto, tapado; un barco sale con un pionero
+      body = (
+        <Still label={caption} className="wide" scene={{
+          open: true,
+          hexes: [
+            [0, 0, 'fields', 9], [1, -1, 'forest', 5], [0, -1, 'hills', 4], [-1, 0, 'mountains', 10], [-1, 1, 'pasture', 6], [0, 1, 'castle'],
+            [1, 0, 'sea'], [2, -1, 'sea'], [2, 0, 'sea'], [1, 1, 'sea'], [0, 2, 'sea'], [-1, 2, 'sea'], [2, -2, 'sea'], [1, -2, 'sea'], [-2, 1, 'sea'], [-2, 2, 'sea'], [0, -2, 'sea'], [-1, -1, 'sea'], [-2, 0, 'sea'],
+            [3, -2, 'fog'], [3, -1, 'fog'], [3, 0, 'fog'], [2, 1, 'fog'], [1, 2, 'fog'], [3, -3, 'fog'], [4, -3, 'fog'], [4, -2, 'fog'], [4, -1, 'fog'], [2, -3, 'fog'],
+          ],
+          buildings: [[corner(0, 0, 1), 'settlement', 0], [corner(-1, 0, 5), 'settlement', 1]],
+          roads: [[side(0, 0, 0), 0], [side(-1, 0, 5), 1]],
+          expedition: { council: 'h0,1', ships: [[side(1, 0, 1), 0, ['pioneer', 'crew']], [side(0, 1, 2), 1, []]] },
+        }} overlay={(at) => {
+          const [ax, ay] = at.e(side(1, 0, 1));
+          const [bx, by] = at.h('h2,0');
+          return <path d={`M${ax + 10} ${ay - 4} Q${(ax + bx) / 2 + 20} ${(ay + by) / 2 - 30} ${bx + 18} ${by - 6}`} className="fig-arrow" />;
+        }} />
+      );
+      break;
+    case 'xfound':
+      // el pionero baja en la isla recién descubierta: poblado sin camino
+      body = (
+        <Still label={caption} scene={{
+          open: true,
+          hexes: [
+            [0, 0, 'forest', 8], [1, -1, 'hills', 5], [1, 0, 'fields', 10], [0, -1, 'sea'], [-1, 0, 'sea'], [-1, 1, 'sea'], [0, 1, 'sea'], [2, -1, 'fog'], [2, -2, 'fog'], [1, 1, 'fog'], [-1, -1, 'sea'], [1, -2, 'sea'], [-2, 1, 'sea'],
+          ],
+          buildings: [[corner(0, 0, 4), 'settlement', 0]],
+          expedition: { council: 'h9,9', ships: [[side(0, 0, 3), 0, ['crew']]] },
+        }} overlay={(at) => <Badge at={[at.v(corner(0, 0, 4))[0] - 26, at.v(corner(0, 0, 4))[1] - 10]} text="+1" />} />
+      );
+      break;
+    case 'xmissions':
+      // un banco con pescados, una aldea ya visitada por el rojo y una guarida con dos tripulaciones
+      body = (
+        <Still label={caption} scene={{
+          hexes: [[0, 0, 'sea'], [1, 0, 'desert'], [1, -1, 'pasture', 4], [2, -1, 'desert']],
+          expedition: {
+            council: 'h9,9',
+            ships: [[side(1, 0, 2), 0, ['spice']], [side(2, -1, 1), 2, ['crew']]],
+            shoals: [['h0,0', 3]],
+            villages: [['h1,0', 'sails', [0]]],
+            lairs: [['h2,-1', [1, 2], false]],
+          },
+        }} />
+      );
+      break;
     case 'traders': {
       // la carreta roja lleva mármol al castillo: su camino, el camino azul (peaje) y un bárbaro en el otro rumbo
       const c3 = corner(0, 0, 3), c4 = corner(0, 0, 4), c5 = corner(0, 0, 5);
@@ -573,5 +632,16 @@ const COVERS: Partial<Record<ManualId, Scene>> = {
     knights: [[corner(0, 0, 3), 3, 2, true]],
     roads: [[side(0, 0, 1), 3], [side(0, 0, 2), 3]],
     ships: [['e3,-3', 3], ['e5,-3', 3], ['e7,-3', 3], ['e9,-3', 3]],
+  },
+  expeditions: {
+    open: true,
+    hexes: [
+      [0, 0, 'fields', 9], [-1, 0, 'forest', 5], [0, -1, 'hills', 4], [-1, 1, 'castle'], [1, -1, 'pasture', 10],
+      [1, 0, 'sea'], [0, 1, 'sea'], [-2, 2, 'sea'], [-2, 1, 'sea'], [-1, -1, 'sea'], [1, -2, 'sea'], [-1, 2, 'sea'],
+      [2, -1, 'fog'], [2, 0, 'fog'], [1, 1, 'fog'], [2, -2, 'fog'],
+    ],
+    buildings: [[corner(0, 0, 1), 'settlement', 0], [corner(-1, 0, 3), 'city', 1]],
+    roads: [[side(0, 0, 0), 0], [side(-1, 0, 2), 1]],
+    expedition: { council: 'h-1,1', ships: [[side(0, 0, 1), 0, ['pioneer', 'crew']], [side(-1, 1, 3), 1, []]], shoals: [['h0,1', 4]] },
   },
 };

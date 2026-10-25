@@ -1,6 +1,6 @@
 // Ilustraciones propias en SVG: cartas de recursos, piezas de madera con volumen, dados y símbolos de jugador.
 // Luz desde arriba a la izquierda, como en las fichas del tablero.
-import type { Card, ChronicleCard, Goods, Terrain } from '../engine/types';
+import type { Card, Cargo, ChronicleCard, Goods, Terrain } from '../engine/types';
 export { Pips } from './tiles';
 
 export const RES_TERRAIN: Record<Card, string> = {
@@ -327,6 +327,85 @@ export function WagonShape({ color, level, cargo }: { color: number; level: numb
       <circle cx={5.4} cy={5.6} r={0.9} className="wagon-hub" />
       <text x={0.6} y={2.8} textAnchor="middle" className="wagon-level">{level}</text>
       {cargo && <g transform="translate(0.6 -9.6)"><GoodsIcon goods={cargo} size={12} /></g>}
+    </g>
+  );
+}
+
+/** Carga de los barcos de expedición: pionero, tripulación, pescado y especia (fichas chicas). */
+export function CargoIcon({ cargo, color = 0 }: { cargo: Cargo; color?: number }) {
+  return (
+    <g className={`cargo c-${cargo}`}>
+      <circle r={5.6} className="cargo-disc" />
+      {cargo === 'pioneer' && (
+        <g className={`piece p${color}`}>
+          <circle cx={0} cy={-1.8} r={1.7} className="pfill" />
+          <path d="M-2.8 3.6 Q-2.8 0.2 0 0.2 Q2.8 0.2 2.8 3.6 Z" className="pfill" />
+        </g>
+      )}
+      {cargo === 'crew' && (
+        <>
+          <circle cx={0} cy={-1.4} r={1.6} className="cargo-skin" />
+          <path d="M-2.6 -2.6 L2.6 -2.6 L1.8 -4.2 L-1.8 -4.2 Z" className="cargo-hat" />
+          <path d="M-2.8 3.8 Q-2.8 0.6 0 0.6 Q2.8 0.6 2.8 3.8 Z" className="cargo-shirt" />
+        </>
+      )}
+      {cargo === 'fish' && <path transform="scale(.36)" d="M-9 0 Q-2 -7 7 -1 Q-2 6 -9 0 Z M7 -1 L12 -5 L11.4 4 Z" className="cargo-fish" />}
+      {cargo === 'spice' && (
+        <>
+          <path d="M-3.2 3.6 Q-3.4 -1 -1.2 -1.6 L1.2 -1.6 Q3.4 -1 3.2 3.6 Z" className="cargo-spice" />
+          <path d="M-1.2 -1.6 L-1.8 -3.4 L1.8 -3.4 L1.2 -1.6" className="cargo-spice-top" />
+        </>
+      )}
+    </g>
+  );
+}
+
+/** Banco de pesca: peces sobre el agua y cuántos quedan. */
+export function ShoalShape({ n }: { n: number }) {
+  return (
+    <g className="shoal">
+      <ellipse rx={20} ry={9} className="shoal-ripple" />
+      {[-9, 2, 11].map((x, i) => (
+        <path key={i} transform={`translate(${x} ${i === 1 ? -4 : 2}) scale(.6)`} d="M-9 0 Q-2 -7 7 -1 Q-2 6 -9 0 Z M7 -1 L12 -5 L11.4 4 Z" className="shoal-fish" />
+      ))}
+      <g transform="translate(0 15)" className="shoal-left"><circle r={7} /><text y={3} textAnchor="middle">{n}</text></g>
+    </g>
+  );
+}
+
+/** Aldea de especias: dos chozas y un saco; las tripulaciones que pasaron dejan su bandera. */
+export function SpiceVillageShape({ visited }: { visited: number[] }) {
+  return (
+    <g className="spice-village">
+      <ellipse cx={1} cy={9} rx={16} ry={3} className="piece-shadow" />
+      <path d="M-14 8 L-14 0 L-8 -6 L-2 0 L-2 8 Z" className="hut-wall" />
+      <path d="M-15.5 1 L-8 -7.5 L-0.5 1" className="hut-roof" />
+      <path d="M1 8 L1 -1 L7 -8 L13 -1 L13 8 Z" className="hut-wall" />
+      <path d="M-0.5 0 L7 -9.5 L14.5 0" className="hut-roof" />
+      <path d="M-4 9 Q-4.4 3 -1.4 2.4 L1.4 2.4 Q4.4 3 4 9 Z" className="cargo-spice" />
+      {visited.map((c, i) => (
+        <g key={i} transform={`translate(${-12 + i * 6} -12)`} className={`piece p${c}`}>
+          <path d="M0 0 L0 -6" className="flag-pole" />
+          <path d="M0 -6 L4 -4.8 L0 -3.6 Z" className="pfill" />
+        </g>
+      ))}
+    </g>
+  );
+}
+
+/** Guarida pirata: torre de madera con bandera negra; las tripulaciones que la asedian, alrededor. */
+export function LairShape({ crews, taken }: { crews: number[]; taken: boolean }) {
+  return (
+    <g className={`lair${taken ? ' taken' : ''}`}>
+      <ellipse cx={1} cy={10} rx={14} ry={3} className="piece-shadow" />
+      <path d="M-8 9 L-6 -6 L6 -6 L8 9 Z" className="lair-wall" />
+      <path d="M-9 -6 L9 -6 L9 -9 L-9 -9 Z" className="lair-top" />
+      <path d="M0 -9 L0 -19" className="flag-pole" />
+      <path d="M0 -19 L8 -17 L0 -15 Z" className={taken ? 'lair-flag-down' : 'lair-flag'} />
+      <path d="M-2.4 9 L-2.4 3 Q0 0.6 2.4 3 L2.4 9 Z" className="lair-door" />
+      {crews.map((c, i) => (
+        <g key={i} transform={`translate(${-10 + i * 10} 14)`}><CargoIcon cargo="pioneer" color={c} /></g>
+      ))}
     </g>
   );
 }

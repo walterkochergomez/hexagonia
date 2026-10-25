@@ -9,9 +9,10 @@ export type FigureId =
   | 'ships' | 'shipMove' | 'pirate' | 'gold' | 'fog'
   | 'commodities' | 'knights' | 'barbarians'
   | 'chronicle' | 'fishers' | 'rivers' | 'caravans' | 'raid' | 'traders'
+  | 'xmap' | 'xfound' | 'xmissions'
   | 'tribe' | 'looms' | 'bastions' | 'works' | 'worksMap';
 
-export type CostIcon = 'road' | 'ship' | 'settlement' | 'city' | 'dev' | 'wall' | 'knight' | 'activate' | 'promote' | 'progress'
+export type CostIcon = 'road' | 'ship' | 'settlement' | 'city' | 'dev' | 'wall' | 'knight' | 'activate' | 'promote' | 'progress' | 'pioneer' | 'crew'
   | 'w-tower' | 'w-library' | 'w-lock' | 'w-mills' | 'w-observatory';
 
 export interface CostRow {

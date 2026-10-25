@@ -7,6 +7,7 @@ import * as Caravan from '../../engine/mods/caravan';
 import * as Tribe from '../../engine/mods/tribe';
 import * as Raid from '../../engine/mods/raid';
 import * as Traders from '../../engine/mods/traders';
+import * as X from '../../engine/mods/expedition';
 import type { Action, GameState, ProgressType } from '../../engine/types';
 import type { Targets } from '../Board';
 
@@ -21,6 +22,10 @@ export type Mode =
   | { k: 'ship'; from?: string }
   | { k: 'guard'; from?: string; far?: boolean }
   | { k: 'wagon' }
+  | { k: 'xship' }
+  | { k: 'sail'; ship: number }
+  | { k: 'found'; ship: number }
+  | { k: 'xcrew'; ship: number }
   | { k: 'progress'; card: ProgressType; picked: string[] };
 
 export interface Plan {
@@ -228,6 +233,23 @@ export function plan(v: GameState, me: number | null, mode: Mode, routeKind: 'ro
       const ids = [...Traders.trips(v, me).keys()];
       const at = v.traders?.wagons[me].at;
       return { targets: { vertices: ids, selected: at ? [at] : [] }, hint: ids.length ? 'pick.wagon' : 'pick.none', cancel: true, pick: (_k, id) => ({ act: { t: 'wagon', to: id }, ...done }) };
+    }
+    case 'xship': {
+      const ids = X.shipSpots(v, me);
+      return { targets: { edges: ids }, hint: ids.length ? 'pick.xship' : 'pick.none', cancel: true, pick: (_k, id) => ({ act: { t: 'xship', at: id }, ...done }) };
+    }
+    case 'sail': {
+      const ids = [...X.reach(v, mode.ship).keys()];
+      const at = X.shipById(v, mode.ship)?.at;
+      return { targets: { edges: ids, selected: at ? [at] : [] }, hint: ids.length ? 'pick.sail' : 'pick.none', cancel: true, pick: (_k, id) => ({ act: { t: 'sail', ship: mode.ship, to: id }, ...done }) };
+    }
+    case 'found': {
+      const ids = X.foundSpots(v, mode.ship);
+      return { targets: { vertices: ids }, hint: ids.length ? 'pick.found' : 'pick.none', cancel: true, pick: (_k, id) => ({ act: { t: 'found', ship: mode.ship, at: id }, ...done }) };
+    }
+    case 'xcrew': {
+      const ids = X.crewSpots(v, mode.ship);
+      return { targets: { hexes: ids }, hint: ids.length ? 'pick.xcrew' : 'pick.none', cancel: true, pick: (_k, id) => ({ act: { t: 'xcrew', ship: mode.ship, hex: id }, ...done }) };
     }
     case 'progress':
       return progressPlan(v, me, mode);

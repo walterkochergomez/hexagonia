@@ -3,7 +3,7 @@ import { graphOf } from '../engine/geometry';
 import type { GameState } from '../engine/types';
 import { useT } from '../app/i18n';
 import { prefs, usePrefs } from '../app/prefs';
-import { BarbarianShape, CamelShape, CardIcon, CityShape, FleetShape, FortShape, GiftToken, GuardShape, Huts, KnightShape, LandingFlag, MerchantShape, RobberShape, SettlementShape, ShipShape, VillageShape, GoodsIcon, WagonShape } from './art';
+import { BarbarianShape, CamelShape, CardIcon, CityShape, FleetShape, FortShape, GiftToken, GuardShape, Huts, KnightShape, LandingFlag, MerchantShape, RobberShape, SettlementShape, ShipShape, VillageShape, GoodsIcon, WagonShape, CargoIcon, LairShape, ShoalShape, SpiceVillageShape } from './art';
 import { portName, lower } from './format';
 import { raidFallen } from '../engine/core';
 import * as Traders from '../engine/mods/traders';
@@ -156,7 +156,7 @@ export function Board({ view, targets, onPick, flash, children, still = false, l
   const stand = boardTilt ? `translate(0 8) scale(1 ${(1 / TILT_COS).toFixed(3)}) translate(0 -8)` : undefined;
 
   // encuadre: sin mar navegable basta con la isla y sus puertos, así la isla se ve más grande en el celular
-  const openSea = view.settings.openSea;
+  const openSea = view.settings.openSea || !!view.expedition;
   const box = useMemo(() => {
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     const grow = (xa: number, ya: number, xb: number, yb: number) => {
@@ -525,6 +525,22 @@ export function Board({ view, targets, onPick, flash, children, still = false, l
         const [x, y] = at(g.edges[e].X, g.edges[e].Y);
         return <g key={`c${e}`} transform={`translate(${x} ${y - 3})`} className={fresh.has(`c:${e}`) ? 'camel fresh-drop' : 'camel'}><g transform={stand}><CamelShape /></g></g>;
       })}
+      {view.expedition?.ships.map((sh) => {
+        const ed = g.edges[sh.at];
+        const [mx, my] = at(ed.X, ed.Y);
+        const sea = ed.hexes.find((h) => view.board.hexes[h]?.terrain === 'sea');
+        const [sx, sy] = sea ? hpos(sea) : [mx, my];
+        const x = mx + (sx - mx) * 0.3, y = my + (sy - my) * 0.3;
+        return (
+          <g key={`x${sh.id}`} transform={`translate(${x} ${y})`} data-xship={sh.id} className="xship">
+            <title>{t('xp.shipTitle', { name: view.players[sh.owner]?.name ?? '' })}</title>
+            <g transform={stand}><g transform="scale(1.1)"><ShipShape color={colorOf(sh.owner)} /></g></g>
+            {sh.cargo.map((c, i) => (
+              <g key={i} transform={`translate(${(i - (sh.cargo.length - 1) / 2) * 11} 14) scale(.9)`}><CargoIcon cargo={c} color={colorOf(sh.owner)} /></g>
+            ))}
+          </g>
+        );
+      })}
       {Object.entries(view.ships).map(([e, r]) => {
         const ed = g.edges[e];
         const [x, y] = at(ed.X, ed.Y);
@@ -540,6 +556,27 @@ export function Board({ view, targets, onPick, flash, children, still = false, l
   const goalSet = new Set(view.traders && typeof view.viewer === 'number' && view.traders.wagons[view.viewer]?.at ? Traders.goalHexes(view, view.viewer) : []);
   const marks = () => (
     <>
+      {view.expedition && (() => {
+        const xp = view.expedition;
+        const out: ReactNode[] = [];
+        if (g.hexes[xp.council]) {
+          const [cx, cy] = hpos(xp.council);
+          out.push(<g key="council" transform={`translate(${cx} ${cy})`} className="council-mark"><title>{t('xp.council')}</title><polygon points={TOP_POINTS} className="council-ring" /></g>);
+        }
+        for (const [h, n] of Object.entries(xp.shoals)) {
+          const [x, y] = hpos(h);
+          out.push(<g key={`sh${h}`} transform={`translate(${x} ${y})`} data-shoal={h}><title>{t('xp.shoalTitle', { n })}</title><ShoalShape n={n} /></g>);
+        }
+        for (const [h, vil] of Object.entries(xp.villages)) {
+          const [x, y] = hpos(h);
+          out.push(<g key={`vi${h}`} transform={`translate(${x} ${y})`} data-village={h}><title>{t('xp.villageTitle', { adv: t(`adv.${vil.adv}`) })}</title><g transform={stand}><g transform="scale(1.3)"><SpiceVillageShape visited={vil.visited.map(colorOf)} /></g></g></g>);
+        }
+        for (const [h, lair] of Object.entries(xp.lairs)) {
+          const [x, y] = hpos(h);
+          out.push(<g key={`la${h}`} transform={`translate(${x} ${y})`} data-lair={h}><title>{lair.taken ? t('xp.lairTaken') : t('xp.lairTitle', { n: lair.crews.length })}</title><g transform={stand}><g transform="scale(1.3)"><LairShape crews={lair.crews.map(colorOf)} taken={lair.taken} /></g></g></g>);
+        }
+        return out;
+      })()}
       {view.traders && Object.entries(view.traders.markets).map(([h, m]) => {
         const [x, y] = hpos(h);
         const next = view.traders!.next[h];

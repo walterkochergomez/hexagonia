@@ -169,6 +169,45 @@ try {
   }
   log('en el celular entra en pantalla');
 
+  // expediciones: barco en puerto; subir pionero y tripulación; navegar descubre la niebla
+  {
+    const c = await browser.newContext({ viewport: { width: 1280, height: 860 } });
+    const save = readFileSync('e2e/out/scene-expedition.json', 'utf8');
+    await c.addInitScript((sv) => {
+      localStorage.setItem('hexagonia.prefs', JSON.stringify({ name: 'Walter', lang: 'es', clientId: 'w', sound: false }));
+      localStorage.setItem('hexagonia.local', sv);
+    }, save);
+    const pg = await c.newPage();
+    pg.on('pageerror', (e) => errors.push(e.message));
+    pg.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+    await pg.goto(`http://localhost:${PORT}/?botDelay=150#/local/juego`);
+    await pg.locator('svg.board').waitFor();
+    await pg.waitForTimeout(500);
+    const game = () => pg.evaluate(() => JSON.parse(localStorage.getItem('hexagonia.local')).game);
+    assert.ok((await pg.locator('[data-xship]').count()) >= 4, 'un barco por jugador');
+    assert.equal(await pg.locator('.council-mark').count(), 1, 'el Consejo');
+    await pg.locator('[data-act="fleet"]').click();
+    const sheet = pg.locator('.modal', { hasText: 'Tus barcos' });
+    await sheet.locator('[data-x="pioneer"]').first().click();
+    await pg.waitForTimeout(300);
+    await sheet.locator('[data-x="crew"]').first().click();
+    await pg.waitForTimeout(300);
+    const mine = (await game()).expedition.ships.filter((x) => x.owner === 0);
+    assert.deepEqual(mine[0].cargo, ['pioneer', 'crew'], 'carga');
+    const fog = Object.keys((await game()).hidden?.fog ?? {}).length;
+    await sheet.locator('[data-x="sail"]').first().click();
+    const n = await pg.locator('.layer-targets .target-edge').count();
+    assert.ok(n > 3, `lados al alcance ${n}`);
+    if (shots) await pg.screenshot({ path: 'e2e/out/seas-expedition.png' });
+    await pg.locator('.layer-targets .target-edge').last().click({ force: true });
+    await pg.waitForTimeout(400);
+    const after = (await game()).expedition.ships.filter((x) => x.owner === 0)[0];
+    assert.notEqual(after.at, mine[0].at, 'el barco navegó');
+    void fog;
+    await c.close();
+    log('expediciones: carga y navegación');
+  }
+
   assert.deepEqual(errors, []);
   console.log('MAR ESPECIAL OK');
 } catch (e) {

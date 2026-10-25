@@ -730,6 +730,109 @@ const book: ManualBook = {
         },
       ],
     },
+
+    expeditions: {
+      id: 'expeditions',
+      title: 'Expediciones',
+      summary: 'Un mar tapado que se descubre navegando. Barcos que se mueven, pioneros que fundan poblados en islas lejanas y tripulaciones que cumplen misiones para el Consejo: pesca, especias y guaridas piratas.',
+      meta: ['3–6 jugadores', '90–120 minutos', 'Meta: 10 más 1 por misión'],
+      sections: [
+        {
+          id: 'about',
+          title: 'Qué cambia',
+          blocks: [
+            { t: 'p', text: 'Se juega con las reglas del juego base sobre un mapa nuevo: una isla de origen y, alrededor, mar tapado por la niebla. En la costa de la isla de origen está el **Consejo** (el castillo). En vez de cadenas de barcos hay **barcos de expedición** que se mueven cada turno y llevan carga.' },
+            { t: 'fig', id: 'xmap', caption: 'La isla de origen con el Consejo; el barco rojo lleva un pionero hacia la niebla.' },
+            { t: 'p', text: 'Las misiones se eligen al armar la partida y se pueden combinar. Sin misiones se juega a explorar y poblar (meta 10); cada misión suma 1 a la meta.' },
+          ],
+        },
+        {
+          id: 'setup',
+          title: 'Preparación',
+          blocks: [
+            { t: 'list', items: [
+              'Primero un poblado y después una **ciudad**, cada uno con su camino, en la isla de origen (lo demás está tapado); la ciudad da los recursos de salida.',
+              'Al terminar, cada uno recibe un barco gratis en el mar junto al Consejo.',
+            ] },
+          ],
+        },
+        {
+          id: 'ships',
+          title: 'Barcos, pioneros y tripulaciones',
+          blocks: [
+            { t: 'costs', rows: [
+              { icon: 'ship', label: 'Barco de expedición', cost: { lumber: 1, wool: 1 }, note: 'En un lado de mar libre junto a un edificio tuyo o al Consejo. Hasta 3 por jugador.' },
+              { icon: 'pioneer', label: 'Pionero', cost: { lumber: 1, brick: 1, wool: 1, grain: 1 }, note: 'Sube enseguida a un barco tuyo en puerto con lugar.' },
+              { icon: 'crew', label: 'Tripulación', cost: { wool: 1, ore: 1 }, note: 'Igual que el pionero.' },
+            ] },
+            { t: 'list', items: [
+              'Un barco está **en puerto** si está junto a un edificio tuyo o junto al Consejo.',
+              'Cada barco lleva **2 cosas**: pioneros, tripulaciones, pescado o especias.',
+              'En tu turno, después de tirar, cada barco navega hasta **4 lados** de mar. No puede terminar donde haya otro barco ni pasar por los lados de la casilla del pirata.',
+              'Caminos, poblados, ciudades y cartas de desarrollo siguen como siempre.',
+            ] },
+          ],
+        },
+        {
+          id: 'explore',
+          title: 'Explorar y fundar',
+          blocks: [
+            { t: 'list', items: [
+              'Cuando un barco pasa junto a una casilla tapada, se da vuelta. Si es tierra con número, tomas 1 recurso de ella; si es oro, eliges uno.',
+              'Un barco con pionero junto a una costa puede bajarlo en un cruce libre del lado donde está (con la regla de distancia): se vuelve un **poblado** sin necesidad de camino.',
+              'El primer poblado de cada jugador en cada isla nueva vale **1 punto más**.',
+            ] },
+            { t: 'fig', id: 'xfound', caption: 'El pionero baja en la isla recién descubierta y funda un poblado sin camino.' },
+          ],
+        },
+        {
+          id: 'fish',
+          title: 'Misión: pesca para el Consejo',
+          blocks: [
+            { t: 'list', items: [
+              'Bajo la niebla hay 4 bancos de pesca (5 con 5 o 6 jugadores), con 4 pescados cada uno.',
+              'Un barco junto a un banco, con lugar, saca 1 pescado (una vez por turno y barco).',
+              'En el Consejo se entregan: cada **2 pescados** entregados valen **1 punto**.',
+            ] },
+          ],
+        },
+        {
+          id: 'spice',
+          title: 'Misión: especias de las aldeas',
+          blocks: [
+            { t: 'list', items: [
+              'En las islas tapadas hay 3 aldeas, cada una con una ventaja.',
+              'Un barco con tripulación junto a una aldea puede dejarla ahí (una vez por jugador y aldea): ganas la ventaja para el resto de la partida y cargas **1 especia**.',
+              'Cada especia entregada en el Consejo vale **1 punto**.',
+            ] },
+            { t: 'table', head: ['Ventaja', 'Qué da'], rows: [
+              ['Velas nuevas', 'Tus barcos navegan 5 lados.'],
+              ['Bodegas grandes', 'Tus barcos llevan 3 cosas.'],
+              ['Mercaderes', 'Cambias con el banco 3:1 aunque no tengas puerto.'],
+            ] },
+          ],
+        },
+        {
+          id: 'lairs',
+          title: 'Misión: guaridas piratas',
+          blocks: [
+            { t: 'list', items: [
+              'En las islas tapadas hay 3 guaridas.',
+              'Un barco junto a una guarida baja tripulaciones en ella. Cuando junta **3** (de uno o de varios jugadores), cae.',
+              'Al caer, cada tripulación vale **1 punto** para su dueño, y quien bajó la última gana **1 punto más**.',
+            ] },
+            { t: 'fig', id: 'xmissions', caption: 'Un banco con pescados, una aldea con la bandera de quien ya pasó y una guarida con dos tripulaciones.' },
+          ],
+        },
+        {
+          id: 'pirate',
+          title: 'El siete y el pirata',
+          blocks: [
+            { t: 'p', text: 'Con un 7 se descarta como siempre y quien tiró elige: mueve el ladrón a la tierra o el **pirata** a una casilla de mar descubierta. El pirata roba a un dueño de barco que esté junto a él, y mientras esté ahí ningún barco usa los lados de esa casilla. El caballero hace lo mismo.' },
+          ],
+        },
+      ],
+    },
   },
 
   app: [

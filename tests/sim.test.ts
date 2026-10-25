@@ -29,6 +29,11 @@ const configs: [string, Partial<Settings>, number[]][] = [
   ['carretas y peajes', { shire: 'traders' }, [3, 4, 5, 6]],
   ['carretas en pareja', { shire: 'traders', turnMode: 'paired' }, [6]],
   ['carretas + sucesos + muelles', { shire: 'traders', chronicle: true, harbormaster: true }, [4]],
+  // Expediciones
+  ['expediciones', { expedition: { fish: true, spice: true, lairs: true } }, [3, 4, 5, 6]],
+  ['expediciones sin misiones', { expedition: { fish: false, spice: false, lairs: false } }, [3, 4]],
+  ['expediciones: pesca', { expedition: { fish: true, spice: false, lairs: false } }, [4]],
+  ['expediciones + sucesos + muelles', { expedition: { fish: true, spice: true, lairs: true }, chronicle: true, harbormaster: true }, [4]],
   // Mar Abierto: escenarios especiales
   ['pueblo isleño', { openSea: true, scenario: 'tribe' }, [3, 4, 6]],
   ['aldeas tejedoras', { openSea: true, scenario: 'looms' }, [3, 4, 5]],

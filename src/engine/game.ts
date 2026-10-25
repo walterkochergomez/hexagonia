@@ -1,6 +1,6 @@
 // Reductor principal: crea partidas y aplica acciones. El anfitrión es la única fuente de verdad.
 import { Rng, seedRng } from './rng';
-import { seaMap, shireMap, standardMap } from './maps';
+import { seaMap, shireMap, standardMap, expeditionMap } from './maps';
 import * as C from './core';
 import * as Guild from './guilds';
 import * as Harbor from './mods/harbor';
@@ -16,6 +16,7 @@ import * as Works from './mods/works';
 import * as Raid from './mods/raid';
 import * as Gold from './mods/gold';
 import * as Traders from './mods/traders';
+import * as X from './mods/expedition';
 import {
   CARDS, COST, EVENT_FACES, GameError, PROGRESS_DECKS, RESOURCES, SEA_SPECIAL, SHIRES, TERRAIN_COMMODITY, TERRAIN_RESOURCE, TRACKS,
   emptyHand, handTotal, isCard, isResource,
@@ -31,13 +32,15 @@ const need = (cond: unknown, code: string): void => {
 
 const SHIRE_VP: Record<string, number> = { fishers: 10, rivers: 10, caravans: 12, raid: 12, traders: 13 };
 
-export function defaultVp(o: Pick<Settings, 'openSea' | 'scenario' | 'guilds' | 'harbormaster' | 'shire'>): number {
+export function defaultVp(o: Pick<Settings, 'openSea' | 'scenario' | 'guilds' | 'harbormaster' | 'shire' | 'expedition'>): number {
   const sea: Record<SeaScenario, number> = { islands: 13, archipelago: 12, fog: 12, desert: 12, newWorld: 12, tribe: 13, looms: 14, bastions: 10, works: 10 };
   let vp = 10;
   if (o.openSea && o.guilds) vp = sea[o.scenario] + 2;
   else if (o.openSea) vp = sea[o.scenario];
   else if (o.guilds) vp = 13;
   if (o.shire) vp = SHIRE_VP[o.shire];
+  // expediciones: 10 y uno más por misión
+  if (o.expedition) vp = 10 + Number(!!o.expedition.fish) + Number(!!o.expedition.spice) + Number(!!o.expedition.lairs);
   if (o.harbormaster) vp += 1;
   return vp;
 }
@@ -49,10 +52,18 @@ export function normalizeSettings(st: Settings): Settings {
     s.openSea = false;
     s.guilds = false;
   }
+  // expediciones: un modo aparte, sin Mar Abierto, Gremios ni escenarios de Comarcas
+  const xp = st.expedition;
+  s.expedition = xp ? { fish: !!xp.fish, spice: !!xp.spice, lairs: !!xp.lairs } : null;
+  if (s.expedition) {
+    s.openSea = false;
+    s.guilds = false;
+    s.shire = null;
+  }
   // los escenarios con reglas especiales no se combinan con Gremios
   if (s.openSea && SEA_SPECIAL.includes(s.scenario)) s.guilds = false;
   if (s.guilds) s.chronicle = false;
-  if (s.seats !== 2 || s.openSea || s.guilds || s.shire) s.duel = false;
+  if (s.seats !== 2 || s.openSea || s.guilds || s.shire || s.expedition) s.duel = false;
   return s;
 }
 
@@ -62,7 +73,8 @@ export function createGame(input: Settings, seats: SeatInfo[]): GameState {
   const settings = normalizeSettings({ ...input, seats: n });
   const big = n > 4;
   const rng = new Rng(seedRng(settings.seed));
-  const map = settings.shire ? shireMap(rng, settings.shire, big) : settings.openSea ? seaMap(rng, settings.scenario, big) : standardMap(rng, big);
+  const map = settings.expedition ? expeditionMap(rng, big, settings.expedition)
+    : settings.shire ? shireMap(rng, settings.shire, big) : settings.openSea ? seaMap(rng, settings.scenario, big) : standardMap(rng, big);
   const resN = big ? 24 : 19;
   const comN = settings.guilds ? (big ? 15 : 12) : 0;
   const bank: Hand = { lumber: resN, brick: resN, wool: resN, grain: resN, ore: resN, paper: comN, cloth: comN, coin: comN };
@@ -139,6 +151,7 @@ export function createGame(input: Settings, seats: SeatInfo[]): GameState {
   if (settings.shire === 'caravans') Caravan.setup(s);
   if (settings.shire === 'raid') Raid.setup(s, rng, map.marks!.rock![0], map.marks!.loop!);
   if (traders) Traders.setup(s, rng);
+  if (settings.expedition) X.setup(s, map.marks!.council!, map.marks!.xmarks ?? {});
   if (settings.openSea) {
     const m = map.marks ?? {};
     if (settings.scenario === 'tribe') Tribe.setup(s, rng, m.isles ?? []);
@@ -284,7 +297,7 @@ function wins(s: GameState, c: number): boolean {
 }
 
 /** ¿Se puede mover el pirata? (no hay en las obras ni en los bastiones; en las aldeas, sólo quien ya llegó a una) */
-const pirateOk = (s: GameState, seat: number) => s.settings.openSea && !s.works && !s.bastions && (!s.looms || Looms.linked(s, seat));
+const pirateOk = (s: GameState, seat: number) => (s.settings.openSea || !!s.expedition) && !s.works && !s.bastions && (!s.looms || Looms.linked(s, seat));
 
 function nextTurn(s: GameState) {
   const t = s.turn;
@@ -303,6 +316,7 @@ function nextTurn(s: GameState) {
   t.coinTrades = 0;
   t.goldBuys = 0;
   Traders.newTurn(s);
+  X.newTurn(s);
   t.built = false;
   t.shipMoved = [];
   t.builtShips = [];
@@ -331,6 +345,7 @@ function finishSetup(s: GameState) {
   s.turn.current = s.turn.setupOrder[0];
   s.turn.n = 1;
   Traders.newTurn(s); // las carretas salen con su movimiento
+  X.startShips(s); // expediciones: un barco para cada uno junto al Consejo
   s.stats.turns = 1;
   C.updateRoadAward(s);
   C.log(s, 'turn.start', { seat: s.turn.current });
@@ -486,6 +501,7 @@ function revealAround(s: GameState, seat: number, e: string) {
       if (!f) continue;
       s.board.hexes[h] = { ...s.board.hexes[h], terrain: f.terrain, number: f.number };
       delete s.hidden.fog[h];
+      X.onReveal(s, h);
       C.log(s, 'fog.reveal', { seat, terrain: f.terrain });
       const res = TERRAIN_RESOURCE[f.terrain];
       if (res) C.gain(s, seat, res, 1);
@@ -495,7 +511,7 @@ function revealAround(s: GameState, seat: number, e: string) {
 }
 
 function regionBonus(s: GameState, seat: number, v: string) {
-  if (!s.settings.openSea || !s.board.regionBonus) return;
+  if ((!s.settings.openSea && !s.expedition) || !s.board.regionBonus) return;
   const p = s.players[seat];
   for (const r of C.regionsOfVertex(s, v)) {
     if (p.homeRegions.includes(r) || p.bonus.some((b) => b.id === r)) continue;
@@ -603,7 +619,7 @@ function handle(s: GameState, seat: number, a: Action, rng: Rng) {
       const round = Math.floor(t.setupIndex / s.players.length);
       const lastRound = round === t.setupOrder.length / s.players.length - 1;
       // con Gremios, en la invasión y en las carretas, la segunda colocación es una ciudad
-      const kind = (s.settings.guilds || s.raid || s.traders) && round === 1 ? 'city' : 'settlement';
+      const kind = (s.settings.guilds || s.raid || s.traders || s.expedition) && round === 1 ? 'city' : 'settlement';
       s.buildings[a.vertex] = { owner: seat, kind };
       C.log(s, 'setup.build', { seat, kind });
       if (kind === 'city') Traders.placeWagon(s, seat, a.vertex);
@@ -868,6 +884,31 @@ function handle(s: GameState, seat: number, a: Action, rng: Rng) {
       return;
     case 'drive':
       Traders.drive(s, seat, a.edge, rng);
+      return;
+    case 'xship':
+      X.buildShip(s, seat, a.at);
+      return;
+    case 'xload':
+      X.load(s, seat, a.ship, a.what);
+      return;
+    case 'sail':
+      X.sail(s, seat, a.ship, a.to, (e) => revealAround(s, seat, e));
+      return;
+    case 'found':
+      need(C.piecesLeft(s, seat).settlement > 0, 'noPieces');
+      X.found(s, seat, a.ship, a.at);
+      regionBonus(s, seat, a.at);
+      C.updateRoadAward(s);
+      s.turn.built = true;
+      return;
+    case 'xfish':
+      X.fish(s, seat, a.ship, a.hex);
+      return;
+    case 'xdeliver':
+      X.deliver(s, seat, a.ship);
+      return;
+    case 'xcrew':
+      X.crewTo(s, seat, a.ship, a.hex);
       return;
     case 'gold':
       Gold.buy(s, seat);

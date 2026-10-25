@@ -87,6 +87,9 @@ export function Players({ view, me, lobby, compact }: { view: GameState; me: num
               {view.river && <span>{t('player.coins', { n: view.river.coins[seat] ?? 0 })}</span>}
               {view.raid && <span>{t('player.guards', { n: Raid.knightsOf(view, seat).length })}</span>}
               {view.traders && <span>{t('player.wagon', { n: view.traders.wagons[seat].level })}</span>}
+              {view.expedition && <span>{t('player.fleet', { n: view.expedition.ships.filter((x) => x.owner === seat).length })}</span>}
+              {view.expedition?.fish[seat] ? <span>{t('player.xfish', { n: view.expedition.fish[seat] })}</span> : null}
+              {view.expedition?.spice[seat] ? <span>{t('player.xspice', { n: view.expedition.spice[seat] })}</span> : null}
               {view.traders && <span>{t('player.goods', { n: view.traders.delivered[seat] })}</span>}
               {view.raid && <span>{t('player.prisoners', { n: view.raid.prisoners[seat] ?? 0 })}</span>}
               {view.gold && <span>{t('player.gold', { n: view.gold[seat] ?? 0 })}</span>}

@@ -1,4 +1,4 @@
-import type { Action, GameState, SeaScenario, Shire } from '../engine/types';
+import type { Action, GameState, SeaScenario, Shire, ExpeditionSettings } from '../engine/types';
 
 export const PROTOCOL = 1;
 export const PEER_PREFIX = `hexagonia-v${PROTOCOL}-`;
@@ -26,11 +26,13 @@ export interface LobbySettings {
   harbormaster?: boolean;
   chronicle?: boolean;
   duel?: boolean;
+  // Expediciones (misiones elegidas)
+  expedition?: ExpeditionSettings | null;
 }
 
 export const DEFAULT_SETTINGS: LobbySettings = {
   openSea: false, scenario: 'islands', guilds: false, vpTarget: 0, turnMode: 'specialBuild', friendlyRobber: false,
-  shire: null, harbormaster: false, chronicle: false, duel: false,
+  shire: null, harbormaster: false, chronicle: false, duel: false, expedition: null,
 };
 
 export interface LobbySeat {

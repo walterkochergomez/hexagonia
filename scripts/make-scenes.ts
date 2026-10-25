@@ -4,6 +4,7 @@ import { applyAction, createGame } from '../src/engine/game';
 import { botAction, whoActs } from '../src/engine/bot';
 import { Rng, seedRng } from '../src/engine/rng';
 import * as C from '../src/engine/core';
+import * as X from '../src/engine/mods/expedition';
 import type { GameState, Settings } from '../src/engine/types';
 
 const names = ['Walter', 'Lenga', 'Coihue', 'Ñirre'];
@@ -163,4 +164,17 @@ s = base({ shire: 'traders' });
   s.players[0].dev = [{ type: 'haul', turn: 1 }];
 }
 out('traders', s);
+// 17. Expediciones: un barco en puerto junto al Consejo, recursos para un pionero y una tripulación
+s = base({ expedition: { fish: true, spice: true, lairs: true } });
+{
+  const xp = s.expedition!;
+  const g = C.G(s);
+  const e = g.hexes[xp.council].edges.find((x) => X.seaEdge(s, x) && !X.shipOn(s, x))!;
+  for (const sh of xp.ships) if (sh.owner === 0) sh.at = e;
+  const mine = xp.ships.filter((sh) => sh.owner === 0);
+  if (!mine.length) xp.ships.push({ id: 90, owner: 0, at: e, cargo: [], mp: 4, fished: false });
+  for (const sh of xp.ships) if (sh.owner === 0) { sh.cargo = []; sh.mp = 4; sh.at = e; break; }
+  s.players[0].hand = { lumber: 2, brick: 1, wool: 3, grain: 1, ore: 1, paper: 0, cloth: 0, coin: 0 };
+}
+out('expedition', s);
 console.log('ok', C.vpOf(s, 0));

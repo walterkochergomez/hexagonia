@@ -18,6 +18,7 @@ import * as Works from '../src/engine/mods/works';
 import * as Raid from '../src/engine/mods/raid';
 import * as Gold from '../src/engine/mods/gold';
 import * as Traders from '../src/engine/mods/traders';
+import * as X from '../src/engine/mods/expedition';
 import { otherEnd } from '../src/engine/geometry';
 import { settings, seats, totals } from './helpers';
 import {
@@ -1451,6 +1452,180 @@ describe('Comarcas: carretas y peajes', () => {
     for (const e of es) s.roads[e] = { owner: 0 };
     C.updateRoadAward(s);
     expect(s.awards.road.owner).toBeNull();
+  });
+});
+
+// ---------- Expediciones ----------
+
+const XP = { fish: true, spice: true, lairs: true };
+
+/** Destapa una casilla como lo haría un barco (sin dar recursos). */
+function uncover(s: GameState, h: string) {
+  const f = s.hidden.fog[h];
+  if (!f) return;
+  s.board.hexes[h] = { ...s.board.hexes[h], terrain: f.terrain, number: f.number };
+  delete s.hidden.fog[h];
+  X.onReveal(s, h);
+}
+
+describe('Expediciones', () => {
+  it('isla de origen visible con el Consejo; islas, bancos, aldeas y guaridas bajo la niebla; meta según misiones', () => {
+    const s = game({ seed: 140, expedition: XP }, 4);
+    const xp = s.expedition!;
+    expect(s.settings.openSea).toBe(false);
+    expect(s.settings.vpTarget).toBe(13);
+    expect(game({ seed: 141, expedition: { fish: false, spice: false, lairs: false } }).settings.vpTarget).toBe(10);
+    expect(s.board.hexes[xp.council].terrain).toBe('castle');
+    expect(s.board.hexes[xp.council].number).toBeNull();
+    const marks = Object.values(s.hidden.xmarks!);
+    expect(marks.filter((m) => m.k === 'shoal').length).toBe(4);
+    expect(marks.filter((m) => m.k === 'village').length).toBe(3);
+    expect(marks.filter((m) => m.k === 'lair').length).toBe(3);
+    for (const h of Object.keys(s.hidden.xmarks!)) expect(s.board.hexes[h].terrain).toBe('fog');
+    expect(Object.keys(xp.shoals).length + Object.keys(xp.villages).length + Object.keys(xp.lairs).length).toBe(0);
+    // sólo se puede empezar en la isla de origen (lo demás está tapado)
+    for (const v of C.legalSetupVertices(s)) expect(C.G(s).vertices[v].hexes.some((h) => s.board.hexes[h].region === 0 && C.hexIsLand(s, h))).toBe(true);
+    // sin bancos ni guaridas si no se eligen
+    const only = game({ seed: 142, expedition: { fish: false, spice: true, lairs: false } });
+    expect(Object.values(only.hidden.xmarks!).map((m) => m.k).sort()).toEqual(['village', 'village', 'village']);
+  });
+
+  it('al terminar la preparación cada uno recibe un barco junto al Consejo; botar más cuesta madera y lana', () => {
+    let s = game({ seed: 143, expedition: XP }, 3);
+    const order = s.turn.setupOrder;
+    for (let i = 0; i < order.length; i++) {
+      const v = C.legalSetupVertices(s)[0];
+      s = act(s, order[i], { t: 'setupBuild', vertex: v });
+      s = act(s, order[i], { t: 'setupRoute', edge: C.legalSetupRoutes(s, v).roads[0] });
+    }
+    const xp = s.expedition!;
+    expect(xp.ships.length).toBe(3);
+    expect(new Set(xp.ships.map((sh) => sh.at)).size).toBe(3);
+    expect(xp.ships.every((sh) => sh.mp === X.MOVE && X.seaEdge(s, sh.at))).toBe(true);
+    s = main(s, 0);
+    give(s, 0, { lumber: 1, wool: 1 });
+    const before = { ...s.players[0].hand };
+    const spot = X.shipSpots(s, 0)[0];
+    s = act(s, 0, { t: 'xship', at: spot });
+    expect(X.shipsOf(s, 0).length).toBe(2);
+    expect(s.players[0].hand).toMatchObject({ lumber: before.lumber - 1, wool: before.wool - 1 });
+  });
+
+  it('navegar descubre la niebla y da el recurso; el pionero funda sin camino y da el bono de isla', () => {
+    let s = main(game({ seed: 144, expedition: XP }, 3));
+    const g = C.G(s);
+    // un barco propio junto a la niebla: buscar un lado de mar con una casilla tapada al lado de un lado vecino
+    const xp = s.expedition!;
+    const start = Object.keys(g.edges).find((e) => X.seaEdge(s, e) && g.vertices[g.edges[e].a].edges.some((n) => n !== e && X.seaEdge(s, n) && g.edges[n].hexes.some((h) => s.board.hexes[h].terrain === 'fog')))!;
+    xp.ships.push({ id: 99, owner: 0, at: start, cargo: ['pioneer'], mp: 4, fished: false });
+    const reach = X.reach(s, 99);
+    const [to, path] = [...reach].find(([, p]) => p.some((e) => g.edges[e].hexes.some((h) => s.board.hexes[h].terrain === 'fog')))!;
+    const fogBefore = Object.keys(s.hidden.fog).length;
+    s = act(s, 0, { t: 'sail', ship: 99, to });
+    expect(Object.keys(s.hidden.fog).length).toBeLessThan(fogBefore);
+    expect(X.shipById(s, 99)).toMatchObject({ at: to, mp: 4 - path.length });
+    // fundar en una isla nueva: poner el barco junto a una costa descubierta de otra región
+    const isl = Object.keys(s.hidden.fog).find((h) => (s.hidden.fog[h].terrain !== 'sea') && (s.board.hexes[h].region ?? 0) > 0)!;
+    for (const n of g.hexes[isl].neighbors) if (n && s.hidden.fog[n]) uncover(s, n);
+    uncover(s, isl);
+    const coast = g.hexes[isl].edges.find((e) => X.seaEdge(s, e) && !X.shipOn(s, e) && [g.edges[e].a, g.edges[e].b].some((v) => C.vertexLand(s, v) && !s.buildings[v] && C.distanceOk(s, v)));
+    expect(coast).toBeTruthy();
+    X.shipById(s, 99)!.at = coast!;
+    const v = X.foundSpots(s, 99)[0];
+    const vp = C.vpOf(s, 0);
+    s.players[0].homeRegions = [0];
+    s = act(s, 0, { t: 'found', ship: 99, at: v });
+    expect(s.buildings[v]).toEqual({ owner: 0, kind: 'settlement' });
+    expect(X.shipById(s, 99)!.cargo).toEqual([]);
+    expect(C.vpOf(s, 0)).toBe(vp + 2); // poblado + isla nueva
+  });
+
+  it('en puerto se suben pioneros y tripulaciones; cada barco lleva 2', () => {
+    let s = main(game({ seed: 145, expedition: XP }, 3));
+    const xp = s.expedition!;
+    const e = C.G(s).hexes[xp.council].edges.find((x) => X.seaEdge(s, x))!;
+    xp.ships.push({ id: 50, owner: 1, at: e, cargo: [], mp: 4, fished: false });
+    s = main(s, 1);
+    give(s, 1, { lumber: 2, brick: 2, wool: 3, grain: 2, ore: 1 });
+    s = act(s, 1, { t: 'xload', ship: 50, what: 'pioneer' });
+    s = act(s, 1, { t: 'xload', ship: 50, what: 'crew' });
+    expect(X.shipById(s, 50)!.cargo).toEqual(['pioneer', 'crew']);
+    expect(() => act(s, 1, { t: 'xload', ship: 50, what: 'pioneer' })).toThrow();
+    // fuera de puerto no se carga
+    const far = Object.keys(C.G(s).edges).find((x) => X.seaEdge(s, x) && !X.shipOn(s, x) && !C.G(s).edges[x].hexes.includes(xp.council) && ![C.G(s).edges[x].a, C.G(s).edges[x].b].some((v) => s.buildings[v]))!;
+    xp.ships.push({ id: 51, owner: 1, at: far, cargo: [], mp: 4, fished: false });
+    expect(X.canLoad(s, 1, 51, 'crew')).toBe(false);
+  });
+
+  it('pesca y entrega en el Consejo; aldea de especias con ventaja; guarida con tres tripulaciones', () => {
+    let s = main(game({ seed: 146, expedition: XP }, 3));
+    const xp = s.expedition!;
+    const g = C.G(s);
+    const shoal = Object.keys(s.hidden.xmarks!).find((h) => s.hidden.xmarks![h].k === 'shoal')!;
+    uncover(s, shoal);
+    expect(xp.shoals[shoal]).toBe(X.SHOAL_FISH);
+    const se = g.hexes[shoal].edges[0];
+    xp.ships.push({ id: 7, owner: 0, at: se, cargo: [], mp: 4, fished: false });
+    s = act(s, 0, { t: 'xfish', ship: 7, hex: shoal });
+    expect(s.expedition!.shoals[shoal]).toBe(X.SHOAL_FISH - 1);
+    expect(() => act(s, 0, { t: 'xfish', ship: 7, hex: shoal })).toThrow(); // una vez por turno
+    X.shipById(s, 7)!.fished = false;
+    s = act(s, 0, { t: 'xfish', ship: 7, hex: shoal });
+    const ce = g.hexes[s.expedition!.council].edges.find((x) => X.seaEdge(s, x) && !X.shipOn(s, x))!;
+    X.shipById(s, 7)!.at = ce;
+    const vp = C.vpOf(s, 0);
+    s = act(s, 0, { t: 'xdeliver', ship: 7 });
+    expect(s.expedition!.fish[0]).toBe(2);
+    expect(C.vpOf(s, 0)).toBe(vp + 1);
+    // aldea: ventaja y especia
+    const vil = Object.keys(s.hidden.xmarks!).find((h) => s.hidden.xmarks![h].k === 'village')!;
+    const adv = (s.hidden.xmarks![vil] as { adv: string }).adv;
+    uncover(s, vil);
+    for (const n of g.hexes[vil].neighbors) if (n && s.hidden.fog[n]) uncover(s, n);
+    const ve = g.hexes[vil].edges.find((x) => X.seaEdge(s, x) && !X.shipOn(s, x))!;
+    X.shipById(s, 7)!.at = ve;
+    X.shipById(s, 7)!.cargo = ['crew'];
+    s = act(s, 0, { t: 'xcrew', ship: 7, hex: vil });
+    expect(s.expedition!.adv[0]).toEqual([adv]);
+    expect(X.shipById(s, 7)!.cargo).toEqual(['spice']);
+    expect(X.crewSpots(s, 7)).toEqual([]);
+    // guarida: tres tripulaciones de dos jugadores
+    const lair = Object.keys(s.hidden.xmarks!).find((h) => s.hidden.xmarks![h].k === 'lair')!;
+    uncover(s, lair);
+    for (const n of g.hexes[lair].neighbors) if (n && s.hidden.fog[n]) uncover(s, n);
+    const le = g.hexes[lair].edges.filter((x) => X.seaEdge(s, x) && !X.shipOn(s, x));
+    X.shipById(s, 7)!.at = le[0];
+    X.shipById(s, 7)!.cargo = ['crew', 'crew'];
+    s = act(s, 0, { t: 'xcrew', ship: 7, hex: lair });
+    s = act(s, 0, { t: 'xcrew', ship: 7, hex: lair });
+    expect(s.expedition!.lairs[lair]).toEqual({ crews: [0, 0], taken: false });
+    s.expedition!.ships.push({ id: 8, owner: 1, at: le[1] ?? le[0], cargo: ['crew'], mp: 4, fished: false });
+    if (!le[1]) X.shipById(s, 7)!.at = Object.keys(g.edges).find((x) => X.seaEdge(s, x) && !X.shipOn(s, x))!;
+    s = main(s, 1);
+    s = act(s, 1, { t: 'xcrew', ship: 8, hex: lair });
+    expect(s.expedition!.lairs[lair].taken).toBe(true);
+    expect(s.expedition!.lairVp.slice(0, 2)).toEqual([2, 2]); // dos tripulaciones; la última, uno más
+  });
+
+  it('el pirata va al mar y roba a los dueños de barcos de al lado; las ventajas cambian el banco y el barco', () => {
+    let s = main(game({ seed: 147, expedition: XP }, 3));
+    const xp = s.expedition!;
+    const g = C.G(s);
+    const sea = Object.keys(s.board.hexes).find((h) => s.board.hexes[h].terrain === 'sea' && g.hexes[h].edges.some((e) => X.seaEdge(s, e)))!;
+    xp.ships.push({ id: 60, owner: 2, at: g.hexes[sea].edges[0], cargo: [], mp: 4, fished: false });
+    give(s, 2, { ore: 1 });
+    expect(C.legalPirateHexes(s)).toContain(sea);
+    s.steps = [{ k: 'robber', seat: 0, robber: true, pirate: true, mode: 'steal1' }];
+    s = act(s, 0, { t: 'robber', hex: sea, target: 'pirate' });
+    if (s.steps[0]?.k === 'steal') s = act(s, 0, { t: 'steal', from: 2 });
+    expect(s.players[0].hand.ore).toBe(1);
+    // el pirata cierra los lados de su casilla
+    expect([...X.reach(s, 60).keys()].some((e) => g.edges[e].hexes.includes(sea))).toBe(false);
+    // ventajas
+    s.expedition!.adv[0] = ['sails', 'holds', 'trade'];
+    expect(X.moveOf(s, 0)).toBe(5);
+    expect(X.holdOf(s, 0)).toBe(3);
+    expect(C.ratioFor(s, 0, 'brick')).toBe(3);
   });
 });
 

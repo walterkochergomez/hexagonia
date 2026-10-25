@@ -730,6 +730,109 @@ const book: ManualBook = {
         },
       ],
     },
+
+    expeditions: {
+      id: 'expeditions',
+      title: 'Expeditions',
+      summary: 'A hidden sea you uncover by sailing. Ships that move, pioneers who found settlements on distant islands and crews who carry out missions for the Council: fishing, spices and pirate lairs.',
+      meta: ['3–6 players', '90–120 minutes', 'Goal: 10 plus 1 per mission'],
+      sections: [
+        {
+          id: 'about',
+          title: 'What changes',
+          blocks: [
+            { t: 'p', text: 'Play by the base rules on a new map: a home island surrounded by sea under fog. The **Council** (the castle) sits on the home island’s coast. Instead of chains of ships there are **expedition ships** that move every turn and carry cargo.' },
+            { t: 'fig', id: 'xmap', caption: 'The home island with the Council; the red ship carries a pioneer toward the fog.' },
+            { t: 'p', text: 'Missions are chosen when setting up and can be combined. Without missions the game is about exploring and settling (goal 10); each mission adds 1 to the goal.' },
+          ],
+        },
+        {
+          id: 'setup',
+          title: 'Setup',
+          blocks: [
+            { t: 'list', items: [
+              'First a settlement and then a **city**, each with its road, on the home island (everything else is hidden); the city gives the starting resources.',
+              'Then everyone gets a free ship at sea next to the Council.',
+            ] },
+          ],
+        },
+        {
+          id: 'ships',
+          title: 'Ships, pioneers and crews',
+          blocks: [
+            { t: 'costs', rows: [
+              { icon: 'ship', label: 'Expedition ship', cost: { lumber: 1, wool: 1 }, note: 'On a free sea edge next to one of your buildings or the Council. Up to 3 per player.' },
+              { icon: 'pioneer', label: 'Pioneer', cost: { lumber: 1, brick: 1, wool: 1, grain: 1 }, note: 'Boards one of your ships in port with room right away.' },
+              { icon: 'crew', label: 'Crew', cost: { wool: 1, ore: 1 }, note: 'Same as the pioneer.' },
+            ] },
+            { t: 'list', items: [
+              'A ship is **in port** when it lies next to one of your buildings or next to the Council.',
+              'Each ship carries **2 things**: pioneers, crews, fish or spices.',
+              'On your turn, after rolling, each ship sails up to **4 sea edges**. It can’t end where another ship is, nor pass the edges of the pirate’s hex.',
+              'Roads, settlements, cities and development cards work as usual.',
+            ] },
+          ],
+        },
+        {
+          id: 'explore',
+          title: 'Exploring and founding',
+          blocks: [
+            { t: 'list', items: [
+              'When a ship passes a hidden hex, it is turned over. If it is land with a number, you take 1 resource from it; if it is gold, you choose one.',
+              'A ship with a pioneer next to a coast can land it on a free intersection of its edge (with the distance rule): it becomes a **settlement**, no road needed.',
+              'Each player’s first settlement on each new island is worth **1 more point**.',
+            ] },
+            { t: 'fig', id: 'xfound', caption: 'The pioneer lands on the newly found island and founds a settlement without a road.' },
+          ],
+        },
+        {
+          id: 'fish',
+          title: 'Mission: fish for the Council',
+          blocks: [
+            { t: 'list', items: [
+              'Under the fog lie 4 fishing shoals (5 with 5 or 6 players), with 4 fish each.',
+              'A ship next to a shoal with room takes 1 fish (once per turn per ship).',
+              'Deliver at the Council: every **2 fish** delivered are worth **1 point**.',
+            ] },
+          ],
+        },
+        {
+          id: 'spice',
+          title: 'Mission: spices from the villages',
+          blocks: [
+            { t: 'list', items: [
+              'The hidden islands hold 3 villages, each with an advantage.',
+              'A ship with a crew next to a village may leave it there (once per player and village): you gain the advantage for the rest of the game and load **1 spice**.',
+              'Each spice delivered at the Council is worth **1 point**.',
+            ] },
+            { t: 'table', head: ['Advantage', 'What it gives'], rows: [
+              ['New sails', 'Your ships sail 5 edges.'],
+              ['Big holds', 'Your ships carry 3 things.'],
+              ['Merchants', 'You trade with the bank 3:1 even without a harbor.'],
+            ] },
+          ],
+        },
+        {
+          id: 'lairs',
+          title: 'Mission: pirate lairs',
+          blocks: [
+            { t: 'list', items: [
+              'The hidden islands hold 3 lairs.',
+              'A ship next to a lair lands crews there. Once it has **3** (from one or several players), it falls.',
+              'Then each crew is worth **1 point** to its owner, and whoever landed the last one gets **1 more point**.',
+            ] },
+            { t: 'fig', id: 'xmissions', caption: 'A shoal with fish, a village with the flag of a player who has visited, and a lair with two crews.' },
+          ],
+        },
+        {
+          id: 'pirate',
+          title: 'The seven and the pirate',
+          blocks: [
+            { t: 'p', text: 'On a 7, discard as usual, and whoever rolled chooses: the robber on land or the **pirate** onto an uncovered sea hex. The pirate draws a card from a ship owner next to it, and while it stays there no ship uses that hex’s edges. The knight does the same.' },
+          ],
+        },
+      ],
+    },
   },
 
   app: [

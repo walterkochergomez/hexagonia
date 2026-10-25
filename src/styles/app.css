@@ -854,3 +854,34 @@ input, select {
 .fig-coin circle { fill: #e2b33c; stroke: #6e5212; stroke-width: 1.2; }
 .fig-coin text { font-family: var(--font-display); font-weight: 800; font-size: 9px; fill: #4a360a; }
 .fig-arrow-head { fill: #fff; }
+
+/* expediciones */
+.cargo-disc { fill: #fbf6ea; stroke: var(--ink); stroke-width: .8; }
+.cargo-disc.empty { fill: rgba(255, 255, 255, .5); stroke-dasharray: 2 1.6; }
+.cargo-skin { fill: #e2b48a; stroke: #1d140e; stroke-width: .5; }
+.cargo-hat { fill: #233a5a; }
+.cargo-shirt { fill: #2f5d8c; stroke: #13263b; stroke-width: .5; }
+.cargo-fish { fill: #6fa3b8; stroke: #1e4a5a; stroke-width: 1.4; }
+.cargo-spice { fill: #c8552c; stroke: #5a2412; stroke-width: .6; stroke-linejoin: round; }
+.cargo-spice-top { fill: #a8431f; stroke: #5a2412; stroke-width: .5; }
+.shoal-ripple { fill: rgba(255, 255, 255, .18); stroke: rgba(255, 255, 255, .55); stroke-width: 1.2; stroke-dasharray: 4 3; }
+.shoal-fish { fill: #cfe6ee; stroke: #1e4a5a; stroke-width: 1.2; }
+.shoal-left circle { fill: var(--ink); stroke: #fff; stroke-width: 1; }
+.shoal-left text { font-family: var(--font-display); font-weight: 750; font-size: 8px; fill: #fff; }
+.hut-wall { fill: #d9b98a; stroke: #4a3520; stroke-width: .9; stroke-linejoin: round; }
+.hut-roof { fill: none; stroke: #7a4d24; stroke-width: 2.4; stroke-linejoin: round; stroke-linecap: round; }
+.flag-pole { stroke: #3a2a1a; stroke-width: 1; }
+.lair-wall { fill: #6a5038; stroke: #23180e; stroke-width: .9; stroke-linejoin: round; }
+.lair-top { fill: #4e3a28; stroke: #23180e; stroke-width: .9; }
+.lair-door { fill: #23180e; }
+.lair-flag { fill: #1a1a1a; stroke: #000; stroke-width: .5; }
+.lair-flag-down { fill: #f3efe4; stroke: #6b6458; stroke-width: .5; }
+.lair.taken { opacity: .75; }
+.council-ring { fill: none; stroke: #f6e2a6; stroke-width: 3.2; stroke-dasharray: 2 4; stroke-linecap: round; }
+.fleet-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.fleet-ship { border: 1px solid var(--border); border-radius: var(--r-md); padding: 8px 10px; display: grid; gap: 8px; }
+.fleet-head { display: flex; gap: 10px; align-items: center; }
+.fleet-cargo { display: flex; gap: 4px; margin-top: 4px; }
+.fleet-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.fleet-actions .btn { display: inline-flex; align-items: center; gap: 6px; }
+.missions { display: grid; gap: 6px; margin-top: 6px; padding-left: 12px; border-left: 3px solid var(--border); }

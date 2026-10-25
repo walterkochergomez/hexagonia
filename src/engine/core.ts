@@ -309,6 +309,7 @@ export function vpOf(s: GameState, seat: number, hidden = true): number {
   vp += camelBonus(s, seat) + wealthBonus(s, seat);
   vp += (s.tribe?.vp[seat] ?? 0) + clothPoints(s, seat) + Math.floor((s.raid?.prisoners[seat] ?? 0) / 2);
   vp += (s.traders?.delivered[seat] ?? 0) + (s.traders?.wagons[seat].level === 5 ? 1 : 0);
+  vp += missionPoints(s, seat);
   vp += p.vpCards.length + p.defender;
   if (s.board.merchant?.owner === seat) vp += 1;
   for (const b of p.bonus) vp += b.vp;
@@ -340,9 +341,16 @@ export function vpBreakdown(s: GameState, seat: number) {
     cloth: clothPoints(s, seat),
     prisoners: Math.floor((s.raid?.prisoners[seat] ?? 0) / 2),
     goods: s.traders?.delivered[seat] ?? 0,
+    missions: missionPoints(s, seat),
     wagon: s.traders?.wagons[seat].level === 5 ? 1 : 0,
   };
 }
+
+/** Expediciones: cada 2 pescados entregados, 1 punto; cada especia, 1; y lo ganado en las guaridas. */
+export const missionPoints = (s: GameState, seat: number) => {
+  const x = s.expedition;
+  return x ? Math.floor(x.fish[seat] / 2) + x.spice[seat] + x.lairVp[seat] : 0;
+};
 
 /** Aldeas tejedoras: dos telas, un punto. */
 export const clothPoints = (s: GameState, seat: number) => Math.floor((s.looms?.cloth[seat] ?? 0) / 2);
@@ -364,6 +372,7 @@ export function ratioFor(s: GameState, seat: number, card: Card): number {
   let r = 4;
   const kinds = harborKinds(s, seat);
   if (kinds.has('any')) r = 3;
+  if (s.expedition?.adv[seat]?.includes('trade')) r = Math.min(r, 3); // expediciones: mercaderes
   if (isResource(card) && kinds.has(card)) r = 2;
   if (s.settings.guilds) {
     if (isCommodity(card) && s.players[seat].improvements.trade >= 3) r = 2;
@@ -502,7 +511,7 @@ export function legalRobberHexes(s: GameState, seat: number): string[] {
 }
 
 export function legalPirateHexes(s: GameState): string[] {
-  if (!s.settings.openSea) return [];
+  if (!s.settings.openSea && !s.expedition) return [];
   return Object.keys(s.board.hexes).filter((h) => hexIsSea(s, h) && h !== s.board.pirate);
 }
 
@@ -520,6 +529,9 @@ export function pirateVictims(s: GameState, seat: number, hex: string): number[]
   for (const e of G(s).hexes[hex].edges) {
     const sh = s.ships[e];
     if (sh && sh.owner !== seat && (handTotal(s.players[sh.owner].hand) > 0 || (s.looms?.cloth[sh.owner] ?? 0) > 0)) out.add(sh.owner);
+    // expediciones: los barcos que navegan junto a la casilla
+    const xs = s.expedition?.ships.find((x) => x.at === e);
+    if (xs && xs.owner !== seat && handTotal(s.players[xs.owner].hand) > 0) out.add(xs.owner);
   }
   return [...out].sort((a, b) => a - b);
 }

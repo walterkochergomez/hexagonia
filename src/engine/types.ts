@@ -74,6 +74,22 @@ export const SHIRES: readonly Shire[] = ['fishers', 'rivers', 'caravans', 'raid'
 /** Invasión en la costa: cartas propias, que se resuelven al comprarlas. */
 export type RaidCard = 'knighthood' | 'swift' | 'intrigue' | 'treason';
 export const RAID_CARDS: readonly RaidCard[] = ['knighthood', 'swift', 'intrigue', 'treason'];
+/** Expediciones: misiones elegidas, carga de los barcos, ventajas de las aldeas y marcas bajo la niebla. */
+export interface ExpeditionSettings { fish: boolean; spice: boolean; lairs: boolean }
+export type Cargo = 'pioneer' | 'crew' | 'fish' | 'spice';
+export type Advantage = 'sails' | 'holds' | 'trade';
+export type XMark = { k: 'shoal' } | { k: 'village'; adv: Advantage } | { k: 'lair' };
+export interface XShip {
+  id: number;
+  owner: number;
+  /** lado de mar donde está */
+  at: string;
+  cargo: Cargo[];
+  /** movimiento que le queda en este turno */
+  mp: number;
+  /** ya pescó en este turno */
+  fished: boolean;
+}
 /** Carretas y peajes: mercados de la costa, mercancías y la carreta de cada jugador. */
 export type Market = 'castle' | 'quarry' | 'glassworks';
 export const MARKETS: readonly Market[] = ['castle', 'quarry', 'glassworks'];
@@ -108,6 +124,8 @@ export interface Settings {
   harbormaster?: boolean; // señor de los muelles
   chronicle?: boolean; // mazo de sucesos en vez de dados
   duel?: boolean; // reglas para 2 con jugadores neutrales
+  /** Expediciones: misiones elegidas (null = sin Expediciones) */
+  expedition?: ExpeditionSettings | null;
 }
 
 export interface FishGround { hex: string; n: number; vertices: string[] }
@@ -304,6 +322,8 @@ export interface GameState {
     tribeDev?: DevType[];
     /** invasión en la costa: mazo propio */
     raidDeck?: RaidCard[];
+    /** expediciones: bancos, aldeas y guaridas todavía tapados */
+    xmarks?: Record<string, XMark>;
     /** carretas: pila de mercancías de cada mercado (casilla) */
     goods?: Record<string, Goods[]>;
   };
@@ -345,6 +365,12 @@ export interface GameState {
   raid?: { castle: string; coast: string[]; barbs: Record<string, number>; supply: number; knights: Record<string, { owner: number; moved: boolean }>; prisoners: number[]; last: RaidBattle | null };
   /** carretas: mercados (casilla → tipo), mercancía de arriba y cuántas quedan, bárbaros en lados, carretas y entregas */
   traders?: { markets: Record<string, Market>; next: Record<string, Goods | null>; left: Record<string, number>; barbs: string[]; wagons: Wagon[]; delivered: number[] };
+  /** expediciones: Consejo, barcos, marcas descubiertas, entregas y ventajas */
+  expedition?: {
+    council: string; ships: XShip[]; nextId: number;
+    shoals: Record<string, number>; villages: Record<string, { adv: Advantage; visited: number[] }>; lairs: Record<string, { crews: number[]; taken: boolean }>;
+    fish: number[]; spice: number[]; lairVp: number[]; adv: Advantage[][];
+  };
   /** oro de cada jugador (invasión y carretas): no es un recurso */
   gold?: number[];
   winner: number | null;
@@ -437,7 +463,14 @@ export type Action =
   | { t: 'wagonUp' }
   | { t: 'wagonBoost' }
   | { t: 'drive'; edge: string }
-  | { t: 'barbPlace'; edge: string };
+  | { t: 'barbPlace'; edge: string }
+  | { t: 'xship'; at: string }
+  | { t: 'xload'; ship: number; what: 'pioneer' | 'crew' }
+  | { t: 'sail'; ship: number; to: string }
+  | { t: 'found'; ship: number; at: string }
+  | { t: 'xfish'; ship: number; hex: string }
+  | { t: 'xdeliver'; ship: number }
+  | { t: 'xcrew'; ship: number; hex: string };
 
 export interface ProgressArg {
   dice?: [number, number];

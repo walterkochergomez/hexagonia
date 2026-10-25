@@ -41,6 +41,7 @@ export function formatLog(e: { k: string; p?: LogEntry['p'] }, view: GameState, 
     else if (k === 'port') p[k] = portName(String(v), t);
     else if (k === 'id') p[k] = t(`wonder.${v}`);
     else if (k === 'goods') p[k] = lower(t(`goods.${v}`));
+    else if (k === 'adv') p[k] = t(`adv.${v}`);
     else p[k] = v as string | number;
   }
   // carretas: el movimiento con peaje tiene su propio texto

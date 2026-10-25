@@ -734,6 +734,109 @@ const book: ManualBook = {
         },
       ],
     },
+
+    expeditions: {
+      id: 'expeditions',
+      title: 'Expeditionen',
+      summary: 'Ein verdecktes Meer, das man segelnd entdeckt. Schiffe, die sich bewegen, Pioniere, die auf fernen Inseln Siedlungen gründen, und Mannschaften, die Aufträge für den Rat erfüllen: Fischfang, Gewürze und Piratennester.',
+      meta: ['3–6 Personen', '90–120 Minuten', 'Ziel: 10 plus 1 je Auftrag'],
+      sections: [
+        {
+          id: 'about',
+          title: 'Was sich ändert',
+          blocks: [
+            { t: 'p', text: 'Es gelten die Grundregeln auf einer neuen Karte: eine Heimatinsel und ringsum Meer unter Nebel. An der Küste der Heimatinsel tagt der **Rat** (die Burg). Statt Schiffsketten gibt es **Expeditionsschiffe**, die jede Runde fahren und Ladung tragen.' },
+            { t: 'fig', id: 'xmap', caption: 'Die Heimatinsel mit dem Rat; das rote Schiff bringt einen Pionier in den Nebel.' },
+            { t: 'p', text: 'Die Aufträge werden beim Einrichten gewählt und lassen sich kombinieren. Ohne Aufträge geht es ums Erkunden und Besiedeln (Ziel 10); jeder Auftrag erhöht das Ziel um 1.' },
+          ],
+        },
+        {
+          id: 'setup',
+          title: 'Aufbau',
+          blocks: [
+            { t: 'list', items: [
+              'Zuerst eine Siedlung, dann eine **Stadt**, jeweils mit Straße, auf der Heimatinsel (der Rest ist verdeckt); die Stadt bringt die Startrohstoffe.',
+              'Danach erhält jede Person ein kostenloses Schiff im Meer am Rat.',
+            ] },
+          ],
+        },
+        {
+          id: 'ships',
+          title: 'Schiffe, Pioniere und Mannschaften',
+          blocks: [
+            { t: 'costs', rows: [
+              { icon: 'ship', label: 'Expeditionsschiff', cost: { lumber: 1, wool: 1 }, note: 'Auf einer freien Meereskante an einem deiner Gebäude oder am Rat. Höchstens 3 pro Person.' },
+              { icon: 'pioneer', label: 'Pionier', cost: { lumber: 1, brick: 1, wool: 1, grain: 1 }, note: 'Geht sofort an Bord eines deiner Schiffe im Hafen mit freiem Platz.' },
+              { icon: 'crew', label: 'Mannschaft', cost: { wool: 1, ore: 1 }, note: 'Wie der Pionier.' },
+            ] },
+            { t: 'list', items: [
+              'Ein Schiff liegt **im Hafen**, wenn es an einem deiner Gebäude oder am Rat liegt.',
+              'Jedes Schiff trägt **2 Dinge**: Pioniere, Mannschaften, Fisch oder Gewürze.',
+              'In deinem Zug, nach dem Würfeln, segelt jedes Schiff bis zu **4 Kanten** übers Meer. Es darf nicht dort enden, wo ein anderes Schiff liegt, und nicht an den Kanten des Piratenfelds vorbei.',
+              'Straßen, Siedlungen, Städte und Entwicklungskarten bleiben wie immer.',
+            ] },
+          ],
+        },
+        {
+          id: 'explore',
+          title: 'Erkunden und gründen',
+          blocks: [
+            { t: 'list', items: [
+              'Fährt ein Schiff an einem verdeckten Feld vorbei, wird es aufgedeckt. Ist es Land mit Zahl, nimmst du 1 Rohstoff davon; ist es Gold, wählst du einen.',
+              'Ein Schiff mit Pionier an einer Küste kann ihn an einer freien Kreuzung seiner Kante an Land setzen (mit Abstandsregel): Er wird zu einer **Siedlung**, ganz ohne Straße.',
+              'Die erste Siedlung jeder Person auf jeder neuen Insel zählt **1 Punkt mehr**.',
+            ] },
+            { t: 'fig', id: 'xfound', caption: 'Der Pionier geht auf der eben entdeckten Insel an Land und gründet eine Siedlung ohne Straße.' },
+          ],
+        },
+        {
+          id: 'fish',
+          title: 'Auftrag: Fisch für den Rat',
+          blocks: [
+            { t: 'list', items: [
+              'Unter dem Nebel liegen 4 Fischgründe (5 bei 5 oder 6 Personen) mit je 4 Fischen.',
+              'Ein Schiff an einem Fischgrund holt mit freiem Platz 1 Fisch (einmal pro Zug und Schiff).',
+              'Beim Rat wird abgeliefert: Je **2 gelieferte Fische** zählen **1 Punkt**.',
+            ] },
+          ],
+        },
+        {
+          id: 'spice',
+          title: 'Auftrag: Gewürze der Dörfer',
+          blocks: [
+            { t: 'list', items: [
+              'Auf den verdeckten Inseln liegen 3 Dörfer, jedes mit einem Vorteil.',
+              'Ein Schiff mit Mannschaft an einem Dorf kann sie dort lassen (einmal pro Person und Dorf): Du erhältst den Vorteil für den Rest der Partie und lädst **1 Gewürz**.',
+              'Jedes beim Rat gelieferte Gewürz zählt **1 Punkt**.',
+            ] },
+            { t: 'table', head: ['Vorteil', 'Was er bringt'], rows: [
+              ['Neue Segel', 'Deine Schiffe segeln 5 Kanten.'],
+              ['Große Laderäume', 'Deine Schiffe tragen 3 Dinge.'],
+              ['Händler', 'Du tauschst mit der Bank 3:1, auch ohne Hafen.'],
+            ] },
+          ],
+        },
+        {
+          id: 'lairs',
+          title: 'Auftrag: Piratennester',
+          blocks: [
+            { t: 'list', items: [
+              'Auf den verdeckten Inseln liegen 3 Nester.',
+              'Ein Schiff an einem Nest setzt dort Mannschaften ab. Sind es **3** (von einer oder mehreren Personen), fällt das Nest.',
+              'Dann zählt jede Mannschaft **1 Punkt** für ihre Besitzer, und wer die letzte abgesetzt hat, erhält **1 Punkt mehr**.',
+            ] },
+            { t: 'fig', id: 'xmissions', caption: 'Ein Fischgrund mit Fischen, ein Dorf mit der Fahne derer, die schon da waren, und ein Nest mit zwei Mannschaften.' },
+          ],
+        },
+        {
+          id: 'pirate',
+          title: 'Die Sieben und der Pirat',
+          blocks: [
+            { t: 'p', text: 'Bei einer 7 wird wie immer abgeworfen, und wer gewürfelt hat, wählt: den Räuber an Land oder den **Piraten** auf ein aufgedecktes Meerfeld. Der Pirat zieht bei einer Person mit Schiff daneben eine Karte, und solange er dort steht, nutzt kein Schiff die Kanten dieses Felds. Der Ritter macht dasselbe.' },
+          ],
+        },
+      ],
+    },
   },
 
   app: [

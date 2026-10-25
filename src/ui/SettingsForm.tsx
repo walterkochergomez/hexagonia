@@ -8,6 +8,7 @@ export function SettingsForm({ value, onChange, readOnly, seats }: { value: Lobb
   const t = useT();
   const auto = defaultVp(value);
   const special = value.openSea && SEA_SPECIAL.includes(value.scenario);
+  const xp = !!value.expedition;
   const scenario = (sc: SeaScenario) => (
     <label key={sc} className={`scenario${value.scenario === sc ? ' on' : ''}`}>
       <input type="radio" name="scenario" checked={value.scenario === sc} onChange={() => onChange(SEA_SPECIAL.includes(sc) ? { scenario: sc, guilds: false } : { scenario: sc })} />
@@ -19,7 +20,7 @@ export function SettingsForm({ value, onChange, readOnly, seats }: { value: Lobb
     <div className="settings">
       <fieldset disabled={readOnly}>
         <legend>{t('set.modules')}</legend>
-        <Toggle checked={value.openSea} onChange={(v) => onChange(v ? { openSea: v, duel: false, shire: null } : { openSea: v })} label={t('set.openSea')} hint={t('set.openSeaHint')} disabled={readOnly} />
+        <Toggle checked={value.openSea} onChange={(v) => onChange(v ? { openSea: v, duel: false, shire: null, expedition: null } : { openSea: v })} label={t('set.openSea')} hint={xp ? t('set.notWithExpedition') : t('set.openSeaHint')} disabled={readOnly || xp} />
         {value.openSea && (
           <div className="scenarios" role="radiogroup" aria-label={t('set.scenario')}>
             {SEA_SCENARIOS.filter((sc) => !SEA_SPECIAL.includes(sc)).map(scenario)}
@@ -27,14 +28,25 @@ export function SettingsForm({ value, onChange, readOnly, seats }: { value: Lobb
             {SEA_SPECIAL.map(scenario)}
           </div>
         )}
-        <Toggle checked={value.guilds && !special} onChange={(v) => onChange(v ? { guilds: v, chronicle: false, duel: false, shire: null } : { guilds: v })} label={t('set.guilds')} hint={special ? t('set.notWithScenario') : t('set.guildsHint')} disabled={readOnly || special} />
+        <Toggle checked={value.guilds && !special && !xp} onChange={(v) => onChange(v ? { guilds: v, chronicle: false, duel: false, shire: null, expedition: null } : { guilds: v })} label={t('set.guilds')} hint={xp ? t('set.notWithExpedition') : special ? t('set.notWithScenario') : t('set.guildsHint')} disabled={readOnly || special || xp} />
+      </fieldset>
+      <fieldset disabled={readOnly}>
+        <legend>{t('set.expedition')}</legend>
+        <Toggle checked={xp} onChange={(v) => onChange(v ? { expedition: { fish: true, spice: true, lairs: true }, openSea: false, guilds: false, shire: null, duel: false } : { expedition: null })} label={t('set.expedition')} hint={t('set.expeditionHint')} disabled={readOnly} />
+        {xp && (
+          <div className="missions" role="group" aria-label={t('set.missions')}>
+            {(['fish', 'spice', 'lairs'] as const).map((m) => (
+              <Toggle key={m} checked={!!value.expedition?.[m]} onChange={(v) => onChange({ expedition: { ...value.expedition!, [m]: v } })} label={t(`set.mission.${m}`)} hint={t(`set.mission.${m}Hint`)} disabled={readOnly} />
+            ))}
+          </div>
+        )}
       </fieldset>
       <fieldset disabled={readOnly}>
         <legend>{t('set.shires')}</legend>
         <div className="scenarios flat" role="radiogroup" aria-label={t('set.shires')}>
           {([null, ...SHIRES] as (Shire | null)[]).map((sh) => (
             <label key={sh ?? 'none'} className={`scenario${(value.shire ?? null) === sh ? ' on' : ''}`}>
-              <input type="radio" name="shire" checked={(value.shire ?? null) === sh} onChange={() => onChange(sh ? { shire: sh, openSea: false, guilds: false, duel: false } : { shire: null })} />
+              <input type="radio" name="shire" checked={(value.shire ?? null) === sh} onChange={() => onChange(sh ? { shire: sh, openSea: false, guilds: false, duel: false, expedition: null } : { shire: null })} />
               <span className="scenario-name">{t(sh ? `shire.${sh}` : 'shire.none')}</span>
               <span className="hint">{t(sh ? `shire.${sh}Hint` : 'shire.noneHint')}</span>
             </label>

@@ -15,7 +15,7 @@ const preview = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--stri
 await sleep(2500);
 const browser = await pw.launch({ executablePath: await chromium.executablePath(), args: chromium.args.filter((a) => !['--single-process', '--no-zygote'].includes(a)), headless: true });
 const errors = [];
-const IDS = (process.env.MANUALS ?? 'base,big,sea,guilds,combo,shires').split(',');
+const IDS = (process.env.MANUALS ?? 'base,big,sea,guilds,combo,shires,expeditions').split(',');
 const log = (...a) => console.log('·', ...a);
 
 async function open(hash, { lang = 'es', width = 1280, height = 900 } = {}) {

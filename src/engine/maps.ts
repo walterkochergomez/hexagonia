@@ -1,7 +1,7 @@
 // Generadores de mapas propios (no se usan mapas fijos de ninguna edición oficial).
 import { Rng } from './rng';
 import { buildGraph, hexId, hexNeighbors, parseHex } from './geometry';
-import { BARREN, MARKETS, type Harbor, type HexTile, type Resource, type SeaScenario, type Terrain } from './types';
+import { BARREN, MARKETS, type Advantage, type Harbor, type HexTile, type Resource, type SeaScenario, type Terrain, type XMark } from './types';
 
 type Cell = string;
 type Kind = Resource | 'any';
@@ -16,7 +16,7 @@ export interface MapResult {
   regionNames: Record<number, 'main' | 'island' | 'far'>;
   vpTarget: number;
   /** datos de escenario: islitas especiales, peñón, circuito de la flota, estrecho */
-  marks?: { isles?: string[]; rock?: string[]; loop?: string[]; strait?: string; home?: string[] };
+  marks?: { isles?: string[]; rock?: string[]; loop?: string[]; strait?: string; home?: string[] ; council?: string; xmarks?: Record<string, XMark>};
 }
 
 const NUMBERS_34 = [2, 3, 3, 4, 4, 5, 5, 6, 6, 8, 8, 9, 9, 10, 10, 11, 11, 12];
@@ -781,4 +781,94 @@ function tradersMap(rng: Rng, big: boolean): MapResult {
   for (const [c, n] of nums) m.hexes[c].number = n;
   void inner;
   return { ...m, robber: null, vpTarget: 13 };
+}
+
+// ---------- Expediciones ----------
+
+export interface ExpeditionMissions { fish: boolean; spice: boolean; lairs: boolean }
+
+/**
+ * Expediciones: la isla de origen a la izquierda, con el Consejo (un castillo) en su costa; el resto es mar tapado con
+ * islas. Según las misiones, bajo la niebla hay bancos de pesca (en el mar), aldeas de especias y guaridas (en las islas).
+ */
+export function expeditionMap(rng: Rng, big: boolean, missions: ExpeditionMissions): MapResult {
+  for (let attempt = 0; attempt < 400; attempt++) {
+    const res = tryExpedition(rng, big, missions);
+    if (res) return res;
+  }
+  throw new Error('no se pudo generar el mapa');
+}
+
+const ADVANTAGE_ORDER: Advantage[] = ['sails', 'holds', 'trade'];
+
+function tryExpedition(rng: Rng, big: boolean, missions: ExpeditionMissions): MapResult | null {
+  const W = big ? 12 : 10;
+  const H = big ? 9 : 8;
+  const g = rectGen(rng, W, H);
+  const names: SeaPlan['names'] = { 0: 'main' };
+  const terrain = new Map<Cell, Terrain>();
+  const fogCells = new Set<Cell>();
+  const home = grow(g, 0, big ? 20 : 15, (c) => g.col(c) <= (big ? 4 : 3));
+  if (!home) return null;
+  // el Consejo: una casilla de la costa con al menos dos lados al mar
+  const seaSides = (c: Cell) => neighbors(c).filter((n) => g.frame.has(n) && !g.land.has(n)).length;
+  const coastal = home.filter((c) => seaSides(c) >= 2);
+  if (!coastal.length) return null;
+  const council = rng.pick(coastal);
+  const rest = home.filter((c) => c !== council);
+  const pool = terrainPool(rest.length, 0, 1);
+  rng.shuffle(pool);
+  rest.forEach((c, i) => terrain.set(c, pool[i]));
+  terrain.set(council, 'castle');
+  const visible = new Set<Cell>(home);
+  for (const c of home) for (const n of neighbors(c)) if (g.frame.has(n)) visible.add(n);
+  const hiddenArea = (c: Cell) => !visible.has(c) && !neighbors(c).some((n) => visible.has(n) && g.land.has(n));
+  const specials = (missions.spice ? 3 : 0) + (missions.lairs ? 3 : 0);
+  const sizes = big ? [5, 4, 4, 3, 3, 3, 2] : [4, 4, 3, 3, 2, 2];
+  const islands: Cell[][] = [];
+  for (let i = 0; i < sizes.length; i++) {
+    const isl = grow(g, i + 1, sizes[i], hiddenArea, true);
+    if (!isl) return null;
+    names[i + 1] = 'island';
+    islands.push(isl);
+  }
+  // marcas: aldeas y guaridas en islas distintas mientras alcance (sin número), bancos en el mar tapado
+  const xmarks: Record<string, XMark> = {};
+  const noNumbers = new Set<Cell>([council]);
+  const order = rng.shuffle([...islands.keys()]);
+  const kinds: XMark[] = [
+    ...(missions.spice ? rng.shuffle([...ADVANTAGE_ORDER]).map((adv): XMark => ({ k: 'village', adv })) : []),
+    ...(missions.lairs ? [{ k: 'lair' } as XMark, { k: 'lair' } as XMark, { k: 'lair' } as XMark] : []),
+  ];
+  kinds.forEach((m, i) => {
+    const isl = islands[order[i % order.length]];
+    const free = isl.filter((c) => !xmarks[c] && seaSides(c) >= 1);
+    if (!free.length) return;
+    const c = rng.pick(free);
+    xmarks[c] = m;
+    noNumbers.add(c);
+  });
+  if (Object.keys(xmarks).length < specials) return null;
+  const islandCells = islands.flat();
+  const islandPool = terrainPool(islandCells.length - noNumbers.size, 2, 0);
+  rng.shuffle(islandPool);
+  let k = 0;
+  for (const c of islandCells) terrain.set(c, noNumbers.has(c) ? 'desert' : islandPool[k++]);
+  if (missions.fish) {
+    const seaHidden = [...g.frame].filter((c) => !g.land.has(c) && !visible.has(c) && !g.border.has(c));
+    rng.shuffle(seaHidden);
+    const shoals: Cell[] = [];
+    for (const c of seaHidden) {
+      if (shoals.length >= (big ? 5 : 4)) break;
+      if (shoals.some((x) => neighbors(x).includes(c))) continue;
+      shoals.push(c);
+      xmarks[c] = { k: 'shoal' };
+    }
+    if (shoals.length < (big ? 5 : 4)) return null;
+  }
+  for (const c of g.frame) if (!visible.has(c)) fogCells.add(c);
+  const hp = kindsFor(big ? 6 : 5).map((kind) => ({ region: 0, kind }));
+  const vp = 10 + (missions.fish ? 1 : 0) + (missions.spice ? 1 : 0) + (missions.lairs ? 1 : 0);
+  const res = finishSea(g, { vp, bonus: 1, home: [0], names, terrain, fogCells, harborPlan: hp, noNumbers });
+  return { ...res, marks: { council, xmarks } };
 }

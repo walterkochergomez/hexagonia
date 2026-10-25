@@ -7,6 +7,8 @@ Juego de colonización y comercio en una isla de hexágonos, para jugar en líne
 - **Gremios y Guardianes**: mercancías, mejoras de ciudad con metrópolis, caballeros, ataques bárbaros y 54 cartas de progreso.
 - Los dos módulos se pueden **combinar**.
 - **Comarcas**: cinco escenarios con su propio mapa (aguas de pesca, ríos de oro, ruta de camellos, invasión en la costa y carretas y peajes) y variantes que se suman a cualquier partida: señor de los muelles, mazo de sucesos en vez de dados y duelo para 2 jugadores con colores neutrales.
+- **Expediciones**: un mar tapado que se descubre navegando, barcos que llevan pioneros a islas lejanas y tripulaciones, con tres misiones combinables (pesca para el Consejo, especias de las aldeas y guaridas piratas).
+- **Manual de cada versión** dentro del juego, con figuras dibujadas con las mismas piezas, en los 3 idiomas.
 - **Salas con código**: quien crea la sala comparte un link y los demás entran desde cualquier navegador (también desde el celular).
 - **Partida en un solo dispositivo** pasándolo de mano en mano, o contra bots.
 
@@ -48,7 +50,7 @@ npm run e2e:fit    # que nada se salga de la pantalla en celulares (320–430 px
 npm run e2e:fx     # animaciones: dados, cartas que viajan, piezas que caen, ladrón, aviso de turno y «reducir movimiento»
 npm run e2e:manual # manuales: cada uno en tres idiomas, figuras dibujadas, celular, accesibilidad e impresión
 npm run e2e:shires # Comarcas en la interfaz: neutrales, sucesos, fichas, pesca, puentes y monedas, puja de camellos, caballeros y oro, carretas
-npm run e2e:seas   # escenarios especiales del mar: regalos, telas, ataque al bastión y obras
+npm run e2e:seas   # escenarios especiales del mar: regalos, telas, ataque al bastión y obras; expediciones
 ```
 
 ### Cómo está hecho
